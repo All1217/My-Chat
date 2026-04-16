@@ -1,0 +1,26 @@
+server:
+  port: 8100
+  address: 0.0.0.0
+spring:
+  application:
+    name: my-chat
+  ai:
+    openai:
+      base-url: https://api.deepseek.com
+      api-key: ${OPENAI_API_KEY}
+      chat:
+        options:
+          model: deepseek-chat
+#      embedding:
+#        options:
+#          model: text-embedding-v3
+#          dimensions: 1024
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/db01?serverTimezone=Asia/Shanghai&useSSL=false&useUnicode=true&characterEncoding=utf-8&zeroDateTimeBehavior=convertToNull&transformedBitIsBoolean=true&tinyInt1isBit=false&allowPublicKeyRetrieval=true&allowMultiQueries=true&useServerPrepStmts=false
+    username: root
+    password: 123456
+logging:
+  level:
+    org.springframework.ai: debug
+    com.mychat: debug

@@ -36,13 +36,13 @@ export interface PageRes<T> {
 export interface TestWarehouseGood {
   id: string;
   itemName: string;
-  itemCode: string;
-  price: string;
+  itemCode?: string;
+  price: number;
   description: string;
   status: number;
   delFlag: number;
   createBy: string;
-  createTime: Date;
+  createTime: string;
   updateBy: string;
-  updateTime: Date;
+  updateTime: string;
 }

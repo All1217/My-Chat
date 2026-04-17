@@ -19,9 +19,9 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/ChatView.vue')
   },
   {
-    path: '/test',
-    name: 'test',
-    component: () => import('@/views/Test.vue')
+    path: '/ManageTableDemo',
+    name: 'ManageTableDemo',
+    component: () => import('@/views/ManageTableDemo.vue')
   },
 ]
 

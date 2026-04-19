@@ -6,15 +6,23 @@ spring:
     name: my-chat
   ai:
     openai:
-      base-url: https://api.deepseek.com
+      base-url: https://api.deepseek.com/v1
       api-key: ${OPENAI_API_KEY}
       chat:
         options:
-          model: deepseek-chat
+          model: deepseek-chat  # 或 deepseek-reasoner（推理模型）
+          temperature: 0.7      # 控制随机性（0-2）
+          max-tokens: 4096      # 最大输出token数
+#          top-p: 1.0            # 核采样参数
+#          frequency-penalty: 0  # 频率惩罚
+#          presence-penalty: 0   # 存在惩罚
 #      embedding:
 #        options:
 #          model: text-embedding-v3
 #          dimensions: 1024
+      client:
+        connect-timeout: 30s    # 连接超时
+        read-timeout: 60s       # 读取超时
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://localhost:3306/db01?serverTimezone=Asia/Shanghai&useSSL=false&useUnicode=true&characterEncoding=utf-8&zeroDateTimeBehavior=convertToNull&transformedBitIsBoolean=true&tinyInt1isBit=false&allowPublicKeyRetrieval=true&allowMultiQueries=true&useServerPrepStmts=false

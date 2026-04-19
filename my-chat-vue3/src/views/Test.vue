@@ -59,7 +59,7 @@
 import { ref } from "vue";
 import CommonTable from "@/components/CommonTable.vue";
 import { Column } from "@/types/models.ts";
-import http from "@/util/http";
+import crmHttp from "@/util/http";
 import { TestWarehouseGood } from "@/types/models.ts";
 
 const columns: Column[] = [
@@ -160,7 +160,7 @@ const handleEdit = (row: any, index: number) => {
 };
 async function getItemById(id: string) {
   try {
-    const res = await http.get<TestWarehouseGood>(
+    const res = await crmHttp.get<TestWarehouseGood>(
       "/inventory/testWarehouseGoods/queryById",
       { id: id },
     );

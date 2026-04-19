@@ -9,21 +9,25 @@ import { ElMessage } from "element-plus";
 import { ResultEnum } from '@/types/enums.ts';
 import { ResultData } from '@/types/models.ts';
 
-export const service: AxiosInstance = axios.create({
+export const crmService: AxiosInstance = axios.create({
   baseURL: "/api",
+  timeout: ResultEnum.TIMEOUT as number,
+});
+export const ragService: AxiosInstance = axios.create({
+  baseURL: "/rag",
   timeout: ResultEnum.TIMEOUT as number,
 });
 /**
  * @description: 导出封装的请求方法
  * @returns {*}
  */
-const http = {
+const crmHttp = {
   get<T>(
     url: string,
     params?: object,
     config?: AxiosRequestConfig,
   ): Promise<ResultData<T>> {
-    return service.get(url, { params, ...config });
+    return crmService.get(url, { params, ...config });
   },
 
   post<T>(
@@ -31,7 +35,7 @@ const http = {
     data?: object,
     config?: AxiosRequestConfig,
   ): Promise<ResultData<T>> {
-    return service.post(url, data, config);
+    return crmService.post(url, data, config);
   },
 
   put<T>(
@@ -39,7 +43,7 @@ const http = {
     data?: object,
     config?: AxiosRequestConfig,
   ): Promise<ResultData<T>> {
-    return service.put(url, data, config);
+    return crmService.put(url, data, config);
   },
 
   delete<T>(
@@ -47,7 +51,40 @@ const http = {
     data?: object,
     config?: AxiosRequestConfig,
   ): Promise<ResultData<T>> {
-    return service.delete(url, { data, ...config });
+    return crmService.delete(url, { data, ...config });
+  },
+};
+const ragHttp = {
+  get<T>(
+    url: string,
+    params?: object,
+    config?: AxiosRequestConfig,
+  ): Promise<ResultData<T>> {
+    return ragService.get(url, { params, ...config });
+  },
+
+  post<T>(
+    url: string,
+    data?: object,
+    config?: AxiosRequestConfig,
+  ): Promise<ResultData<T>> {
+    return ragService.post(url, data, config);
+  },
+
+  put<T>(
+    url: string,
+    data?: object,
+    config?: AxiosRequestConfig,
+  ): Promise<ResultData<T>> {
+    return ragService.put(url, data, config);
+  },
+
+  delete<T>(
+    url: string,
+    data?: object,
+    config?: AxiosRequestConfig,
+  ): Promise<ResultData<T>> {
+    return ragService.delete(url, { data, ...config });
   },
 };
 
@@ -55,7 +92,7 @@ const http = {
  * @description: 请求拦截器
  * @returns {*}
  */
-service.interceptors.request.use(
+crmService.interceptors.request.use(
   (config) => {
     config.headers["X-Access-Token"] = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6IjgwMTAwMzk2IiwiY2xpZW50VHlwZSI6IlBDIiwiZXhwIjoxNzc2NjEzMjMyfQ.lZUctqaic5Nl-owgM9dvFMuWsH3XKXQJavAm4BiBhyg";
     return config;
@@ -78,4 +115,4 @@ service.interceptors.request.use(
 //     return Promise.reject(error)
 //   },
 // )
-export default http;
+export default crmHttp;

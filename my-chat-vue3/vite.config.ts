@@ -11,17 +11,17 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      // 代理所有以 /api 开头的请求到后端服务
+      // 针对公司后端CRM系统写的临时测试反向代理
       '/api': {
         target: 'http://localhost:8080/jeecg-boot',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, '')
       },
-      // 备用
-      '/backend': {
-        target: 'http://localhost:8080',
+      // 针对本项目的后端服务
+      '/rag': {
+        target: 'http://localhost:8100',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/backend/, '')
+        rewrite: (path) => path.replace(/^\/rag/, '')
       }
     }
   }

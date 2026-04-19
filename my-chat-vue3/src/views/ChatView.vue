@@ -24,7 +24,7 @@
 
 <script setup lang="ts">
 import ChatList from '@/components/ChatList.vue';
-import ChatBox from '../components/ChatBox.vue';
+import ChatBox from '@/components/ChatBox.vue';
 import { ref } from 'vue';
 import logo from '@/assets/my-chat-logo.png'
 

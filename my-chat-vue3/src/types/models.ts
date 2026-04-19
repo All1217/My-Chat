@@ -46,3 +46,8 @@ export interface TestWarehouseGood {
   updateBy: string;
   updateTime: string;
 }
+
+export interface ChatMessage {
+  content: string;
+  type: number
+}

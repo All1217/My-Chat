@@ -14,3 +14,9 @@ export const ResultEnum = {
   TIMEOUT: 25000,
   TYPE: "success",
 } as const;
+
+export const MessageType = {
+  AI: 0,
+  USER: 1,
+  OTHER: 2
+} as const

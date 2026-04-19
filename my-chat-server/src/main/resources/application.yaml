@@ -6,7 +6,7 @@ spring:
     name: my-chat
   ai:
     openai:
-      base-url: https://api.deepseek.com/v1
+      base-url: https://api.deepseek.com
       api-key: ${OPENAI_API_KEY}
       chat:
         options:

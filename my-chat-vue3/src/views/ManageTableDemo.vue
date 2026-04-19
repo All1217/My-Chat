@@ -95,7 +95,7 @@
 import { ref, onMounted, reactive, computed } from "vue";
 import CommonTable from "@/components/CommonTable.vue";
 import { Column } from "@/types/models";
-import http from "@/util/http";
+import crmHttp from "@/util/http";
 import { TestWarehouseGood } from "@/types/models";
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from "element-plus";
 
@@ -211,7 +211,7 @@ const handleBatchDelete = async (selection: any[]) => {
 async function deleteOne(id: string) {
   try {
     // 必须要换成这种写法，不能用大括号传参，原因有待考察
-    const res = await http.delete(`/inventory/testWarehouseGoods/delete?id=${id}`);
+    const res = await crmHttp.delete(`/inventory/testWarehouseGoods/delete?id=${id}`);
     if (res.data.code === 200) {
       ElMessage.success("删除成功");
       getPageList(currentPage.value, pageSize.value);
@@ -227,7 +227,7 @@ async function deleteOne(id: string) {
 
 async function deleteBatch(ids: string) {
   try {
-    const res = await http.delete(`/inventory/testWarehouseGoods/deleteBatch?ids=${ids}`);
+    const res = await crmHttp.delete(`/inventory/testWarehouseGoods/deleteBatch?ids=${ids}`);
     if (res.data.code === 200) {
       ElMessage.success("删除成功");
       getPageList(currentPage.value, pageSize.value);
@@ -244,7 +244,7 @@ async function deleteBatch(ids: string) {
 const handleEdit = async (row: any, index: number) => {
   isEditMode.value = true;
   try {
-    const res = await http.get<TestWarehouseGood>(
+    const res = await crmHttp.get<TestWarehouseGood>(
       "/inventory/testWarehouseGoods/queryById",
       { id: row.id },
     );
@@ -285,7 +285,7 @@ const handleSubmitEdit = async () => {
     submitting.value = true;
 
     if (isEditMode.value) {
-      const res = await http.put("/inventory/testWarehouseGoods/edit", formData);
+      const res = await crmHttp.put("/inventory/testWarehouseGoods/edit", formData);
       if (res.data.code === 200) {
         ElMessage.success("更新成功");
         dialogVisible.value = false;
@@ -295,7 +295,7 @@ const handleSubmitEdit = async () => {
       }
     } else {
       formData.itemCode = '0';
-      const res = await http.post("/inventory/testWarehouseGoods/add", formData);
+      const res = await crmHttp.post("/inventory/testWarehouseGoods/add", formData);
       if (res.data.code === 200) {
         ElMessage.success("新增成功");
         dialogVisible.value = false;
@@ -325,7 +325,7 @@ const handleCurrentChange = (page: number) => {
 
 async function getPageList(page: number, pageSize: number) {
   try {
-    const res = await http.get("/inventory/testWarehouseGoods/list", {
+    const res = await crmHttp.get("/inventory/testWarehouseGoods/list", {
       testWarehouseGood: defaultObj,
       pageNo: page,
       pageSize: pageSize

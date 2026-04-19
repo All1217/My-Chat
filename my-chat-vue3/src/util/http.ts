@@ -94,7 +94,7 @@ const ragHttp = {
  */
 crmService.interceptors.request.use(
   (config) => {
-    config.headers["X-Access-Token"] = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6IjgwMTAwMzk2IiwiY2xpZW50VHlwZSI6IlBDIiwiZXhwIjoxNzc2NjEzMjMyfQ.lZUctqaic5Nl-owgM9dvFMuWsH3XKXQJavAm4BiBhyg";
+    config.headers["X-Access-Token"] = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6IjgwMTAwMzk2IiwiY2xpZW50VHlwZSI6IlBDIiwiZXhwIjoxNzc2Njg4OTE5fQ.WPhsu8en_KUZfdQvEK7Tn2Z1KqzcBDOuZzhXdOWmMOs";
     return config;
   },
   (error: AxiosError) => {

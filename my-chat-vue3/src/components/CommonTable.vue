@@ -9,6 +9,9 @@
           <el-button v-if="showBatchActions" type="primary" @click="handleAdd">
             新增
           </el-button>
+          <el-button v-if="showBatchActions" type="primary" @click="handleQuery">
+            条件查询
+          </el-button>
           <slot name="batch-actions" :selection="selection" />
         </div>
         <div class="toolbar-right">
@@ -130,6 +133,7 @@ const emit = defineEmits<{
   "size-change": [size: number];
   "current-change": [page: number];
   "add": [];
+  "query": [];
 }>();
 
 const tableRef = ref<TableInstance>();
@@ -171,6 +175,10 @@ const handleBatchDelete = () => {
 
 const handleAdd = () => {
   emit("add");
+};
+
+const handleQuery = () => {
+  emit("query");
 };
 
 const handleSizeChange = (size: number) => {

@@ -1,23 +1,44 @@
 <template>
   <div class="test">
-    <h2>CommonTable 组件使用示例</h2>
+    <h2>仓库货物管理Demo</h2>
     <div class="table-container">
+      <div class="query-condition">
+        <el-form :inline="true" :model="queryCondition" class="query-condition-form">
+          <el-form-item label="货物名称">
+            <el-input v-model="queryCondition.itemName" placeholder="货物名称" clearable />
+          </el-form-item>
+          <el-form-item label="创建时间范围">
+            <el-date-picker v-model="queryDateTimeRange" type="datetimerange" range-separator="~"
+              start-placeholder="起始时间" end-placeholder="结束时间" format="YYYY-MM-DD HH:mm:ss"
+              value-format="YYYY-MM-DD HH:mm:ss" date-format="YYYY-MM-DD" />
+          </el-form-item>
+          <el-form-item label="定义价格范围">
+            <el-checkbox v-model="showPriceRange" />
+          </el-form-item>
+          <el-form-item label="价格范围" v-show="showPriceRange">
+            <el-input-number v-model="queryCondition.startPrice" :precision="2" :step="0.01" :min="0"
+              placeholder="请输入价格" />
+            &nbsp;~&nbsp;
+            <el-input-number v-model="queryCondition.endPrice" :precision="2" :step="0.01" :min="0"
+              placeholder="请输入价格" />
+          </el-form-item>
+        </el-form>
+      </div>
       <CommonTable :columns="columns" :data="tableData" :total="total" :current-page="currentPage" :page-size="pageSize"
         :show-pagination="true" @selection-change="handleSelectionChange" @delete="handleDelete"
         @batch-delete="handleBatchDelete" @size-change="handleSizeChange" @current-change="handleCurrentChange"
-        @add="handleAdd" height="60vh" max-height="60vh" :show-child="true">
+        @add="handleAdd" @query="handleQuery" height="60vh" max-height="60vh" :show-child="true">
         <template #expand-child="{ row, index }">
           <div style="padding: 10px 25px 10px 25px;">
-            <el-descriptions class="margin-top" :column="3" border>
+            <el-descriptions class="margin-top" :column="3" border v-for="order in row.orders" :key="order.id">
               <el-descriptions-item>
                 <template #label>
                   <div class="cell-item">
                     <el-icon :style="iconStyle">
                       <Money />
-                    </el-icon> 订单金额
+                    </el-icon>订单金额
                   </div>
-                </template>
-                kooriookami
+                </template> {{ order.amount }}
               </el-descriptions-item>
               <el-descriptions-item>
                 <template #label>
@@ -26,8 +47,7 @@
                       <InfoFilled />
                     </el-icon> 订单ID
                   </div>
-                </template>
-                18100000000
+                </template> {{ order.id }}
               </el-descriptions-item>
               <el-descriptions-item>
                 <template #label>
@@ -36,7 +56,7 @@
                       <location />
                     </el-icon> 订单发货地点
                   </div>
-                </template> Suzhou
+                </template> {{ order.location }}
               </el-descriptions-item>
             </el-descriptions>
           </div>
@@ -92,12 +112,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive, computed } from "vue";
+import { ref, onMounted, reactive, computed, watch } from "vue";
 import CommonTable from "@/components/CommonTable.vue";
 import { Column } from "@/types/models";
 import crmHttp from "@/util/http";
 import { TestWarehouseGood } from "@/types/models";
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from "element-plus";
+import { WarehouseGoodQueryDTO } from "@/types/ManageTableDemo/types";
 
 const iconStyle = computed(() => {
   const marginMap = {
@@ -117,6 +138,7 @@ const columns: Column[] = [
   { prop: "description", label: "描述", minWidth: 180 },
   { prop: "status", label: "状态", width: 80, slot: true, align: "center" },
   { prop: "createBy", label: "创建人ID", width: 190 },
+  { prop: "creatorName", label: "创建人姓名", width: 190 },
   { prop: "createTime", label: "创建时间", width: 180 },
   { prop: "updateBy", label: "更新人ID", width: 190 },
   { prop: "updateTime", label: "更新时间", width: 180 }
@@ -214,7 +236,7 @@ async function deleteOne(id: string) {
     const res = await crmHttp.delete(`/inventory/testWarehouseGoods/delete?id=${id}`);
     if (res.data.code === 200) {
       ElMessage.success("删除成功");
-      getPageList(currentPage.value, pageSize.value);
+      handleQuery();
     } else {
       console.error("删除失败:", res.data);
       ElMessage.error("删除失败!");
@@ -230,7 +252,7 @@ async function deleteBatch(ids: string) {
     const res = await crmHttp.delete(`/inventory/testWarehouseGoods/deleteBatch?ids=${ids}`);
     if (res.data.code === 200) {
       ElMessage.success("删除成功");
-      getPageList(currentPage.value, pageSize.value);
+      handleQuery();
     } else {
       console.error("删除失败:", res.data);
       ElMessage.error("删除失败!");
@@ -289,7 +311,7 @@ const handleSubmitEdit = async () => {
       if (res.data.code === 200) {
         ElMessage.success("更新成功");
         dialogVisible.value = false;
-        getPageList(currentPage.value, pageSize.value);
+        handleQuery();
       } else {
         ElMessage.error(res.data.message || "更新失败");
       }
@@ -299,7 +321,7 @@ const handleSubmitEdit = async () => {
       if (res.data.code === 200) {
         ElMessage.success("新增成功");
         dialogVisible.value = false;
-        getPageList(currentPage.value, pageSize.value);
+        handleQuery();
       } else {
         console.error("新增失败:", res.data);
         ElMessage.error(res.data.message || "新增失败");
@@ -315,33 +337,13 @@ const handleSubmitEdit = async () => {
 
 const handleSizeChange = (size: number) => {
   pageSize.value = size;
-  getPageList(currentPage.value, size);
+  handleQuery();
 };
 
 const handleCurrentChange = (page: number) => {
   currentPage.value = page;
-  getPageList(page, pageSize.value);
+  handleQuery();
 };
-
-async function getPageList(page: number, pageSize: number) {
-  try {
-    const res = await crmHttp.get("/inventory/testWarehouseGoods/list", {
-      testWarehouseGood: defaultObj,
-      pageNo: page,
-      pageSize: pageSize
-    });
-    if (res.data.code === 200) {
-      tableData.value = res.data.result.records;
-      total.value = res.data.result.total;
-    } else {
-      console.error("分页请求失败:", res.data);
-      ElMessage.error("分页请求失败!");
-    }
-  } catch (error) {
-    console.error("分页请求失败:", error);
-    ElMessage.error("分页请求失败!");
-  }
-}
 
 const defaultObj = ref<TestWarehouseGood>({
   id: "",
@@ -356,9 +358,57 @@ const defaultObj = ref<TestWarehouseGood>({
   updateBy: "",
   updateTime: ""
 });
+const showPriceRange = ref(false);
+watch(showPriceRange, (newVal, oldVal) => {
+  if (oldVal == true && newVal == false) {
+    queryCondition.startPrice = undefined;
+    queryCondition.endPrice = undefined;
+  }
+});
+const queryCondition = reactive<WarehouseGoodQueryDTO>({
+  itemName: "",
+  startPrice: undefined,
+  endPrice: undefined,
+  startCreateTime: "",
+  endCreateTime: ""
+});
+const queryDateTimeRange = ref('');
+
+function handleQuery() {
+  if (queryDateTimeRange && queryDateTimeRange.value != null && queryDateTimeRange.value != undefined && queryDateTimeRange.value != '') {
+    const [start, end] = queryDateTimeRange.value;
+    queryCondition.startCreateTime = start;
+    queryCondition.endCreateTime = end;
+  } else {
+    queryCondition.startCreateTime = "";
+    queryCondition.endCreateTime = "";
+  }
+  getPageListCondition(currentPage.value, pageSize.value);
+}
+
+async function getPageListCondition(page: number, pageSize: number) {
+  try {
+    const res = await crmHttp.get("/inventory/testWarehouseGoods/list/condition", {
+      dto: queryCondition,
+      pageNo: page,
+      pageSize: pageSize
+    });
+    if (res.data.code === 200) {
+      tableData.value = res.data.result.records;
+      total.value = res.data.result.total;
+      console.log("分页请求成功:", res.data.result.records);
+    } else {
+      console.error("分页请求失败:", res.data);
+      ElMessage.error("分页请求失败!");
+    }
+  } catch (error) {
+    console.error("分页请求失败:", error);
+    ElMessage.error("分页请求失败!");
+  }
+}
 
 onMounted(() => {
-  getPageList(1, 10);
+  getPageListCondition(1, 10);
 });
 </script>
 
@@ -374,6 +424,22 @@ onMounted(() => {
   .table-container {
     width: 100%;
     max-width: 98vw;
+  }
+
+  .query-condition {
+    display: flex;
+    justify-content: center;
+    padding-top: 15px;
+    align-items: center;
+    margin-bottom: 16px;
+    background-color: #fff;
+    border-radius: 4px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+
+    .query-condition-form {
+      display: flex;
+      align-self: center;
+    }
   }
 
   h2 {

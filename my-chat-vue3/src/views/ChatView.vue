@@ -25,8 +25,10 @@
 <script setup lang="ts">
 import ChatList from '@/components/ChatList.vue';
 import ChatBox from '@/components/ChatBox.vue';
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import logo from '@/assets/my-chat-logo.png'
+import { ragHttp } from '@/util/http'
+import { ElMessage } from 'element-plus';
 
 const isSidebarClosed = ref<boolean>(false);
 const chatRef = ref<InstanceType<typeof ChatList>>()
@@ -37,6 +39,23 @@ function openSidebar() {
   isSidebarClosed.value = false;
   chatRef.value?.openSidebarChild()
 }
+async function getConversationIds() {
+  try {
+    const res = await ragHttp.get<string[]>('/ai/history/getIds');
+    if (res.data.code === 200) {
+      console.log(res.data)
+    } else {
+      console.log(res.data.message);
+      ElMessage.error(res.data.message || "获取会话列表失败！");
+    }
+  } catch (e) {
+    console.log(e);
+    ElMessage.error("获取会话列表失败！");
+  }
+}
+onMounted(() => {
+  getConversationIds();
+})
 </script>
 
 <style scoped lang="less">

@@ -21,7 +21,7 @@ export const ragService: AxiosInstance = axios.create({
  * @description: 导出封装的请求方法
  * @returns {*}
  */
-const crmHttp = {
+export const crmHttp = {
   get<T>(
     url: string,
     params?: object,
@@ -54,7 +54,7 @@ const crmHttp = {
     return crmService.delete(url, { data, ...config });
   },
 };
-const ragHttp = {
+export const ragHttp = {
   get<T>(
     url: string,
     params?: object,
@@ -115,4 +115,3 @@ crmService.interceptors.request.use(
 //     return Promise.reject(error)
 //   },
 // )
-export default crmHttp;

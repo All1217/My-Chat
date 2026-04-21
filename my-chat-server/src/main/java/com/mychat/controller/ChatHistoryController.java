@@ -1,6 +1,8 @@
 package com.mychat.controller;
 
 import com.mychat.common.result.Result;
+import com.mychat.entity.vo.SpringAiChatMemoryVO;
+import com.mychat.service.SpringAiChatMemoryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.memory.ChatMemoryRepository;
@@ -15,6 +17,7 @@ import java.util.List;
 public class ChatHistoryController {
     private final ChatMemory chatMemory;
     private final ChatMemoryRepository chatMemoryRepository;
+    private final SpringAiChatMemoryService service;
 
     /**
      * 获取指定会话的聊天历史
@@ -22,22 +25,21 @@ public class ChatHistoryController {
      * @param conversationId 某个会话的ID
      * @return List<Message>聊天记录
      */
-    @GetMapping("/{conversationId}")
+    @GetMapping("/getMessages/{conversationId}")
     public Result<List<Message>> getConversationHistory(@PathVariable String conversationId) {
         // 通过 ChatMemory 获取聊天历史
         return Result.ok(chatMemory.get(conversationId));
     }
 
     /**
-     * 获取所有会话ID列表
+     * 获取所有会话列表
      *
-     * @return String类型的ID列表
+     * @return SpringAiChatMemoryVO 列表
      */
-    @GetMapping("/getIds")
-    public Result<List<String>> getAllConversationIds() {
-        // 通过 ChatMemoryRepository 获取所有会话ID
-        // 注意：需要根据具体的 Repository 实现来调整
-        return Result.ok(chatMemoryRepository.findConversationIds());
+    @GetMapping("/getConversations")
+    public Result<List<SpringAiChatMemoryVO>> getAllConversation() {
+        // 通过 ChatMemoryRepository 获取所有会话
+        return Result.ok(service.getAllConversation());
     }
 
     /**

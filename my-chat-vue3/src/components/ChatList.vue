@@ -19,10 +19,12 @@
         </div>
         <div class="chat-body">
             <ul>
-                <li :class="curChat == i ? 'chat-item chat-active' : 'chat-item'" v-for="i in chatCount"
-                    @click="curChat = i" @mouseenter="curShowMore = i" @mouseleave="curShowMore = -1">
-                    <span>测试标题测试标题测试标题测试标题{{ i }}</span>
-                    <div class="chat-item-more" v-show="curChat == i || curShowMore == i">
+                <li :class="curChat == chat.conversationId ? 'chat-item chat-active' : 'chat-item'"
+                    v-for="chat in chatList" @click="curChat = chat.conversationId"
+                    @mouseenter="curShowMore = chat.conversationId" @mouseleave="curShowMore = ''">
+                    <span>{{ (chat.title == null || chat.title == '') ? chat.conversationId : chat.title }}</span>
+                    <div class="chat-item-more"
+                        v-show="curChat == chat.conversationId || curShowMore == chat.conversationId">
                         <More style="width: 15px; height: 15px;" />
                     </div>
                 </li>
@@ -38,26 +40,44 @@
 </template>
 <script setup lang="ts">
 import logo from '@/assets/my-chat-logo.png'
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
+import { SpringAiChatMemoryVO } from '@/types/AiModule/types';
+
+interface Props {
+    chatList: SpringAiChatMemoryVO[]
+}
+
+const props = withDefaults(defineProps<Props>(), {
+    chatList: () => []  // 定义空列表必须这么写，不然报错
+});
 
 const chatCount = ref<number>(1);
-const curChat = ref<number>(0);
-const curShowMore = ref<number>(0)
+const curChat = ref<string>('');
+const curShowMore = ref<string>('')
 const isSidebarClosed = ref<boolean>(false);
 
 const emit = defineEmits<{
-    (e: 'changeWidth'): void
+    'id-change': [chatId: string];
+    'changeWidth': [];
 }>()
 const openSidebarChild = () => {
     isSidebarClosed.value = false;
 }
 defineExpose({
-  openSidebarChild
+    openSidebarChild
 })
 function onSidebarChanged() {
     isSidebarClosed.value = true;
     emit('changeWidth');
 }
+watch(
+    curChat,
+    (val) => {
+        if (val != '') {
+            emit('id-change', val);
+        }
+    },
+);
 </script>
 <style scoped lang="less">
 .chat-active {

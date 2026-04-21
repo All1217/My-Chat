@@ -44,6 +44,8 @@ import { MessageType } from '@/types/enums';
 import { ChatMessage } from '@/types/models';
 import { ref, nextTick, onMounted, onUnmounted } from 'vue';
 import { streamChat, generateChatId } from '@/util/streamChat';
+import { ElMessage } from 'element-plus';
+import { ragHttp } from '@/util/http';
 
 const messages = ref<ChatMessage[]>([]);
 
@@ -135,8 +137,19 @@ function scrollToBottom() {
     })
 }
 
+async function getMessages() {
+    try {
+        const res = await ragHttp.get(`/ai/history/getMessages/chat_1776778686825_f8oesysb9`)
+        console.log(res);
+    } catch (error) {
+        console.log(error)
+        ElMessage.error('获取聊天记录失败！')
+    }
+}
+
 onMounted(() => {
     scrollToBottom()
+    getMessages();
 })
 // 组件卸载时停止流式请求
 onUnmounted(() => {

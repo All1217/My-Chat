@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS chat_sessions
 (
     id         VARCHAR(255) PRIMARY KEY,
     user_id    BIGINT,
-    title      VARCHAR(200),
+    title      VARCHAR(100),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS chat_sessions
 CREATE TABLE IF NOT EXISTS spring_ai_chat_memory
 (
     id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id         BIGINT       default null,
     title           varchar(120) default null,
     conversation_id VARCHAR(255) NOT NULL,
     type            VARCHAR(50)  NOT NULL,

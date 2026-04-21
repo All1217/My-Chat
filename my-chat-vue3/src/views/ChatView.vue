@@ -1,7 +1,7 @@
 <template>
   <div class="chat-view">
     <!-- 左侧边栏 -->
-    <ChatList @changeWidth="handleChangeWidth" ref="chatRef"></ChatList>
+    <ChatList @changeWidth="handleChangeWidth" ref="chatRef" :chatList="chatList" @id-change="handleIdChange" />
     <!-- 左上角按钮 -->
     <div class="tool-box">
       <RouterLink :to="{ name: 'home' }" class="to-home"><img :src="logo" alt="" @click=""></RouterLink>
@@ -11,12 +11,14 @@
       <div class="tool" @click="openSidebar" title="打开侧边栏">
         <ArrowRight style="width: 20px; height: 20px;" />
       </div>
-      <span :class="isSidebarClosed ? 'chat-title' : 'chat-title title-open'">对话框标题对话框标题对话框标题</span>
+      <span v-show="curTitle != ''" :class="isSidebarClosed ? 'chat-title' : 'chat-title title-open'">
+        {{ curTitle }}
+      </span>
     </div>
     <!-- 中部对话框 -->
     <div class="message-wrap">
       <div :class="isSidebarClosed ? 'message-box close-sidebar' : 'message-box'">
-        <ChatBox></ChatBox>
+        <ChatBox chat-id=""></ChatBox>
       </div>
     </div>
   </div>
@@ -25,10 +27,11 @@
 <script setup lang="ts">
 import ChatList from '@/components/ChatList.vue';
 import ChatBox from '@/components/ChatBox.vue';
-import { ref, onMounted } from 'vue';
-import logo from '@/assets/my-chat-logo.png'
-import { ragHttp } from '@/util/http'
+import { ref, onMounted, computed } from 'vue';
+import logo from '@/assets/my-chat-logo.png';
+import { ragHttp } from '@/util/http';
 import { ElMessage } from 'element-plus';
+import { SpringAiChatMemoryVO } from '@/types/AiModule/types';
 
 const isSidebarClosed = ref<boolean>(false);
 const chatRef = ref<InstanceType<typeof ChatList>>()
@@ -39,11 +42,21 @@ function openSidebar() {
   isSidebarClosed.value = false;
   chatRef.value?.openSidebarChild()
 }
+/**
+ * 会话列表业务群
+ */
+const curChat = ref<SpringAiChatMemoryVO>(null);
+const chatList = ref<SpringAiChatMemoryVO[]>([]);
+const curTitle = computed(() => {
+  if (curChat.value == null) return '';
+  if (curChat.value.title == '' || curChat.value.title == null) return curChat.value.conversationId;
+  return curChat.value.title;
+});
 async function getConversationIds() {
   try {
-    const res = await ragHttp.get<string[]>('/ai/history/getIds');
+    const res = await ragHttp.get<SpringAiChatMemoryVO[]>('/ai/history/getConversations');
     if (res.data.code === 200) {
-      console.log(res.data)
+      chatList.value = res.data.data;
     } else {
       console.log(res.data.message);
       ElMessage.error(res.data.message || "获取会话列表失败！");
@@ -52,6 +65,17 @@ async function getConversationIds() {
     console.log(e);
     ElMessage.error("获取会话列表失败！");
   }
+}
+const handleIdChange = (id: string) => {
+  if (chatList.value.length == 0) return;
+  let t = null;
+  chatList.value.forEach(e => {
+    if (e.conversationId == id) {
+      t = e;
+      return;
+    }
+  })
+  curChat.value = t;
 }
 onMounted(() => {
   getConversationIds();

@@ -115,7 +115,7 @@
 import { ref, onMounted, reactive, computed, watch } from "vue";
 import CommonTable from "@/components/CommonTable.vue";
 import { Column } from "@/types/models";
-import crmHttp from "@/util/http";
+import { crmHttp } from "@/util/http";
 import { TestWarehouseGood } from "@/types/models";
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from "element-plus";
 import { WarehouseGoodQueryDTO } from "@/types/ManageTableDemo/types";
@@ -344,20 +344,6 @@ const handleCurrentChange = (page: number) => {
   currentPage.value = page;
   handleQuery();
 };
-
-const defaultObj = ref<TestWarehouseGood>({
-  id: "",
-  itemName: "",
-  itemCode: "",
-  price: 0.00,
-  description: "",
-  status: 1,
-  delFlag: 0,
-  createBy: "",
-  createTime: "",
-  updateBy: "",
-  updateTime: ""
-});
 const showPriceRange = ref(false);
 watch(showPriceRange, (newVal, oldVal) => {
   if (oldVal == true && newVal == false) {
@@ -369,8 +355,8 @@ const queryCondition = reactive<WarehouseGoodQueryDTO>({
   itemName: "",
   startPrice: undefined,
   endPrice: undefined,
-  startCreateTime: "",
-  endCreateTime: ""
+  startCreateTime: null,
+  endCreateTime: null
 });
 const queryDateTimeRange = ref('');
 
@@ -380,8 +366,8 @@ function handleQuery() {
     queryCondition.startCreateTime = start;
     queryCondition.endCreateTime = end;
   } else {
-    queryCondition.startCreateTime = "";
-    queryCondition.endCreateTime = "";
+    queryCondition.startCreateTime = null;
+    queryCondition.endCreateTime = null;
   }
   getPageListCondition(currentPage.value, pageSize.value);
 }
@@ -389,14 +375,11 @@ function handleQuery() {
 async function getPageListCondition(page: number, pageSize: number) {
   try {
     const res = await crmHttp.get("/inventory/testWarehouseGoods/list/condition", {
-      dto: queryCondition,
-      pageNo: page,
-      pageSize: pageSize
+      ...queryCondition, pageNo: page, pageSize: pageSize
     });
     if (res.data.code === 200) {
       tableData.value = res.data.result.records;
       total.value = res.data.result.total;
-      console.log("分页请求成功:", res.data.result.records);
     } else {
       console.error("分页请求失败:", res.data);
       ElMessage.error("分页请求失败!");

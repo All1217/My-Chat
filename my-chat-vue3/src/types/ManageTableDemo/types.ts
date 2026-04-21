@@ -1,6 +1,6 @@
 import type { TestWarehouseGood } from "../models";
 
-export interface WarehouseGoodQueryDTO {
+export interface WarehouseGoodQueryDTO  {
     itemName?: string;
     startPrice?: number;
     endPrice?: number;

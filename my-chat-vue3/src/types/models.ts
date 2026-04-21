@@ -51,3 +51,8 @@ export interface ChatMessage {
   content: string;
   type: number
 }
+
+export interface PageDTO {
+  pageNo?: number,
+  pageSize?: number
+}

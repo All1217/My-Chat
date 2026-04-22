@@ -17,14 +17,6 @@ public class SpringAiChatMemory {
     @TableId(type = IdType.AUTO)
     private Long id;
 
-    @Schema(description = "用户ID")
-    @TableField(value = "user_id")
-    private Long userId;
-
-    @Schema(description = "会话标题")
-    @TableField(value = "title")
-    private String title;
-
     @Schema(description = "会话ID")
     @TableField(value = "conversation_id")
     private String conversationId;

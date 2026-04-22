@@ -10,23 +10,21 @@ CREATE TABLE IF NOT EXISTS users
 -- 聊天会话表（如果需要）
 CREATE TABLE IF NOT EXISTS chat_sessions
 (
-    id         VARCHAR(255) PRIMARY KEY,
-    user_id    BIGINT,
-    title      VARCHAR(100),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    conversation_id VARCHAR(255) PRIMARY KEY,
+    user_id         BIGINT,
+    title           VARCHAR(100),
+    created_at      DATETIME DEFAULT CURRENT_DATE,
+    updated_at      DATETIME DEFAULT CURRENT_DATE ON UPDATE CURRENT_DATE
 );
 
 -- Spring AI 聊天记忆表（1.1.3版本）
 CREATE TABLE IF NOT EXISTS spring_ai_chat_memory
 (
     id              BIGINT AUTO_INCREMENT PRIMARY KEY,
-    user_id         BIGINT       default null,
-    title           varchar(120) default null,
     conversation_id VARCHAR(255) NOT NULL,
     type            VARCHAR(50)  NOT NULL,
     content         TEXT         NOT NULL,
-    timestamp       TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
+    timestamp       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 通用索引创建（H2兼容）

@@ -5,10 +5,11 @@
                 <h1>在下方聊天框输入您想问的问题……</h1>
             </div>
             <ul>
-                <li :class="msg.type === MessageType.AI ? 'message-ai' : 'message-user'" v-for="msg in messages">
-                    <p class="message-content" v-if="msg.type === MessageType.USER">{{ msg.content }}</p>
+                <li :class="msg.messageType === MessageType.ASSISTANT ? 'message-ai' : 'message-user'"
+                    v-for="msg in messages">
+                    <p class="message-content" v-if="msg.messageType === MessageType.USER">{{ msg.text }}</p>
                     <div class="message-content" v-else>
-                        <MarkdownRenderer :content="msg.content" />
+                        <MarkdownRenderer :content="msg.text" />
                     </div>
                     <div class="tool">
                         <div class="tool-item" title="复制文本">
@@ -40,14 +41,21 @@
 </template>
 <script setup lang="ts">
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue';
-import { MessageType } from '@/types/enums';
-import { ChatMessage } from '@/types/models';
-import { ref, nextTick, onMounted, onUnmounted } from 'vue';
+import { MessageType } from '@/types/AiModule/enums';
+import { Message } from '@/types/AiModule/types';
+import { ref, nextTick, onMounted, onUnmounted, watch } from 'vue';
 import { streamChat, generateChatId } from '@/util/streamChat';
 import { ElMessage } from 'element-plus';
 import { ragHttp } from '@/util/http';
 
-const messages = ref<ChatMessage[]>([]);
+interface Props {
+    chatId: string
+}
+const props = withDefaults(defineProps<Props>(), {
+    chatId: ''
+});
+
+const messages = ref<Message[]>([]);
 
 const inputText = ref('')
 const isStreaming = ref(false)
@@ -61,8 +69,8 @@ async function sendMessage() {
     if (!text || isStreaming.value) return
     // 添加用户消息
     messages.value.push({
-        content: text,
-        type: MessageType.USER
+        text: text,
+        messageType: MessageType.USER
     })
     inputText.value = ''
     scrollToBottom()
@@ -73,7 +81,7 @@ async function sendMessage() {
 function startStreaming(prompt: string) {
     isStreaming.value = true
     streamingContent.value = ''
-    const chatId = generateChatId()
+    const chatId = (props.chatId != null && props.chatId != '') ? props.chatId : generateChatId()
 
     stopStreamingFn = streamChat({
         prompt,
@@ -86,8 +94,8 @@ function startStreaming(prompt: string) {
         onComplete: () => {
             // 流式响应完成，将内容添加到消息列表
             messages.value.push({
-                content: streamingContent.value,
-                type: MessageType.AI
+                text: streamingContent.value,
+                messageType: MessageType.ASSISTANT
             })
             // 重置状态
             isStreaming.value = false
@@ -98,8 +106,8 @@ function startStreaming(prompt: string) {
         onError: (error) => {
             console.error('Stream error:', error)
             messages.value.push({
-                content: `抱歉，请求出错：${error.message}`,
-                type: MessageType.AI
+                text: `抱歉，请求出错：${error.message}`,
+                messageType: MessageType.ASSISTANT
             })
             isStreaming.value = false
             streamingContent.value = ''
@@ -117,8 +125,8 @@ function stopStreaming() {
     // 如果已经有内容，保存到消息列表
     if (streamingContent.value.trim()) {
         messages.value.push({
-            content: streamingContent.value + '\n\n*(用户中断了生成)*',
-            type: MessageType.AI
+            text: streamingContent.value + '\n\n*(用户中断了生成)*',
+            messageType: MessageType.ASSISTANT
         })
     }
     isStreaming.value = false
@@ -137,19 +145,32 @@ function scrollToBottom() {
     })
 }
 
-async function getMessages() {
+// 获取会话聊天记录
+async function getMessages(id: string) {
     try {
-        const res = await ragHttp.get(`/ai/history/getMessages/chat_1776778686825_f8oesysb9`)
-        console.log(res);
+        const res = await ragHttp.get<Message[]>(`/ai/history/getMessages/${id}`)
+        if (res.data.code === 200) {
+            messages.value = res.data.data;
+        } else {
+            console.log(res.data.message)
+            ElMessage.error('获取聊天记录失败！')
+        }
     } catch (error) {
         console.log(error)
         ElMessage.error('获取聊天记录失败！')
     }
 }
+watch(
+    () => props.chatId,
+    (val) => {
+        if (val != '' && val != null) {
+            getMessages(val);
+        }
+    },
+);
 
 onMounted(() => {
     scrollToBottom()
-    getMessages();
 })
 // 组件卸载时停止流式请求
 onUnmounted(() => {
@@ -170,6 +191,7 @@ onUnmounted(() => {
     padding-top: 15px;
 
     .message-list-wrap {
+        padding-top: 50px;
         height: 100%;
 
         .default-advice {

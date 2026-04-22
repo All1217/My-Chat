@@ -11,7 +11,7 @@
                 </div>
             </div>
             <div class="chat-header-down">
-                <div class="open-new-chat" @click="chatCount++">
+                <div class="open-new-chat" @click="handleAddConversation">
                     <Plus style="width: 22px; height: 22px; margin-right: 5px;" />
                     <span>打开新对话</span>
                 </div>
@@ -19,12 +19,12 @@
         </div>
         <div class="chat-body">
             <ul>
-                <li :class="curChat == chat.conversationId ? 'chat-item chat-active' : 'chat-item'"
-                    v-for="chat in chatList" @click="curChat = chat.conversationId"
+                <li :class="curChatId == chat.conversationId ? 'chat-item chat-active' : 'chat-item'"
+                    v-for="chat in chatList" @click="curChatId = chat.conversationId"
                     @mouseenter="curShowMore = chat.conversationId" @mouseleave="curShowMore = ''">
                     <span>{{ (chat.title == null || chat.title == '') ? chat.conversationId : chat.title }}</span>
                     <div class="chat-item-more"
-                        v-show="curChat == chat.conversationId || curShowMore == chat.conversationId">
+                        v-show="curChatId == chat.conversationId || curShowMore == chat.conversationId">
                         <More style="width: 15px; height: 15px;" />
                     </div>
                 </li>
@@ -42,6 +42,7 @@
 import logo from '@/assets/my-chat-logo.png'
 import { ref, watch } from 'vue';
 import { SpringAiChatMemoryVO } from '@/types/AiModule/types';
+import { generateChatId } from '@/util/streamChat';
 
 interface Props {
     chatList: SpringAiChatMemoryVO[]
@@ -51,14 +52,14 @@ const props = withDefaults(defineProps<Props>(), {
     chatList: () => []  // 定义空列表必须这么写，不然报错
 });
 
-const chatCount = ref<number>(1);
-const curChat = ref<string>('');
+const curChatId = ref<string>('');
 const curShowMore = ref<string>('')
 const isSidebarClosed = ref<boolean>(false);
 
 const emit = defineEmits<{
     'id-change': [chatId: string];
     'changeWidth': [];
+    'add-chat': [chatId: string];
 }>()
 const openSidebarChild = () => {
     isSidebarClosed.value = false;
@@ -71,13 +72,19 @@ function onSidebarChanged() {
     emit('changeWidth');
 }
 watch(
-    curChat,
+    curChatId,
     (val) => {
         if (val != '') {
             emit('id-change', val);
         }
     },
 );
+
+function handleAddConversation() {
+    curChatId.value = generateChatId();
+    props.chatList.push({ conversationId: curChatId.value, title: '' })
+    emit('add-chat', curChatId.value);
+}
 </script>
 <style scoped lang="less">
 .chat-active {

@@ -1,9 +1,9 @@
 package com.mychat.service;
 
-import com.mychat.entity.vo.SpringAiChatMemoryVO;
+import com.mychat.entity.vo.ChatSessionVO;
 
 import java.util.List;
 
 public interface SpringAiChatMemoryService {
-    List<SpringAiChatMemoryVO> getAllConversation();
+    List<ChatSessionVO> getAllConversation();
 }

@@ -1,7 +1,8 @@
 <template>
   <div class="chat-view">
     <!-- 左侧边栏 -->
-    <ChatList @changeWidth="handleChangeWidth" ref="chatRef" :chatList="chatList" @id-change="handleIdChange" />
+    <ChatList @changeWidth="handleChangeWidth" ref="chatRef" :chatList="chatList" @id-change="handleIdChange"
+      @add-chat="handleAddChat" />
     <!-- 左上角按钮 -->
     <div class="tool-box">
       <RouterLink :to="{ name: 'home' }" class="to-home"><img :src="logo" alt="" @click=""></RouterLink>
@@ -18,7 +19,7 @@
     <!-- 中部对话框 -->
     <div class="message-wrap">
       <div :class="isSidebarClosed ? 'message-box close-sidebar' : 'message-box'">
-        <ChatBox chat-id=""></ChatBox>
+        <ChatBox :chat-id="curChatId"></ChatBox>
       </div>
     </div>
   </div>
@@ -52,6 +53,10 @@ const curTitle = computed(() => {
   if (curChat.value.title == '' || curChat.value.title == null) return curChat.value.conversationId;
   return curChat.value.title;
 });
+const curChatId = computed(() => {
+  if (curChat.value == null) return '';
+  return curChat.value.conversationId;
+});
 async function getConversationIds() {
   try {
     const res = await ragHttp.get<SpringAiChatMemoryVO[]>('/ai/history/getConversations');
@@ -76,6 +81,14 @@ const handleIdChange = (id: string) => {
     }
   })
   curChat.value = t;
+}
+
+async function handleAddChat(id: string) {
+  try {
+    await ragHttp.post(`/ai/history/addConversation?conversationId=${id}`);
+  } catch (error) {
+    console.log(error)
+  }
 }
 onMounted(() => {
   getConversationIds();

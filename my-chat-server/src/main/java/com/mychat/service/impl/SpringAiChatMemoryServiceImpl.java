@@ -1,6 +1,6 @@
 package com.mychat.service.impl;
 
-import com.mychat.entity.vo.SpringAiChatMemoryVO;
+import com.mychat.entity.vo.ChatSessionVO;
 import com.mychat.mapper.SpringAiChatMemoryMapper;
 import com.mychat.service.SpringAiChatMemoryService;
 import lombok.AllArgsConstructor;
@@ -14,7 +14,7 @@ public class SpringAiChatMemoryServiceImpl implements SpringAiChatMemoryService 
     private final SpringAiChatMemoryMapper mapper;
 
     @Override
-    public List<SpringAiChatMemoryVO> getAllConversation() {
+    public List<ChatSessionVO> getAllConversation() {
         return mapper.getAllConversation();
     }
 }

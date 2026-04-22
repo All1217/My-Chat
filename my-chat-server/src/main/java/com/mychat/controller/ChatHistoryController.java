@@ -1,11 +1,11 @@
 package com.mychat.controller;
 
 import com.mychat.common.result.Result;
-import com.mychat.entity.vo.SpringAiChatMemoryVO;
+import com.mychat.entity.vo.ChatSessionVO;
+import com.mychat.service.ChatSessionsService;
 import com.mychat.service.SpringAiChatMemoryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.memory.ChatMemory;
-import org.springframework.ai.chat.memory.ChatMemoryRepository;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.web.bind.annotation.*;
 
@@ -16,8 +16,8 @@ import java.util.List;
 @RequestMapping("/ai/history")
 public class ChatHistoryController {
     private final ChatMemory chatMemory;
-    private final ChatMemoryRepository chatMemoryRepository;
     private final SpringAiChatMemoryService service;
+    private final ChatSessionsService chatSessionsService;
 
     /**
      * 获取指定会话的聊天历史
@@ -37,8 +37,7 @@ public class ChatHistoryController {
      * @return SpringAiChatMemoryVO 列表
      */
     @GetMapping("/getConversations")
-    public Result<List<SpringAiChatMemoryVO>> getAllConversation() {
-        // 通过 ChatMemoryRepository 获取所有会话
+    public Result<List<ChatSessionVO>> getAllConversation() {
         return Result.ok(service.getAllConversation());
     }
 
@@ -48,5 +47,14 @@ public class ChatHistoryController {
     @DeleteMapping("/{conversationId}")
     public void deleteConversationHistory(@PathVariable String conversationId) {
         chatMemory.clear(conversationId);
+    }
+
+    /**
+     * 新增聊天会话
+     * @param conversationId 会话ID
+     */
+    @PostMapping("/addConversation")
+    public void addConversation(@RequestParam String conversationId) {
+        chatSessionsService.addConversation(conversationId);
     }
 }

@@ -41,17 +41,30 @@
 <script setup lang="ts">
 import logo from '@/assets/my-chat-logo.png'
 import { ref, watch } from 'vue';
-import { SpringAiChatMemoryVO } from '@/types/AiModule/types';
+import { ChatSessionVO } from '@/types/AiModule/types';
 import { generateChatId } from '@/util/streamChat';
 
 interface Props {
-    chatList: SpringAiChatMemoryVO[]
+    chatList: ChatSessionVO[]
 }
 
 const props = withDefaults(defineProps<Props>(), {
     chatList: () => []  // 定义空列表必须这么写，不然报错
 });
-
+function onSidebarChanged() {
+    isSidebarClosed.value = true;
+    emit('changeWidth');
+}
+const openSidebarChild = () => {
+    isSidebarClosed.value = false;
+}
+const setCurChatId = (id: string) => {
+    curChatId.value = id;
+}
+defineExpose({
+    setCurChatId,
+    openSidebarChild
+})
 const curChatId = ref<string>('');
 const curShowMore = ref<string>('')
 const isSidebarClosed = ref<boolean>(false);
@@ -61,16 +74,6 @@ const emit = defineEmits<{
     'changeWidth': [];
     'add-chat': [chatId: string];
 }>()
-const openSidebarChild = () => {
-    isSidebarClosed.value = false;
-}
-defineExpose({
-    openSidebarChild
-})
-function onSidebarChanged() {
-    isSidebarClosed.value = true;
-    emit('changeWidth');
-}
 watch(
     curChatId,
     (val) => {
@@ -82,7 +85,6 @@ watch(
 
 function handleAddConversation() {
     curChatId.value = generateChatId();
-    props.chatList.push({ conversationId: curChatId.value, title: '' })
     emit('add-chat', curChatId.value);
 }
 </script>

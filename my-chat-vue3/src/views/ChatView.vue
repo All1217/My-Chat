@@ -12,14 +12,14 @@
       <div class="tool" @click="openSidebar" title="打开侧边栏">
         <ArrowRight style="width: 20px; height: 20px;" />
       </div>
-      <span v-show="curTitle != ''" :class="isSidebarClosed ? 'chat-title' : 'chat-title title-open'">
+      <span v-if="curTitle && curTitle != ''" :class="isSidebarClosed ? 'chat-title' : 'chat-title title-open'">
         {{ curTitle }}
       </span>
     </div>
     <!-- 中部对话框 -->
     <div class="message-wrap">
       <div :class="isSidebarClosed ? 'message-box close-sidebar' : 'message-box'">
-        <ChatBox :chat-id="curChatId"></ChatBox>
+        <ChatBox :chat-id="curChat ? curChat.conversationId : ''" @change-chat-id="handleAddIdOnChat"></ChatBox>
       </div>
     </div>
   </div>
@@ -28,11 +28,11 @@
 <script setup lang="ts">
 import ChatList from '@/components/ChatList.vue';
 import ChatBox from '@/components/ChatBox.vue';
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, reactive } from 'vue';
 import logo from '@/assets/my-chat-logo.png';
 import { ragHttp } from '@/util/http';
 import { ElMessage } from 'element-plus';
-import { SpringAiChatMemoryVO } from '@/types/AiModule/types';
+import { ChatSessionVO } from '@/types/AiModule/types';
 
 const isSidebarClosed = ref<boolean>(false);
 const chatRef = ref<InstanceType<typeof ChatList>>()
@@ -41,25 +41,33 @@ function handleChangeWidth() {
 }
 function openSidebar() {
   isSidebarClosed.value = false;
-  chatRef.value?.openSidebarChild()
+  chatRef.value?.openSidebarChild();
 }
+
 /**
  * 会话列表业务群
  */
-const curChat = ref<SpringAiChatMemoryVO>(null);
-const chatList = ref<SpringAiChatMemoryVO[]>([]);
+const curChat = reactive<ChatSessionVO>({ title: '', conversationId: null });
+const chatList = ref<ChatSessionVO[]>([]);
 const curTitle = computed(() => {
-  if (curChat.value == null) return '';
-  if (curChat.value.title == '' || curChat.value.title == null) return curChat.value.conversationId;
-  return curChat.value.title;
-});
-const curChatId = computed(() => {
-  if (curChat.value == null) return '';
-  return curChat.value.conversationId;
-});
+  if (!curChat) return '';
+  if (!curChat.title || curChat.title == '') return curChat.conversationId;
+  return curChat.title;
+})
+// 回调：处理会话更改
+function handleIdChange(id: string) {
+  chatList.value.forEach((e) => {
+    if (e.conversationId == id) {
+      curChat.conversationId = e.conversationId;
+      curChat.title = e.title;
+      return;
+    }
+  })
+}
+
 async function getConversationIds() {
   try {
-    const res = await ragHttp.get<SpringAiChatMemoryVO[]>('/ai/history/getConversations');
+    const res = await ragHttp.get<ChatSessionVO[]>('/ai/history/getConversations');
     if (res.data.code === 200) {
       chatList.value = res.data.data;
     } else {
@@ -71,24 +79,24 @@ async function getConversationIds() {
     ElMessage.error("获取会话列表失败！");
   }
 }
-const handleIdChange = (id: string) => {
-  if (chatList.value.length == 0) return;
-  let t = null;
-  chatList.value.forEach(e => {
-    if (e.conversationId == id) {
-      t = e;
-      return;
-    }
-  })
-  curChat.value = t;
-}
-
+// 回调：点击左边栏新增会话
 async function handleAddChat(id: string) {
   try {
     await ragHttp.post(`/ai/history/addConversation?conversationId=${id}`);
+    curChat.conversationId = id;
+    curChat.title = '';
+    chatList.value.push({ conversationId: id, title: '' });
+    // chatRef.value?.setCurChatId(id);
   } catch (error) {
     console.log(error)
   }
+}
+// 回调：通过聊天框新建对话
+function handleAddIdOnChat(id: string) {
+  curChat.title = '';
+  curChat.conversationId = id;
+  chatRef.value?.setCurChatId(id);
+  handleAddChat(id);
 }
 onMounted(() => {
   getConversationIds();

@@ -48,13 +48,15 @@ import { streamChat, generateChatId } from '@/util/streamChat';
 import { ElMessage } from 'element-plus';
 import { ragHttp } from '@/util/http';
 
+const emit = defineEmits<{
+    'change-chat-id': [chatId: string];
+}>()
 interface Props {
     chatId: string
 }
 const props = withDefaults(defineProps<Props>(), {
     chatId: ''
 });
-
 const messages = ref<Message[]>([]);
 
 const inputText = ref('')
@@ -62,18 +64,38 @@ const isStreaming = ref(false)
 const streamingContent = ref('')
 const messageListRef = ref<HTMLElement>()
 let stopStreamingFn: (() => void) | null = null
+// 防止在流式请求时，watcher触发的getMessages覆盖本地消息
+// 不然首次聊天用户发的第一条请求不会显示出来，要刷新一次才显示得出来
+let isNewChatFromHere = false
+
+watch(
+    () => props.chatId,
+    (val) => {
+        if (val != '' && val != null) {
+            // 如果是当前组件新建的对话，不要从后端获取消息（本地已有且后端可能还没有保存）
+            if (isNewChatFromHere) {
+                isNewChatFromHere = false;
+                return;
+            }
+            getMessages(val);
+        }
+    },
+);
 
 // 发送消息
 async function sendMessage() {
     const text = inputText.value.trim()
     if (!text || isStreaming.value) return
-    // 添加用户消息
     messages.value.push({
         text: text,
         messageType: MessageType.USER
     })
     inputText.value = ''
     scrollToBottom()
+    // 判断是否是由当前聊天框发起的首次对话（新chatId即将被创建）
+    if (props.chatId == null || props.chatId == '') {
+        isNewChatFromHere = true;
+    }
     startStreaming(text)
 }
 
@@ -81,8 +103,13 @@ async function sendMessage() {
 function startStreaming(prompt: string) {
     isStreaming.value = true
     streamingContent.value = ''
-    const chatId = (props.chatId != null && props.chatId != '') ? props.chatId : generateChatId()
-
+    let chatId = null;
+    if (props.chatId == null || props.chatId == '') {
+        chatId = generateChatId();
+        onChangeChatId(chatId);
+    } else {
+        chatId = props.chatId;
+    }
     stopStreamingFn = streamChat({
         prompt,
         chatId,
@@ -160,14 +187,11 @@ async function getMessages(id: string) {
         ElMessage.error('获取聊天记录失败！')
     }
 }
-watch(
-    () => props.chatId,
-    (val) => {
-        if (val != '' && val != null) {
-            getMessages(val);
-        }
-    },
-);
+
+// 通过聊天框新建对话，通知父组件更改当前ChatId
+async function onChangeChatId(id: string) {
+    emit('change-chat-id', id);
+}
 
 onMounted(() => {
     scrollToBottom()

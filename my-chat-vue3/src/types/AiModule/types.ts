@@ -1,4 +1,4 @@
-export interface SpringAiChatMemoryVO {
+export interface ChatSessionVO {
     title: string
     conversationId: string
 }

@@ -1,12 +1,12 @@
 <template>
-    <div :class="isSidebarClosed ? 'chat-component component-slide' : 'chat-component'">
+    <div class="chat-component" :class="{ 'component-slide': !chatStore.isSidebarOpen }">
         <div class="chat-header">
             <div class="chat-header-up">
                 <RouterLink :to="{ name: 'home' }" class="logo-box">
-                    <img :src="logo" alt="">
+                    <img :src="logo" alt="" />
                     My Chat
                 </RouterLink>
-                <div class="arrow-box" @click="onSidebarChanged" title="收起侧边栏">
+                <div class="arrow-box" @click="chatStore.closeSidebar" title="收起侧边栏">
                     <ArrowLeft style="width: 100%; height: 100%;" />
                 </div>
             </div>
@@ -19,14 +19,24 @@
         </div>
         <div class="chat-body">
             <ul>
-                <li :class="curChatId == chat.conversationId ? 'chat-item chat-active' : 'chat-item'"
-                    v-for="chat in chatList" @click="curChatId = chat.conversationId"
+                <li v-for="chat in chatStore.chatList" :key="chat.conversationId"
+                    :class="chatStore.currentChatId === chat.conversationId ? 'chat-item chat-active' : 'chat-item'"
+                    @click="chatStore.selectConversation(chat.conversationId)"
                     @mouseenter="curShowMore = chat.conversationId" @mouseleave="curShowMore = ''">
-                    <span>{{ (chat.title == null || chat.title == '') ? chat.conversationId : chat.title }}</span>
-                    <div class="chat-item-more"
-                        v-show="curChatId == chat.conversationId || curShowMore == chat.conversationId">
-                        <More style="width: 15px; height: 15px;" />
-                    </div>
+                    <span>{{ chat.title || chat.conversationId }}</span>
+                    <el-dropdown trigger="click">
+                        <div class="chat-item-more"
+                            v-show="chatStore.currentChatId === chat.conversationId || curShowMore === chat.conversationId">
+                            <More style="width: 15px; height: 15px;" />
+                        </div>
+                        <template #dropdown>
+                            <el-dropdown-menu>
+                                <el-dropdown-item @click="showRenameDialog = true">重命名</el-dropdown-item>
+                                <el-dropdown-item>删除</el-dropdown-item>
+                            </el-dropdown-menu>
+                        </template>
+                    </el-dropdown>
+
                 </li>
             </ul>
         </div>
@@ -36,56 +46,47 @@
             </div>
             <span class="user-name">12345678912</span>
         </div>
+
+        <el-dialog v-model="showRenameDialog" title="重命名" width="400"
+            @open="() => { newName = chatStore.currentTitle || '' }">
+            <el-input v-model="newName" style="width: 100%" maxlength="30" show-word-limit />
+            <template #footer>
+                <div class="dialog-footer">
+                    <el-button @click="showRenameDialog = false">取消</el-button>
+                    <el-button type="primary" @click="handleConfirmRename">
+                        确定
+                    </el-button>
+                </div>
+            </template>
+        </el-dialog>
     </div>
 </template>
+
 <script setup lang="ts">
+import { ref } from 'vue'
+import { useChatStore } from '@/stores/chat'
+import { generateChatId } from '@/utils/streamChat'
 import logo from '@/assets/my-chat-logo.png'
-import { ref, watch } from 'vue';
-import { ChatSessionVO } from '@/types/AiModule/types';
-import { generateChatId } from '@/util/streamChat';
+import {ElMessage} from "element-plus";
 
-interface Props {
-    chatList: ChatSessionVO[]
-}
-
-const props = withDefaults(defineProps<Props>(), {
-    chatList: () => []  // 定义空列表必须这么写，不然报错
-});
-function onSidebarChanged() {
-    isSidebarClosed.value = true;
-    emit('changeWidth');
-}
-const openSidebarChild = () => {
-    isSidebarClosed.value = false;
-}
-const setCurChatId = (id: string) => {
-    curChatId.value = id;
-}
-defineExpose({
-    setCurChatId,
-    openSidebarChild
-})
-const curChatId = ref<string>('');
+const chatStore = useChatStore()
 const curShowMore = ref<string>('')
-const isSidebarClosed = ref<boolean>(false);
-
-const emit = defineEmits<{
-    'id-change': [chatId: string];
-    'changeWidth': [];
-    'add-chat': [chatId: string];
-}>()
-watch(
-    curChatId,
-    (val) => {
-        if (val != '') {
-            emit('id-change', val);
-        }
-    },
-);
 
 function handleAddConversation() {
-    curChatId.value = generateChatId();
-    emit('add-chat', curChatId.value);
+    const id = generateChatId()
+    chatStore.createConversation(id)
+}
+
+// 重命名
+const showRenameDialog = ref<boolean>(false);
+const newName = ref<string>('');
+function handleConfirmRename() {
+    if (newName.value.trim() === '') {
+        ElMessage.error('名称不能为空');
+        return;
+    }
+    // 这里应该调用接口更新会话名称，暂时直接更新本地状态
+    showRenameDialog.value = false;
 }
 </script>
 <style scoped lang="less">
@@ -207,7 +208,7 @@ function handleAddConversation() {
                     align-items: center;
                     justify-content: center;
                     position: absolute;
-                    right: 7px;
+                    right: -26px;
                     top: 5px;
                     height: 26px;
                     width: 26px;

@@ -198,6 +198,7 @@ onMounted(() => {
 .markdown-body li {
     margin-bottom: 4px !important;
     display: list-item !important;
+    list-style-type: inherit !important;
 }
 
 .markdown-body li > p {

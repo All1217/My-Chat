@@ -115,7 +115,7 @@
 import { ref, onMounted, reactive, computed, watch } from "vue";
 import CommonTable from "@/components/CommonTable.vue";
 import { Column } from "@/types/models";
-import { crmHttp } from "@/util/http";
+import { crmHttp } from "@/utils/http";
 import { TestWarehouseGood } from "@/types/models";
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from "element-plus";
 import { WarehouseGoodQueryDTO } from "@/types/ManageTableDemo/types";

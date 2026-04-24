@@ -40,107 +40,98 @@
     </div>
 </template>
 <script setup lang="ts">
-import MarkdownRenderer from '@/components/MarkdownRenderer.vue';
-import { MessageType } from '@/types/AiModule/enums';
-import { Message } from '@/types/AiModule/types';
-import { ref, nextTick, onMounted, onUnmounted, watch } from 'vue';
-import { streamChat, generateChatId } from '@/util/streamChat';
-import { ElMessage } from 'element-plus';
-import { ragHttp } from '@/util/http';
+import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
+import { MessageType } from '@/types/AiModule/enums'
+import type { Message } from '@/types/AiModule/types'
+import { ref, nextTick, onMounted, onUnmounted, watch } from 'vue'
+import { streamChat, generateChatId } from '@/utils/streamChat'
+import { useChatStore } from '@/stores/chat'
+import { ElMessage } from 'element-plus'
+import { ragHttp } from '@/utils/http'
+import { ResultData } from '@/types/models'
 
-const emit = defineEmits<{
-    'change-chat-id': [chatId: string];
-}>()
-interface Props {
-    chatId: string
-}
-const props = withDefaults(defineProps<Props>(), {
-    chatId: ''
-});
-const messages = ref<Message[]>([]);
 
+const chatStore = useChatStore()
+
+const messages = ref<Message[]>([])
 const inputText = ref('')
 const isStreaming = ref(false)
 const streamingContent = ref('')
 const messageListRef = ref<HTMLElement>()
 let stopStreamingFn: (() => void) | null = null
-// 防止在流式请求时，watcher触发的getMessages覆盖本地消息
-// 不然首次聊天用户发的第一条请求不会显示出来，要刷新一次才显示得出来
-let isNewChatFromHere = false
+// 标记：当前消息是否由本组件本地发起的（不需要从后端拉历史）
+let isLocalNewChat = false
 
+// 监听 store 中 currentChatId 的变化来加载历史消息
 watch(
-    () => props.chatId,
-    (val) => {
-        if (val != '' && val != null) {
-            // 如果是当前组件新建的对话，不要从后端获取消息（本地已有且后端可能还没有保存）
-            if (isNewChatFromHere) {
-                isNewChatFromHere = false;
-                return;
+    () => chatStore.currentChatId,
+    (newId) => {
+        if (newId) {
+            if (isLocalNewChat) {
+                isLocalNewChat = false
+                // messages.value = []
+                return
             }
-            getMessages(val);
+            getMessages(newId)
+        } else {
+            messages.value = []
         }
     },
-);
+)
 
 // 发送消息
 async function sendMessage() {
     const text = inputText.value.trim()
     if (!text || isStreaming.value) return
-    messages.value.push({
-        text: text,
-        messageType: MessageType.USER
-    })
+
+    messages.value.push({ text, messageType: MessageType.USER })
     inputText.value = ''
     scrollToBottom()
-    // 判断是否是由当前聊天框发起的首次对话（新chatId即将被创建）
-    if (props.chatId == null || props.chatId == '') {
-        isNewChatFromHere = true;
+
+    // 如果没有当前会话，先创建
+    let chatId = chatStore.currentChatId
+    if (!chatId) {
+        chatId = generateChatId()
+        isLocalNewChat = true
+        await chatStore.createConversation(chatId)
+        // createConversation 内部已设置 currentChatId，且 messages 已在上面 push
     }
-    startStreaming(text)
+
+    startStreaming(text, chatId)
 }
 
 // 开始流式响应
-function startStreaming(prompt: string) {
+function startStreaming(prompt: string, chatId: string) {
     isStreaming.value = true
     streamingContent.value = ''
-    let chatId = null;
-    if (props.chatId == null || props.chatId == '') {
-        chatId = generateChatId();
-        onChangeChatId(chatId);
-    } else {
-        chatId = props.chatId;
-    }
+
     stopStreamingFn = streamChat({
         prompt,
         chatId,
         onMessage: (chunk) => {
-            // 累积流式内容
             streamingContent.value += chunk
             scrollToBottom()
         },
         onComplete: () => {
-            // 流式响应完成，将内容添加到消息列表
             messages.value.push({
                 text: streamingContent.value,
-                messageType: MessageType.ASSISTANT
+                messageType: MessageType.ASSISTANT,
             })
-            // 重置状态
             isStreaming.value = false
             streamingContent.value = ''
             stopStreamingFn = null
             scrollToBottom()
         },
         onError: (error) => {
-            console.error('Stream error:', error)
             messages.value.push({
                 text: `抱歉，请求出错：${error.message}`,
-                messageType: MessageType.ASSISTANT
+                messageType: MessageType.ASSISTANT,
             })
             isStreaming.value = false
             streamingContent.value = ''
             stopStreamingFn = null
             scrollToBottom()
-        }
+        },
     })
 }
 // 停止流式响应
@@ -175,7 +166,7 @@ function scrollToBottom() {
 // 获取会话聊天记录
 async function getMessages(id: string) {
     try {
-        const res = await ragHttp.get<Message[]>(`/ai/history/getMessages/${id}`)
+        const res = await ragHttp.get<ResultData<Message[]>>(`/ai/history/getMessages/${id}`)
         if (res.data.code === 200) {
             messages.value = res.data.data;
         } else {
@@ -186,11 +177,6 @@ async function getMessages(id: string) {
         console.log(error)
         ElMessage.error('获取聊天记录失败！')
     }
-}
-
-// 通过聊天框新建对话，通知父组件更改当前ChatId
-async function onChangeChatId(id: string) {
-    emit('change-chat-id', id);
 }
 
 onMounted(() => {
@@ -330,7 +316,7 @@ onUnmounted(() => {
         box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.1);
         border-radius: 10px;
         overflow: hidden;
-        z-index: 15;
+        z-index: 10;
 
         textarea {
             padding: 15px;

@@ -1,105 +1,39 @@
 <template>
   <div class="chat-view">
-    <!-- 左侧边栏 -->
-    <ChatList @changeWidth="handleChangeWidth" ref="chatRef" :chatList="chatList" @id-change="handleIdChange"
-      @add-chat="handleAddChat" />
-    <!-- 左上角按钮 -->
+    <ChatList />
     <div class="tool-box">
-      <RouterLink :to="{ name: 'home' }" class="to-home"><img :src="logo" alt="" @click=""></RouterLink>
+      <RouterLink :to="{ name: 'home' }" class="to-home">
+        <img :src="logo" alt="" />
+      </RouterLink>
       <div class="tool" title="开启新对话">
         <Plus style="width: 20px; height: 20px;" />
       </div>
-      <div class="tool" @click="openSidebar" title="打开侧边栏">
+      <div class="tool" @click="chatStore.openSidebar" title="打开侧边栏">
         <ArrowRight style="width: 20px; height: 20px;" />
       </div>
-      <span v-if="curTitle && curTitle != ''" :class="isSidebarClosed ? 'chat-title' : 'chat-title title-open'">
-        {{ curTitle }}
+      <span v-if="chatStore.currentTitle" class="chat-title" :class="{ 'title-open': chatStore.isSidebarOpen }">
+        {{ chatStore.currentTitle }}
       </span>
     </div>
-    <!-- 中部对话框 -->
     <div class="message-wrap">
-      <div :class="isSidebarClosed ? 'message-box close-sidebar' : 'message-box'">
-        <ChatBox :chat-id="curChat ? curChat.conversationId : ''" @change-chat-id="handleAddIdOnChat"></ChatBox>
+      <div class="message-box" :class="{ 'close-sidebar': !chatStore.isSidebarOpen }">
+        <ChatBox />
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import ChatList from '@/components/ChatList.vue';
-import ChatBox from '@/components/ChatBox.vue';
-import { ref, onMounted, computed, reactive } from 'vue';
-import logo from '@/assets/my-chat-logo.png';
-import { ragHttp } from '@/util/http';
-import { ElMessage } from 'element-plus';
-import { ChatSessionVO } from '@/types/AiModule/types';
+import ChatList from '@/components/ChatList.vue'
+import ChatBox from '@/components/ChatBox.vue'
+import { useChatStore } from '@/stores/chat'
+import { onMounted } from 'vue'
+import logo from '@/assets/my-chat-logo.png'
 
-const isSidebarClosed = ref<boolean>(false);
-const chatRef = ref<InstanceType<typeof ChatList>>()
-function handleChangeWidth() {
-  isSidebarClosed.value = true;
-}
-function openSidebar() {
-  isSidebarClosed.value = false;
-  chatRef.value?.openSidebarChild();
-}
+const chatStore = useChatStore()
 
-/**
- * 会话列表业务群
- */
-const curChat = reactive<ChatSessionVO>({ title: '', conversationId: null });
-const chatList = ref<ChatSessionVO[]>([]);
-const curTitle = computed(() => {
-  if (!curChat) return '';
-  if (!curChat.title || curChat.title == '') return curChat.conversationId;
-  return curChat.title;
-})
-// 回调：处理会话更改
-function handleIdChange(id: string) {
-  chatList.value.forEach((e) => {
-    if (e.conversationId == id) {
-      curChat.conversationId = e.conversationId;
-      curChat.title = e.title;
-      return;
-    }
-  })
-}
-
-async function getConversationIds() {
-  try {
-    const res = await ragHttp.get<ChatSessionVO[]>('/ai/history/getConversations');
-    if (res.data.code === 200) {
-      chatList.value = res.data.data;
-    } else {
-      console.log(res.data.message);
-      ElMessage.error(res.data.message || "获取会话列表失败！");
-    }
-  } catch (e) {
-    console.log(e);
-    ElMessage.error("获取会话列表失败！");
-  }
-}
-// 回调：点击左边栏新增会话
-async function handleAddChat(id: string) {
-  try {
-    await ragHttp.post(`/ai/history/addConversation?conversationId=${id}`);
-    curChat.conversationId = id;
-    curChat.title = '';
-    chatList.value.push({ conversationId: id, title: '' });
-    // chatRef.value?.setCurChatId(id);
-  } catch (error) {
-    console.log(error)
-  }
-}
-// 回调：通过聊天框新建对话
-function handleAddIdOnChat(id: string) {
-  curChat.title = '';
-  curChat.conversationId = id;
-  chatRef.value?.setCurChatId(id);
-  handleAddChat(id);
-}
 onMounted(() => {
-  getConversationIds();
+  chatStore.fetchChatList()
 })
 </script>
 

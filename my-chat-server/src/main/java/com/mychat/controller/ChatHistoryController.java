@@ -1,6 +1,7 @@
 package com.mychat.controller;
 
 import com.mychat.common.result.Result;
+import com.mychat.entity.dto.ChatSessionsDTO;
 import com.mychat.entity.vo.ChatSessionVO;
 import com.mychat.service.ChatSessionsService;
 import com.mychat.service.SpringAiChatMemoryService;
@@ -56,5 +57,14 @@ public class ChatHistoryController {
     @PostMapping("/addConversation")
     public void addConversation(@RequestParam String conversationId) {
         chatSessionsService.addConversation(conversationId);
+    }
+
+    /**
+     * 更新聊天会话
+     * @param dto 会话DTO，内含更新条件
+     */
+    @PostMapping("/update")
+    public void updateConversation(@RequestParam ChatSessionsDTO dto) {
+        chatSessionsService.updateConversation(dto);
     }
 }

@@ -1,11 +1,16 @@
 package com.mychat.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.mychat.common.result.Result;
+import com.mychat.entity.dto.ChatSessionsDTO;
 import com.mychat.entity.po.ChatSessions;
 import com.mychat.mapper.ChatSessionsMapper;
 import com.mychat.service.ChatSessionsService;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
+
+import static com.mychat.common.result.ResultCodeEnum.NORMAL_PARAM_ERROR;
 
 @Service
 @AllArgsConstructor
@@ -17,5 +22,18 @@ public class ChatSessionsServiceImpl extends ServiceImpl<ChatSessionsMapper, Cha
         ChatSessions dto = new ChatSessions();
         dto.setConversationId(conversationId);
         chatSessionsMapper.insert(dto);
+    }
+
+    @Override
+    public Result updateConversation(ChatSessionsDTO dto) {
+        if (dto == null || dto.getConversationId() == null || dto.getConversationId().isEmpty()) {
+            return Result.fail(NORMAL_PARAM_ERROR.getCode(), NORMAL_PARAM_ERROR.getMessage());
+        }
+        LambdaUpdateWrapper<ChatSessions> wrapper = new LambdaUpdateWrapper<>();
+        wrapper.eq(ChatSessions::getConversationId, dto.getConversationId())
+                .set(dto.getTitle() != null, ChatSessions::getTitle, dto.getTitle())
+                .set(dto.getUserId() != null, ChatSessions::getUserId, dto.getUserId());
+        int res = chatSessionsMapper.update(wrapper);
+        return res > 0 ? Result.ok("更新成功") : Result.fail("SQL执行失败");
     }
 }

@@ -64,7 +64,7 @@ public class ChatHistoryController {
      * @param dto 会话DTO，内含更新条件
      */
     @PostMapping("/update")
-    public void updateConversation(@RequestParam ChatSessionsDTO dto) {
-        chatSessionsService.updateConversation(dto);
+    public Result updateConversation(@RequestBody ChatSessionsDTO dto) {
+        return chatSessionsService.updateConversation(dto);
     }
 }

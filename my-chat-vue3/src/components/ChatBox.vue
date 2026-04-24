@@ -46,9 +46,8 @@ import type { Message } from '@/types/AiModule/types'
 import { ref, nextTick, onMounted, onUnmounted, watch } from 'vue'
 import { streamChat, generateChatId } from '@/utils/streamChat'
 import { useChatStore } from '@/stores/chat'
-import { ElMessage } from 'element-plus'
-import { ragHttp } from '@/utils/http'
-import { ResultData } from '@/types/models'
+import { ragService } from '@/utils/http'
+import { request } from '@/utils/request'
 
 
 const chatStore = useChatStore()
@@ -165,17 +164,12 @@ function scrollToBottom() {
 
 // 获取会话聊天记录
 async function getMessages(id: string) {
-    try {
-        const res = await ragHttp.get<ResultData<Message[]>>(`/ai/history/getMessages/${id}`)
-        if (res.data.code === 200) {
-            messages.value = res.data.data;
-        } else {
-            console.log(res.data.message)
-            ElMessage.error('获取聊天记录失败！')
-        }
-    } catch (error) {
-        console.log(error)
-        ElMessage.error('获取聊天记录失败！')
+    const list = await request(
+        () => ragService.get<Message[]>(`/ai/history/getMessages/${id}`),
+        { errorMsg: '获取聊天记录失败！' }
+    )
+    if (list) {
+        messages.value = list
     }
 }
 

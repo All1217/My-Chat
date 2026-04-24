@@ -2,6 +2,8 @@ package com.mychat.common.result;
 
 import lombok.Data;
 
+import static com.mychat.common.result.ResultCodeEnum.APP_SERVER_ERROR;
+
 @Data
 public class Result<T> {
 
@@ -31,22 +33,30 @@ public class Result<T> {
         return result;
     }
 
-
     public static <T> Result<T> ok(T data) {
         return build(data, ResultCodeEnum.SUCCESS);
+    }
+
+    public static <T> Result<T> ok(String msg) {
+        Result<T> r = build(null, ResultCodeEnum.SUCCESS);
+        r.setMessage(msg);
+        return r;
     }
 
     public static <T> Result<T> ok() {
         return Result.ok(null);
     }
 
-    public static <T> Result<T> fail() {
-        return build(null, ResultCodeEnum.FAIL);
-    }
-
     public static <T> Result<T> fail(Integer code, String message) {
         Result<T> result = build(null);
         result.setCode(code);
+        result.setMessage(message);
+        return result;
+    }
+
+    public static <T> Result<T> fail(String message) {
+        Result<T> result = build(null);
+        result.setCode(APP_SERVER_ERROR.getCode());
         result.setMessage(message);
         return result;
     }

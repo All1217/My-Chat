@@ -6,8 +6,6 @@ import lombok.Getter;
 public enum ResultCodeEnum {
 
     SUCCESS(200, "成功"),
-    FAIL(201, "失败"),
-    PARAM_ERROR(202, "参数不正确"),
     SERVICE_ERROR(203, "服务异常"),
     DATA_ERROR(204, "数据异常"),
     ILLEGAL_REQUEST(205, "非法请求"),
@@ -28,7 +26,7 @@ public enum ResultCodeEnum {
     ADMIN_ACCESS_FORBIDDEN(309, "无访问权限"),
     ADMIN_ACCOUNT_LOGOUT_ERROR(310, "该账号已注销"),
 
-    NORMAL_PARAM_ERROR(404, "参数不正确"),
+    NORMAL_PARAM_ERROR(404, "参数非法"),
 
     APP_SERVER_ERROR(500, "服务器异常"),
     APP_LOGIN_AUTH(501, "未登陆"),

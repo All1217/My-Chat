@@ -1,7 +1,7 @@
 ---
-name: New prompt
-description: New prompt
+name: 默认提示词
+description: 默认提示词
 invokable: true
 ---
 
-Please write a thorough suite of unit tests for this code, making sure to cover all relevant edge cases
+除非用户有特殊说明，否则请保持代码风格简洁，无需写测试用例和使用案例，不要直接修改代码，只需给出代码让用户手动复制修改。

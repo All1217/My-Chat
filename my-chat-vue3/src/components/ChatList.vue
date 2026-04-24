@@ -67,7 +67,7 @@ import { ref } from 'vue'
 import { useChatStore } from '@/stores/chat'
 import { generateChatId } from '@/utils/streamChat'
 import logo from '@/assets/my-chat-logo.png'
-import {ElMessage} from "element-plus";
+import { ElMessage } from "element-plus";
 
 const chatStore = useChatStore()
 const curShowMore = ref<string>('')
@@ -85,7 +85,7 @@ function handleConfirmRename() {
         ElMessage.error('名称不能为空');
         return;
     }
-    // 这里应该调用接口更新会话名称，暂时直接更新本地状态
+    chatStore.updateConversation({ conversationId: chatStore.currentChatId, title: newName.value });
     showRenameDialog.value = false;
 }
 </script>

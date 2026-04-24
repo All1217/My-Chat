@@ -54,39 +54,6 @@ export const crmHttp = {
     return crmService.delete(url, { data, ...config });
   },
 };
-export const ragHttp = {
-  get<T>(
-    url: string,
-    params?: object,
-    config?: AxiosRequestConfig,
-  ): Promise<ResultData<T>> {
-    return ragService.get(url, { params, ...config });
-  },
-
-  post<T>(
-    url: string,
-    data?: object,
-    config?: AxiosRequestConfig,
-  ): Promise<ResultData<T>> {
-    return ragService.post(url, data, config);
-  },
-
-  put<T>(
-    url: string,
-    data?: object,
-    config?: AxiosRequestConfig,
-  ): Promise<ResultData<T>> {
-    return ragService.put(url, data, config);
-  },
-
-  delete<T>(
-    url: string,
-    data?: object,
-    config?: AxiosRequestConfig,
-  ): Promise<ResultData<T>> {
-    return ragService.delete(url, { data, ...config });
-  },
-};
 
 /**
  * @description: 请求拦截器

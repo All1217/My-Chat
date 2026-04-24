@@ -1,9 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { ragHttp } from '@/utils/http'
-import { ElMessage } from 'element-plus'
-import type { ChatSessionVO } from '@/types/AiModule/types'
-import type { ResultData } from '@/types/models.ts'
+import { ragService } from '@/utils/http'
+import type { ChatSessionVO, ChatSessionDTO } from '@/types/AiModule/types'
+import { request, mutate } from '@/utils/request'
 
 export const useChatStore = defineStore('chat', () => {
     // ========== 状态 ==========
@@ -23,43 +22,37 @@ export const useChatStore = defineStore('chat', () => {
     })
 
     // ========== 方法 ==========
-
     /** 获取会话列表 */
     async function fetchChatList() {
-        try {
-            const res = await ragHttp.get<ResultData<ChatSessionVO[]>>('/ai/history/getConversations')
-            if (res.data.code === 200) {
-                chatList.value = res.data.data
-            } else {
-                ElMessage.error(res.data.message || '获取会话列表失败！')
-            }
-        } catch (e) {
-            console.error(e)
-            ElMessage.error('获取会话列表失败！')
+        const list = await request(
+            () => ragService.get<ChatSessionVO[]>('/ai/history/getConversations')
+        )
+        if (list) {
+            chatList.value = list.data
         }
     }
-
     /** 新建会话（持久化到后端并加入列表） */
     async function createConversation(id: string) {
-        try {
-            await ragHttp.post(`/ai/history/addConversation?conversationId=${id}`)
+        const ok = await mutate(
+            () => ragService.post(`/ai/history/addConversation?conversationId=${id}`),
+            '创建会话失败！'
+        )
+        if (ok) {
             chatList.value.push({ conversationId: id, title: '' })
             currentChatId.value = id
-        } catch (e) {
-            console.error(e)
-            ElMessage.error('创建会话失败！')
         }
     }
-
-    /** 新建会话（持久化到后端并加入列表） */
-    async function updateConversation(id: string) {
-        try {
-            await ragHttp.post(`/ai/history/addConversation?conversationId=${id}`)
-            chatList.value.push({ conversationId: id, title: '' })
-            currentChatId.value = id
-        } catch (e) {
-            console.error(e)
-            ElMessage.error('更新失败！')
+    /** 更新会话 */
+    async function updateConversation(dto: ChatSessionDTO) {
+        const ok = await mutate(
+            () => ragService.post('/ai/history/update', dto),
+            '更新失败！'
+        )
+        if (ok) {
+            const target = chatList.value.find(c => c.conversationId === dto.conversationId)
+            if (target && dto.title !== undefined) {
+                target.title = dto.title
+            }
         }
     }
 
@@ -91,5 +84,6 @@ export const useChatStore = defineStore('chat', () => {
         openSidebar,
         closeSidebar,
         toggleSidebar,
+        updateConversation
     }
 })

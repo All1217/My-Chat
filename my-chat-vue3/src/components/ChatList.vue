@@ -32,7 +32,7 @@
                         <template #dropdown>
                             <el-dropdown-menu>
                                 <el-dropdown-item @click="showRenameDialog = true">重命名</el-dropdown-item>
-                                <el-dropdown-item>删除</el-dropdown-item>
+                                <el-dropdown-item >删除</el-dropdown-item>
                             </el-dropdown-menu>
                         </template>
                     </el-dropdown>

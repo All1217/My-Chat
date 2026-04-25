@@ -1,8 +1,9 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { ragService } from '@/utils/http'
+import { ragHttp } from '@/utils/http'
 import type { ChatSessionVO, ChatSessionDTO } from '@/types/AiModule/types'
 import { request, mutate } from '@/utils/request'
+import { ElMessage } from 'element-plus'
 
 export const useChatStore = defineStore('chat', () => {
     // ========== 状态 ==========
@@ -25,33 +26,51 @@ export const useChatStore = defineStore('chat', () => {
     /** 获取会话列表 */
     async function fetchChatList() {
         const list = await request(
-            () => ragService.get<ChatSessionVO[]>('/ai/history/getConversations')
+            () => ragHttp.get<ChatSessionVO[]>('/ai/history/getConversations'),
+            { errorMsg: '获取会话列表失败' }
         )
         if (list) {
-            chatList.value = list.data
+            chatList.value = list
         }
     }
     /** 新建会话（持久化到后端并加入列表） */
     async function createConversation(id: string) {
-        const ok = await mutate(
-            () => ragService.post(`/ai/history/addConversation?conversationId=${id}`),
-            '创建会话失败！'
-        )
-        if (ok) {
+        try {
+            await ragHttp.post(`/ai/history/addConversation?conversationId=${id}`)
+            // 能走到这里说明 HTTP 200，后端已写库
             chatList.value.push({ conversationId: id, title: '' })
             currentChatId.value = id
+        } catch {
+            ElMessage.error('创建会话失败！')
         }
     }
     /** 更新会话 */
     async function updateConversation(dto: ChatSessionDTO) {
         const ok = await mutate(
-            () => ragService.post('/ai/history/update', dto),
+            () => ragHttp.post('/ai/history/update', dto),
             '更新失败！'
         )
         if (ok) {
-            const target = chatList.value.find(c => c.conversationId === dto.conversationId)
-            if (target && dto.title !== undefined) {
-                target.title = dto.title
+            const index = chatList.value.findIndex(c => c.conversationId === dto.conversationId)
+            if (index !== -1 && dto.title !== undefined) {
+                // 替换整个对象，确保响应式触发
+                chatList.value[index] = { ...chatList.value[index], title: dto.title }
+            }
+            ElMessage.success('更新成功！')
+        }
+    }
+    /** 删除会话 */
+    async function deleteConversation(id: string) {
+        const ok = await mutate(
+            () => ragHttp.delete(`/ai/history/deleteById?id=${id}`),
+            '删除失败！'
+        )
+        if (ok) {
+            const index = chatList.value.findIndex(c => c.conversationId === id)
+            if (index !== -1) {
+                chatList.value.splice(index, 1);
+                currentChatId.value = '';
+                ElMessage.success('删除成功！');
             }
         }
     }
@@ -62,15 +81,9 @@ export const useChatStore = defineStore('chat', () => {
     }
 
     /** 侧边栏控制 */
-    function openSidebar() {
-        isSidebarOpen.value = true
-    }
-    function closeSidebar() {
-        isSidebarOpen.value = false
-    }
-    function toggleSidebar() {
-        isSidebarOpen.value = !isSidebarOpen.value
-    }
+    function openSidebar() { isSidebarOpen.value = true }
+    function closeSidebar() { isSidebarOpen.value = false }
+    function toggleSidebar() { isSidebarOpen.value = !isSidebarOpen.value }
 
     return {
         chatList,
@@ -84,6 +97,7 @@ export const useChatStore = defineStore('chat', () => {
         openSidebar,
         closeSidebar,
         toggleSidebar,
-        updateConversation
+        updateConversation,
+        deleteConversation
     }
 })

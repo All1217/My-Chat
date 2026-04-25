@@ -61,17 +61,13 @@ export const useChatStore = defineStore('chat', () => {
     }
     /** 删除会话 */
     async function deleteConversation(id: string) {
-        const ok = await mutate(
-            () => ragHttp.delete(`/ai/history/deleteById?id=${id}`),
-            '删除失败！'
-        )
-        if (ok) {
-            const index = chatList.value.findIndex(c => c.conversationId === id)
-            if (index !== -1) {
-                chatList.value.splice(index, 1);
-                currentChatId.value = '';
-                ElMessage.success('删除成功！');
-            }
+        // 删除接口没有返回值，所以直接调用 ragHttp.delete
+        ragHttp.delete(`/ai/history/deleteById?id=${id}`);
+        const index = chatList.value.findIndex(c => c.conversationId === id)
+        if (index !== -1) {
+            chatList.value.splice(index, 1);
+            currentChatId.value = '';
+            ElMessage.success('删除成功！');
         }
     }
 

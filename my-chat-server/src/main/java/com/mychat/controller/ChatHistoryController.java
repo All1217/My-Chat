@@ -45,9 +45,9 @@ public class ChatHistoryController {
     /**
      * 删除指定会话的聊天历史
      */
-    @DeleteMapping("/{conversationId}")
-    public void deleteConversationHistory(@PathVariable String conversationId) {
-        chatMemory.clear(conversationId);
+    @DeleteMapping("/deleteById")
+    public void deleteChatSessionById(@RequestParam String id) {
+        chatSessionsService.deleteChatSessionById(id);
     }
 
     /**

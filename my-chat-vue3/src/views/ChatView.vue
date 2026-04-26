@@ -5,7 +5,7 @@
       <RouterLink :to="{ name: 'home' }" class="to-home">
         <img :src="logo" alt="" />
       </RouterLink>
-      <div class="tool" title="开启新对话">
+      <div class="tool" title="开启新对话" @click="handleAddConversation">
         <Plus style="width: 20px; height: 20px;" />
       </div>
       <div class="tool" @click="chatStore.openSidebar" title="打开侧边栏">
@@ -29,8 +29,14 @@ import ChatBox from '@/components/ChatBox.vue'
 import { useChatStore } from '@/stores/chat'
 import { onMounted } from 'vue'
 import logo from '@/assets/my-chat-logo.png'
+import { generateChatId } from '@/utils/streamChat'
 
 const chatStore = useChatStore()
+
+function handleAddConversation() {
+    const id = generateChatId()
+    chatStore.createConversation(id)
+}
 
 onMounted(() => {
   chatStore.fetchChatList()

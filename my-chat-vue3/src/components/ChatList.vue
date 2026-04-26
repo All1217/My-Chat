@@ -32,7 +32,7 @@
                         <template #dropdown>
                             <el-dropdown-menu>
                                 <el-dropdown-item @click="showRenameDialog = true">重命名</el-dropdown-item>
-                                <el-dropdown-item>删除</el-dropdown-item>
+                                <el-dropdown-item @click="showDeleteDialog = true">删除</el-dropdown-item>
                             </el-dropdown-menu>
                         </template>
                     </el-dropdown>
@@ -53,9 +53,17 @@
             <template #footer>
                 <div class="dialog-footer">
                     <el-button @click="showRenameDialog = false">取消</el-button>
-                    <el-button type="primary" @click="handleConfirmRename">
-                        确定
-                    </el-button>
+                    <el-button type="primary" @click="handleConfirmRename">确定</el-button>
+                </div>
+            </template>
+        </el-dialog>
+
+        <el-dialog v-model="showDeleteDialog" title="是否确认删除该会话？" width="300">
+            这将彻底清除该会话的所有聊天记录！
+            <template #footer>
+                <div class="dialog-footer">
+                    <el-button @click="showDeleteDialog = false">取消</el-button>
+                    <el-button type="danger" @click="handleDelete">确定</el-button>
                 </div>
             </template>
         </el-dialog>
@@ -87,6 +95,13 @@ function handleConfirmRename() {
     }
     chatStore.updateConversation({ conversationId: chatStore.currentChatId, title: newName.value });
     showRenameDialog.value = false;
+}
+
+// 删除会话
+const showDeleteDialog = ref<boolean>(false);
+function handleDelete() {
+    chatStore.deleteConversation(chatStore.currentChatId);
+    showDeleteDialog.value = false;
 }
 </script>
 <style scoped lang="less">

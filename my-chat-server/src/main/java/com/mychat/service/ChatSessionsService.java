@@ -9,4 +9,6 @@ public interface ChatSessionsService extends IService<ChatSessions> {
     void addConversation(String conversationId);
 
     Result updateConversation(ChatSessionsDTO dto);
+
+    void deleteChatSessionById(String id);
 }

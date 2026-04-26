@@ -1,5 +1,6 @@
 package com.mychat.config;
 
+import com.mychat.tools.ToolDemo;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.SimpleLoggerAdvisor;
@@ -35,6 +36,7 @@ public class AiConfiguration {
                         new SimpleLoggerAdvisor(),
                         MessageChatMemoryAdvisor.builder(chatMemory).build()
                 )
+                .defaultTools(new ToolDemo())
                 .build();
     }
 }

@@ -47,8 +47,11 @@
             <span class="user-name">12345678912</span>
         </div>
 
+        <!-- append-to-body属性将 el-dialog 的 DOM（对话框本身和遮罩层）移动到 <body> 末尾，脱离原组件的 DOM 树，teleported告诉组件使用 <Teleport to="body"> 渲染。此时遮罩层和对话框被直接渲染到 <body> 的末尾，不再是 .chat-component 的子节点，避免了对话框弹出时聊天对话框没有被盖住还能输入文字发送消息的问题 -->
+        <!-- 问题关键点：只要元素同时设置了 position（非 static）和 z-index（非 auto），就会创建一个层叠上下文（Stacking Context）。这个层叠上下文就像是一个独立的“层级世界”，它内部所有元素的 z-index 都相对于这个上下文，而不是相对于全局文档。 -->
+        <!-- el-dialog 的遮罩层（.v-overlay 或其他类）即使设置了 position: fixed 和很高的 z-index（比如 2000），这个 2000 也只是相对于 .chat-component 层叠上下文内部而言的。它的 layer 依然被锁在 .chat-component 内部，无法覆盖位于 .chat-component 外部（DOM 树中不是其子级）的 .chat-box。 -->
         <el-dialog v-model="showRenameDialog" title="重命名" width="400"
-            @open="() => { newName = chatStore.currentTitle || '' }">
+            @open="() => { newName = chatStore.currentTitle || '' }" append-to-body teleported>
             <el-input v-model="newName" style="width: 100%" maxlength="30" show-word-limit />
             <template #footer>
                 <div class="dialog-footer">
@@ -58,7 +61,7 @@
             </template>
         </el-dialog>
 
-        <el-dialog v-model="showDeleteDialog" title="是否确认删除该会话？" width="300">
+        <el-dialog v-model="showDeleteDialog" title="是否确认删除该会话？" width="300" append-to-body teleported>
             这将彻底清除该会话的所有聊天记录！
             <template #footer>
                 <div class="dialog-footer">

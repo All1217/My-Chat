@@ -12,7 +12,7 @@
                         <MarkdownRenderer :content="msg.text" />
                     </div>
                     <div class="tool">
-                        <div class="tool-item" title="复制文本">
+                        <div class="tool-item" title="复制文本" @click="copyText(msg.text)">
                             <CopyDocument style="width: 20px; height: 20px;" />
                         </div>
                     </div>
@@ -48,8 +48,7 @@ import { streamChat, generateChatId } from '@/utils/streamChat'
 import { useChatStore } from '@/stores/chat'
 import { ragService } from '@/utils/http'
 import { request } from '@/utils/request'
-
-
+import { ElMessage } from 'element-plus'
 const chatStore = useChatStore()
 
 const messages = ref<Message[]>([])
@@ -171,6 +170,14 @@ async function getMessages(id: string) {
     if (list) {
         messages.value = list
     }
+}
+
+function copyText(text: string) {
+    navigator.clipboard.writeText(text).then(() => {
+        ElMessage.success('复制成功')
+    }).catch(() => {
+        ElMessage.error('复制失败')
+    })
 }
 
 onMounted(() => {

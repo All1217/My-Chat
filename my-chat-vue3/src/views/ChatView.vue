@@ -17,7 +17,11 @@
     </div>
     <div class="message-wrap">
       <div class="message-box" :class="{ 'close-sidebar': !chatStore.isSidebarOpen }">
-        <ChatBox />
+        <ChatBox ref="chatBoxRef" @scroll-changed="updateThumb" />
+        <!-- 自定义滑条 -->
+        <div class="custom-scrollbar" v-if="showScrollbar" @mousedown="startDrag">
+          <div class="custom-scrollbar-thumb" :style="{ height: thumbHeight + '%', top: thumbTop + '%' }"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -27,19 +31,92 @@
 import ChatList from '@/components/ChatList.vue'
 import ChatBox from '@/components/ChatBox.vue'
 import { useChatStore } from '@/stores/chat'
-import { onMounted } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import logo from '@/assets/my-chat-logo.png'
 import { generateChatId } from '@/utils/streamChat'
+
+/**
+ * 自定义滑条
+ */
+const chatBoxRef = ref<InstanceType<typeof ChatBox>>()
+// 自定义滚动条状态
+const showScrollbar = ref(false)
+const thumbHeight = ref(50)         // 百分比
+const thumbTop = ref(0)
+const containerHeight = ref(0)      // ul 可视高度
+const scrollHeight = ref(0)        // ul 总滚动高度
+let dragState: { startY: number; startTop: number } | null = null
+// 获取 ul 的引用
+function getUl(): HTMLElement | null {
+  return chatBoxRef.value?.chatBoxulRef ?? null
+}
+// 同步更新滑块状态
+function updateThumb() {
+  const ul = getUl()
+  if (!ul) return
+  const ratio = ul.scrollHeight / ul.clientHeight
+  if (ratio <= 1) {
+    showScrollbar.value = false
+    return
+  }
+  showScrollbar.value = true
+  containerHeight.value = ul.clientHeight
+  scrollHeight.value = ul.scrollHeight
+  thumbHeight.value = (ul.clientHeight / ul.scrollHeight) * 100
+  thumbTop.value = (ul.scrollTop / (ul.scrollHeight - ul.clientHeight)) * (100 - thumbHeight.value)
+}
+// 开始拖动滑块
+function startDrag(e: MouseEvent) {
+  e.preventDefault() // 阻止默认行为（如文本选中、拖拽图片等）
+  const thumb = (e.target as HTMLElement).closest('.custom-scrollbar-thumb')
+  if (!thumb) return
+  dragState = { startY: e.clientY, startTop: thumbTop.value }
+  // 禁用文本选择，避免拖拽时选中页面文本
+  document.body.style.userSelect = 'none'
+  document.addEventListener('mousemove', onDrag)
+  document.addEventListener('mouseup', stopDrag)
+}
+function onDrag(e: MouseEvent) {
+  if (!dragState) return
+  const ul = getUl()
+  if (!ul) return
+  const deltaY = e.clientY - dragState.startY
+  const trackHeight = ul.clientHeight
+  const thumbActualHeight = trackHeight * (thumbHeight.value / 100)
+  const maxTop = trackHeight - thumbActualHeight
+  const newTop = Math.max(0, Math.min(maxTop, (dragState.startTop / 100) * trackHeight + deltaY))
+  const newTopPercent = (newTop / trackHeight) * 100
+  thumbTop.value = newTopPercent
+  // 计算对应的 scrollTop
+  const scrollRange = ul.scrollHeight - ul.clientHeight
+  ul.scrollTop = (newTop / (trackHeight - thumbActualHeight)) * scrollRange
+}
+function stopDrag() {
+  dragState = null
+  // 恢复文本选择
+  document.body.style.userSelect = ''
+  document.removeEventListener('mousemove', onDrag)
+  document.removeEventListener('mouseup', stopDrag)
+}
 
 const chatStore = useChatStore()
 
 function handleAddConversation() {
-    const id = generateChatId()
-    chatStore.createConversation(id)
+  const id = generateChatId()
+  chatStore.createConversation(id)
 }
 
 onMounted(() => {
   chatStore.fetchChatList()
+  nextTick(() => {
+    updateThumb()
+  })
+})
+onUnmounted(() => {
+  const ul = getUl()
+  if (ul) {
+    ul.removeEventListener('scroll', updateThumb)
+  }
 })
 </script>
 
@@ -112,6 +189,30 @@ onMounted(() => {
       width: calc(100vw - 300px);
       height: 100vh;
       transition: width .5s;
+
+      .custom-scrollbar {
+        position: absolute;
+        right: 0;
+        top: 0;
+        width: 8px;
+        height: 100%;
+        background: transparent;
+        z-index: 20;
+
+        .custom-scrollbar-thumb {
+          position: absolute;
+          right: 0;
+          width: 100%;
+          background: rgba(0, 0, 0, 0.3);
+          border-radius: 4px;
+          cursor: pointer;
+          transition: background 0.2s;
+
+          &:hover {
+            background: rgba(0, 0, 0, 0.5);
+          }
+        }
+      }
     }
   }
 }

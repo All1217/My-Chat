@@ -4,7 +4,7 @@
             <div class="default-advice" v-if="messages == null || messages.length == 0">
                 <h1>在下方聊天框输入您想问的问题……</h1>
             </div>
-            <ul>
+            <ul ref="chatBoxulRef">
                 <li :class="msg.messageType === MessageType.ASSISTANT ? 'message-ai' : 'message-user'"
                     v-for="msg in messages">
                     <p class="message-content" v-if="msg.messageType === MessageType.USER">{{ msg.text }}</p>
@@ -29,6 +29,12 @@
                     </div>
                 </li>
             </ul>
+            <div class="jump-btn" v-if="(messages && messages.length > 0) || isStreaming">
+                <ArrowUpBold v-show="isAtBottom" @click="jumpToTop"
+                    style="width: 16px; height: 16px; margin-top: 6px;" />
+                <ArrowDownBold v-show="!isAtBottom" @click="jumpToBottom"
+                    style="width: 16px; height: 16px; margin-top: 6px;" />
+            </div>
         </div>
         <div class="chat-box">
             <textarea v-model="inputText" placeholder="输入你的问题……" @keydown.enter.exact.prevent="sendMessage"
@@ -46,7 +52,7 @@ import type { Message } from '@/types/AiModule/types'
 import { ref, nextTick, onMounted, onUnmounted, watch } from 'vue'
 import { streamChat, generateChatId } from '@/utils/streamChat'
 import { useChatStore } from '@/stores/chat'
-import { ragService } from '@/utils/http'
+import { ragHttp } from '@/utils/http'
 import { request } from '@/utils/request'
 import { ElMessage } from 'element-plus'
 const chatStore = useChatStore()
@@ -55,7 +61,61 @@ const messages = ref<Message[]>([])
 const inputText = ref('')
 const isStreaming = ref(false)
 const streamingContent = ref('')
-const messageListRef = ref<HTMLElement>()
+
+/**
+ * 自定义滑条
+ */
+const chatBoxulRef = ref<HTMLElement>()
+// 暴露 ulRef 给父组件
+defineExpose({ chatBoxulRef })
+function scrollToBottom() {
+    nextTick(() => {
+        if (chatBoxulRef.value) {
+            chatBoxulRef.value.scrollTop = chatBoxulRef.value.scrollHeight
+            // 通知父组件滚动位置已改变（可能有新消息导致滚动到底部）
+            emit('scroll-changed')
+        }
+    })
+}
+/**
+ * 跳转按钮
+ */
+const isAtBottom = ref(false)
+const BOTTOM_THRESHOLD = 100
+function updateIsAtBottom() {
+    const ul = chatBoxulRef.value
+    if (!ul) return
+    isAtBottom.value = ul.scrollHeight - ul.scrollTop - ul.clientHeight < BOTTOM_THRESHOLD
+}
+// 监听消息列表变化，待 DOM 更新后重新判断是否在底部
+watch(messages, () => {
+    nextTick(() => {
+        updateIsAtBottom()
+    })
+})
+// 滚动到顶部
+function jumpToTop() {
+    const ul = chatBoxulRef.value
+    if (!ul) return
+    ul.scrollTop = 0
+}
+
+function jumpToBottom() {
+    const ul = chatBoxulRef.value
+    if (!ul) return
+    ul.scrollTop = ul.scrollHeight
+}
+function onUlScroll() {
+    updateIsAtBottom()
+    emit('scroll-changed')
+}
+/**
+ * 当新消息发送后，ChatBox 内部调用 scrollToBottom 时，父组件的滑块位置也应该同步更新
+ */
+const emit = defineEmits<{
+    (e: 'scroll-changed'): void
+}>()
+
 let stopStreamingFn: (() => void) | null = null
 // 标记：当前消息是否由本组件本地发起的（不需要从后端拉历史）
 let isLocalNewChat = false
@@ -150,25 +210,16 @@ function stopStreaming() {
     scrollToBottom()
 }
 
-function scrollToBottom() {
-    nextTick(() => {
-        if (messageListRef.value) {
-            const container = messageListRef.value.querySelector('ul')
-            if (container) {
-                container.scrollTop = container.scrollHeight
-            }
-        }
-    })
-}
-
 // 获取会话聊天记录
 async function getMessages(id: string) {
     const list = await request(
-        () => ragService.get<Message[]>(`/ai/history/getMessages/${id}`),
+        () => ragHttp.get<Message[]>(`/ai/history/getMessages/${id}`),
         { errorMsg: '获取聊天记录失败！' }
     )
     if (list) {
         messages.value = list
+        // 进入会话时自动滚动到最新消息
+        scrollToBottom()
     }
 }
 
@@ -181,12 +232,19 @@ function copyText(text: string) {
 }
 
 onMounted(() => {
-    scrollToBottom()
+    const ul = chatBoxulRef.value
+    if (ul) {
+        ul.addEventListener('scroll', onUlScroll)
+    }
 })
 // 组件卸载时停止流式请求
 onUnmounted(() => {
     if (stopStreamingFn) {
         stopStreamingFn()
+    }
+    const ul = chatBoxulRef.value
+    if (ul) {
+        ul.removeEventListener('scroll', onUlScroll)
     }
 })
 
@@ -202,8 +260,22 @@ onUnmounted(() => {
     padding-top: 15px;
 
     .message-list-wrap {
+        position: relative;
         padding-top: 50px;
         height: 100%;
+
+        .jump-btn {
+            position: absolute;
+            right: 0;
+            bottom: 15px;
+            width: 28px;
+            height: 28px;
+            background-color: #fff;
+            border-radius: 50%;
+            text-align: center;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+        }
 
         .default-advice {
             padding: 60px 15px 15px 15px;

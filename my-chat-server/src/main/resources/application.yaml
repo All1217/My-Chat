@@ -2,6 +2,10 @@ server:
   port: 8100
   address: 0.0.0.0
 spring:
+  servlet:
+    multipart:
+      max-file-size: 200MB      # 视频文件可能较大
+      max-request-size: 200MB
   application:
     name: my-chat
   ai:
@@ -10,7 +14,7 @@ spring:
       api-key: ${OPENAI_API_KEY}
       chat:
         options:
-          model: deepseek-v4-pro
+          model: deepseek-chat
           temperature: 0.4     # 控制随机性（0-2）
           max-tokens: 4096      # 最大输出token数
 #          top-p: 1.0            # 核采样参数
@@ -46,3 +50,9 @@ logging:
   level:
     org.springframework.ai: debug
     com.mychat: debug
+app:
+  ffmpeg:
+    # 是否从classpath加载（开发环境可以设为false，直接用系统安装的）
+    use-embedded: true
+    # 临时目录清理策略
+    cleanup-temp-on-exit: true

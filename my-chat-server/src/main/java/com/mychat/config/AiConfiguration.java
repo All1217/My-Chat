@@ -1,5 +1,6 @@
 package com.mychat.config;
 
+import com.mychat.tools.FFmpegTool;
 import com.mychat.tools.ShellTool;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
@@ -30,13 +31,12 @@ public class AiConfiguration {
     public ChatClient chatClient(OpenAiChatModel model, ChatMemory chatMemory) {
         return ChatClient
                 .builder(model)
-                .defaultOptions(ChatOptions.builder().model("deepseek-chat").build())
                 .defaultSystem("请根据用户提问灵活回应。")
                 .defaultAdvisors(
                         new SimpleLoggerAdvisor(),
                         MessageChatMemoryAdvisor.builder(chatMemory).build()
                 )
-                .defaultTools(new ShellTool())
+                .defaultTools(new ShellTool(), new FFmpegTool())
                 .build();
     }
 }

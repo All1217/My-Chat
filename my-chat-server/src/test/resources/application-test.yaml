@@ -1,0 +1,19 @@
+spring:
+  ai:
+    openai:
+      base-url: http://localhost:9999  # 测试时不会真正调用
+      api-key: test-key
+      chat:
+        options:
+          model: test-model
+
+app:
+  ffmpeg:
+    use-embedded: true
+    temp-cleanup: true
+
+# 关闭一些不必要的自动配置
+logging:
+  level:
+    com.mychat: DEBUG
+    org.springframework: WARN

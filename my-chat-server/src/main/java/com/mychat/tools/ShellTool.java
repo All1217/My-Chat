@@ -2,6 +2,7 @@ package com.mychat.tools;
 
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
+import org.springframework.stereotype.Component;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -15,6 +16,7 @@ import java.util.stream.Collectors;
  * 安全的只读 Shell 命令执行工具
  * 只允许白名单命令，防止 AI 执行危险操作
  */
+@Component
 public class ShellTool {
 
     private static final Path PROJECT_ROOT = Paths.get(System.getProperty("user.dir"))

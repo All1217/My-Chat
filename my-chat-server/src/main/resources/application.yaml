@@ -4,7 +4,7 @@ server:
 spring:
   servlet:
     multipart:
-      max-file-size: 200MB      # 视频文件可能较大
+      max-file-size: 200MB
       max-request-size: 200MB
   application:
     name: my-chat
@@ -15,44 +15,33 @@ spring:
       chat:
         options:
           model: deepseek-chat
-          temperature: 0.4     # 控制随机性（0-2）
-          max-tokens: 4096      # 最大输出token数
-#          top-p: 1.0            # 核采样参数
-#          frequency-penalty: 0  # 频率惩罚
-#          presence-penalty: 0   # 存在惩罚
-#      embedding:
-#        options:
-#          model: text-embedding-v3
-#          dimensions: 1024
+          max-tokens: 4096
+          extra-body:
+            thinking:
+              type: disabled
       client:
-        connect-timeout: 15s    # 连接超时
-        read-timeout: 20s       # 读取超时
+        connect-timeout: 15s
+        read-timeout: 120s
   datasource:
-#    driver-class-name: com.mysql.cj.jdbc.Driver
-#    url: jdbc:mysql://localhost:3306/db01?serverTimezone=Asia/Shanghai&useSSL=false&useUnicode=true&characterEncoding=utf-8&zeroDateTimeBehavior=convertToNull&transformedBitIsBoolean=true&tinyInt1isBit=false&allowPublicKeyRetrieval=true&allowMultiQueries=true&useServerPrepStmts=false
-#    username: root
-#    password: 123456
-    url: jdbc:h2:file:./data/mychatdb;AUTO_SERVER=TRUE  # 文件模式
-#    url: jdbc:h2:mem:mychatdb  # 内存模式
+    url: jdbc:h2:file:./data/mychatdb;AUTO_SERVER=TRUE
     driver-class-name: org.h2.Driver
     username: root
     password:
   h2:
     console:
-      enabled: true  # 开发时开启Web控制台
+      enabled: true
       path: /h2-console
   sql:
     init:
       schema-locations: classpath:schema.sql
-      mode: always  # 总是初始化
-      continue-on-error: true  # 出错继续
+      mode: always
+      continue-on-error: true
 logging:
   level:
     org.springframework.ai: debug
     com.mychat: debug
+    org.springframework.web.reactive.function.client.ExchangeFunctions: trace   # ← 新增：打印完整 HTTP 报文
 app:
   ffmpeg:
-    # 是否从classpath加载（开发环境可以设为false，直接用系统安装的）
     use-embedded: true
-    # 临时目录清理策略
     cleanup-temp-on-exit: true

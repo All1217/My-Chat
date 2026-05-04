@@ -9,6 +9,13 @@
                     v-for="msg in messages">
                     <p class="message-content" v-if="msg.messageType === MessageType.USER">{{ msg.text }}</p>
                     <div class="message-content" v-else>
+                        <div v-if="parseMessage(msg.text).thinking" class="thinking-box">
+                            <el-collapse>
+                                <el-collapse-item title="🤔 思考过程">
+                                    <MarkdownRenderer :content="parseMessage(msg.text).thinking" />
+                                </el-collapse-item>
+                            </el-collapse>
+                        </div>
                         <MarkdownRenderer :content="msg.text" />
                     </div>
                     <div class="tool">
@@ -20,6 +27,13 @@
                 <!-- 正在输入的AI消息 -->
                 <li class="message-ai" v-if="isStreaming">
                     <div class="message-content">
+                        <div v-if="parseMessage(streamingContent).thinking" class="thinking-box">
+                            <el-collapse>
+                                <el-collapse-item title="🤔 思考过程（实时更新中...）">
+                                    <MarkdownRenderer :content="parseMessage(streamingContent).thinking" />
+                                </el-collapse-item>
+                            </el-collapse>
+                        </div>
                         <MarkdownRenderer :content="streamingContent" />
                     </div>
                     <div class="tool">
@@ -209,6 +223,28 @@ function stopStreaming() {
     streamingContent.value = ''
     scrollToBottom()
 }
+function parseMessage(raw: string): Message {
+    const thinkMatch = raw.match(/\[THINKING_START\]([\s\S]*?)\[THINKING_END\]/)
+    if (thinkMatch) {
+        return {
+            thinking: thinkMatch[1].trim(),
+            text: raw.replace(/\[THINKING_START\][\s\S]*?\[THINKING_END\]/g, '').trim(),
+            messageType: MessageType.ASSISTANT
+        }
+    }
+    return { thinking: null, text: raw, messageType: MessageType.ASSISTANT }
+}
+// function parseMessage(raw: string): Message {
+//     const thinkMatch = raw.match(/\[THINKING\]([\s\S]*?)\[\/THINKING\]/)
+//     if (thinkMatch) {
+//         return {
+//             thinking: thinkMatch[1].trim(),
+//             text: raw.replace(/\[THINKING\][\s\S]*?\[\/THINKING\]/g, '').trim(),
+//             messageType: MessageType.ASSISTANT
+//         }
+//     }
+//     return { thinking: null, text: raw, messageType: MessageType.ASSISTANT }
+// }
 
 // 获取会话聊天记录
 async function getMessages(id: string) {

@@ -10,4 +10,5 @@ export interface ChatSessionDTO {
 export interface Message {
     messageType: string
     text: string
+    thinking?: string | null
 }

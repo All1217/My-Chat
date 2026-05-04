@@ -26,14 +26,9 @@ public class ChatController {
             @RequestParam("prompt") String prompt,
             @RequestParam("chatId") String chatId,
             @RequestParam(value = "files", required = false) List<MultipartFile> files) {
-        // 1.保存会话id
-//        chatHistoryRepository.save("chat", chatId);
-        // 2.请求模型
         if (files == null || files.isEmpty()) {
-            // 没有附件，纯文本聊天
             return textChat(prompt, chatId);
         } else {
-            // 有附件，多模态聊天
             return multiModalChat(prompt, chatId, files);
         }
     }
@@ -43,7 +38,20 @@ public class ChatController {
                 .user(prompt)
                 .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, chatId))
                 .stream()
-                .content();
+                .chatResponse()
+                .map(response -> {
+                    String content = response.getResult().getOutput().getText();
+                    var metadata = response.getResult().getMetadata();
+                    String thinking = (String) metadata.getOrDefault("reasoningContent", null);
+                    StringBuilder sb = new StringBuilder();
+                    if (thinking != null && !thinking.isEmpty()) {
+                        sb.append("[THINKING]").append(thinking).append("[/THINKING]");
+                    }
+                    if (content != null && !content.isEmpty()) {
+                        sb.append(content);
+                    }
+                    return sb.toString();
+                });
     }
 
     private Flux<String> multiModalChat(String prompt, String chatId, List<MultipartFile> files) {
@@ -57,9 +65,22 @@ public class ChatController {
                 .toList();
         // 2.请求模型
         return chatClient.prompt()
-                .user(p -> p.text(prompt).media(medias.toArray(Media[]::new)))
+                .user(prompt)
                 .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, chatId))
                 .stream()
-                .content();
+                .chatResponse()
+                .map(response -> {
+                    String content = response.getResult().getOutput().getText();
+                    var metadata = response.getResult().getMetadata();
+                    String thinking = (String) metadata.getOrDefault("reasoningContent", null);
+                    StringBuilder sb = new StringBuilder();
+                    if (thinking != null && !thinking.isEmpty()) {
+                        sb.append("[THINKING]").append(thinking).append("[/THINKING]");
+                    }
+                    if (content != null && !content.isEmpty()) {
+                        sb.append(content);
+                    }
+                    return sb.toString();
+                });
     }
 }

@@ -23,6 +23,39 @@ const routes: RouteRecordRaw[] = [
     name: 'ManageTableDemo',
     component: () => import('@/views/ManageTableDemo.vue')
   },
+  {
+    path: '/lobby',
+    name: 'lobby',
+    component: () => import('@/views/LobbyView.vue')
+  },
+  {
+    path: '/settings',
+    name: 'settings',
+    component: () => import('@/views/settings/SettingsView.vue'),
+    redirect: '/settings/model',  // 默认跳转到第一个子页面
+    children: [
+      {
+        path: 'model',
+        name: 'settings-model',
+        component: () => import('@/views/settings/components/ModelManagement.vue'),
+      },
+      {
+        path: 'workspace',
+        name: 'settings-workspace',
+        component: () => import('@/views/settings/components/WorkspaceManagement.vue'),
+      },
+      {
+        path: 'prompt',
+        name: 'settings-prompt',
+        component: () => import('@/views/settings/components/PromptManagement.vue'),
+      },
+      {
+        path: 'role',
+        name: 'settings-role',
+        component: () => import('@/views/settings/components/RoleManagement.vue'),
+      },
+    ],
+  },
 ]
 
 // 创建路由实例

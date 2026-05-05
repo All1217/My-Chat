@@ -6,8 +6,8 @@
     <h1>My&nbsp;&nbsp;Chat</h1>
     <p class="home-sub-title">构建个人专属知识库</p>
     <div class="btns">
-      <RouterLink :to="{ name: 'chat' }" class="home-entrance-btn">普通聊天</RouterLink>
-      <RouterLink :to="{ name: 'about' }" class="home-entrance-btn">文件解析</RouterLink>
+      <RouterLink :to="{ name: 'chat' }" class="home-entrance-btn">开始聊天</RouterLink>
+      <RouterLink :to="{ name: 'lobby' }" class="home-entrance-btn">大厅</RouterLink>
     </div>
   </div>
 </template>

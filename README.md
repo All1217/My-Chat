@@ -18,7 +18,6 @@ My-Chat 是一个基于 **Vue 3 + Spring Boot + Spring AI** 的智能对话与�
 
 项目地址：[https://github.com/All1217/My-Chat](https://github.com/All1217/My-Chat)  
 克隆地址：`git clone https://github.com/All1217/My-Chat.git`  
-SSH 克隆：`git@github.com:All1217/My-Chat.git`
 
 ---
 
@@ -61,6 +60,8 @@ SSH 克隆：`git@github.com:All1217/My-Chat.git`
 - **RAG 增强对话**：基于向量数据库（计划使用 pgvector 或类似的向量引擎），实现文档分块、向量化存储和语义检索。
 - **大文件支持**：结合 RAG 模块，处理 PDF、Markdown、Word 等格式的长文档。
 - **知识库管理**：上传、分类、检索文档，构建个人知识库。
+- **全自动网络数据采集**
+- **AI角色扮演**
 
 ---
 
@@ -122,10 +123,14 @@ cd My-Chat
 
 ```bash
 cd my-chat-server
+# 使用 Maven Wrapper（推荐，无需本地安装 Maven）
+.\mvnw.cmd spring-boot:run
+
+# 如果已安装 Maven 并配置了环境变量，也可使用：
 mvn spring-boot:run
 ```
 
-服务默认启动于 `http://localhost:8080`。  
+服务默认启动于 `http://localhost:8100`。  
 Spring AI 需要配置 LLM API Key，推荐在 `application.yml` 中设置：
 
 ```yaml
@@ -135,7 +140,7 @@ spring:
       api-key: your-api-key-here
       chat:
         options:
-          model: gpt-4o-mini  # 或其他兼容模型
+          model: deepseek  # 或其他兼容模型
 ```
 
 ### 3. 启动前端
@@ -152,7 +157,7 @@ npm run dev
 
 ## 📸 效果展示
 
-> 稍后补充前端页面截图。
+> 待补充截图
 
 - 对话聊天界面
 - 历史会话列表
@@ -169,6 +174,8 @@ npm run dev
 - [ ] 多模型切换支持
 - [ ] Docker 一键部署
 - [ ] 语音/视频处理集成
+- [ ] AI角色扮演
+- [ ] 全自动网络数据采集
 
 ---
 

@@ -1,5 +1,7 @@
 package com.mychat.utils;
 
+import com.mychat.entity.FileInfo;
+import com.mychat.entity.FileTreeNode;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -322,8 +324,8 @@ public class WorkspaceUtil {
                 result.add(buildFileInfo(p));
             }
             result.sort(Comparator
-                    .comparingInt((FileInfo f) -> f.isDirectory ? 0 : 1)
-                    .thenComparing(f -> f.name, String.CASE_INSENSITIVE_ORDER));
+                    .comparingInt((FileInfo f) -> f.isDirectory() ? 0 : 1)
+                    .thenComparing(FileInfo::getName, String.CASE_INSENSITIVE_ORDER));
             return result;
         } catch (IOException e) {
             log.error("列出目录失败: {}", dir, e);
@@ -457,8 +459,8 @@ public class WorkspaceUtil {
             }
         }
         result.sort(Comparator
-                .comparingInt((FileTreeNode n) -> n.isDirectory ? 0 : 1)
-                .thenComparing(n -> n.name, String.CASE_INSENSITIVE_ORDER));
+                .comparingInt((FileTreeNode n) -> n.isDirectory() ? 0 : 1)
+                .thenComparing(FileTreeNode::getName, String.CASE_INSENSITIVE_ORDER));
         return result;
     }
 
@@ -484,61 +486,5 @@ public class WorkspaceUtil {
     private String formatTime(Instant instant) {
         LocalDateTime dt = LocalDateTime.ofInstant(instant, ZoneId.systemDefault());
         return dt.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-    }
-
-    // =============================
-    //  内部数据类
-    // =============================
-
-    /**
-     * 文件/目录基本信息
-     */
-    public static class FileInfo {
-        private String name;
-        private String path;          // 相对于工作区的路径
-        private boolean isDirectory;
-        private long size;
-        private String createdAt;
-        private String modifiedAt;
-
-        public String getName() { return name; }
-        public void setName(String name) { this.name = name; }
-
-        public String getPath() { return path; }
-        public void setPath(String path) { this.path = path; }
-
-        public boolean isDirectory() { return isDirectory; }
-        public void setDirectory(boolean directory) { isDirectory = directory; }
-
-        public long getSize() { return size; }
-        public void setSize(long size) { this.size = size; }
-
-        public String getCreatedAt() { return createdAt; }
-        public void setCreatedAt(String createdAt) { this.createdAt = createdAt; }
-
-        public String getModifiedAt() { return modifiedAt; }
-        public void setModifiedAt(String modifiedAt) { this.modifiedAt = modifiedAt; }
-    }
-
-    /**
-     * 目录树节点（用于前端 Tree 组件）
-     */
-    public static class FileTreeNode {
-        private String name;
-        private String path;
-        private boolean isDirectory;
-        private List<FileTreeNode> children;
-
-        public String getName() { return name; }
-        public void setName(String name) { this.name = name; }
-
-        public String getPath() { return path; }
-        public void setPath(String path) { this.path = path; }
-
-        public boolean isDirectory() { return isDirectory; }
-        public void setDirectory(boolean directory) { isDirectory = directory; }
-
-        public List<FileTreeNode> getChildren() { return children; }
-        public void setChildren(List<FileTreeNode> children) { this.children = children; }
     }
 }

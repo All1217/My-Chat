@@ -73,7 +73,7 @@ function goLobby() {
 .settings-layout {
   display: flex;
   height: 100vh;
-  background: #f5f7fa;
+  background-color: #fff;
 
   .settings-sidebar {
     width: 240px;
@@ -127,28 +127,31 @@ function goLobby() {
 
   .settings-content {
     flex: 1;
-    overflow-y: auto;               /* 整个右侧区域滚动 */
-    background: #fff;
+    overflow-y: auto;            
+    background-color: #fff;
     margin: 16px;
     border-radius: 12px;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
     position: relative;             
 
     .top-bar {
-      position: sticky;
+      position: absolute;
       top: 0;
-      z-index: 10;
+      width: 100%;
+      height: 50px;
+      padding: 0 20px;
       display: flex;
       justify-content: flex-end;
       align-items: center;
       gap: 8px;
-      padding: 14px 30px;
+      z-index: 10;
       background: #fff;
       border-bottom: 1px solid #ebeef5;
     }
-
-    .content-area {
-      padding: 20px 30px;
+    .content-area{
+      height: 100%;
+      padding-top: 50px;
+      background-color: #fff;
     }
   }
 }

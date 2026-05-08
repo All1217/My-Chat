@@ -19,6 +19,7 @@ export async function request<T>(
 ): Promise<T | null> {
   try {
     const res = await requestFn()   // res 直接是 { code, message, data }
+    // console.log('request.ts: res: ', res);
     if (res.code === 200) {
       return res.data
     }

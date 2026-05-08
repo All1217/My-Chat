@@ -352,7 +352,7 @@ public class WorkspaceUtil {
                 "py", "js", "ts", "html", "css", "less", "scss",
                 "vue", "sh", "bat"
         );
-        if (!allowedExtensions.contains(extension) && !"".equals(extension)) {
+        if (!allowedExtensions.contains(extension) && !extension.isEmpty()) {
             throw new IllegalArgumentException("不支持预览该文件类型: ." + extension + "，仅支持文本格式");
         }
         try {
@@ -373,9 +373,53 @@ public class WorkspaceUtil {
                 "txt", "md", "json", "xml", "yaml", "yml",
                 "properties", "csv", "log", "sql", "java",
                 "py", "js", "ts", "html", "css", "less", "scss",
-                "vue", "sh", "bat", "pdf"
+                "vue", "sh", "bat",
+                "pdf", "docx", "xlsx", "pptx",       // Office
+                "png", "jpg", "jpeg", "gif", "svg", "webp"  // 图片
         );
-        return allowed.contains(extension) || "".equals(extension);
+        return allowed.contains(extension) || extension.isEmpty();
+    }
+
+    /**
+     * 以 Base64 形式读取文件内容（支持任意格式）
+     *
+     * @param relativePath 文件相对路径
+     * @return Base64 编码的字符串
+     */
+    public String readFileAsBase64(String relativePath) {
+        Path file = resolveSafe(relativePath);
+        if (!Files.isRegularFile(file)) {
+            throw new IllegalArgumentException("目标不是文件: " + relativePath);
+        }
+        try {
+            byte[] bytes = Files.readAllBytes(file);
+            return Base64.getEncoder().encodeToString(bytes);
+        } catch (IOException e) {
+            log.error("读取文件失败: {}", file, e);
+            throw new RuntimeException("读取文件失败", e);
+        }
+    }
+
+    /**
+     * 获取文件的 MIME 类型
+     */
+    public String getMimeType(String relativePath) {
+        Path file = resolveSafe(relativePath);
+        String ext = getExtension(file.getFileName().toString()).toLowerCase();
+        Map<String, String> mimeMap = new HashMap<>();
+        mimeMap.put("pdf", "application/pdf");
+        mimeMap.put("docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+        mimeMap.put("xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        mimeMap.put("doc", "application/msword");
+        mimeMap.put("xls", "application/vnd.ms-excel");
+        mimeMap.put("pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation");
+        mimeMap.put("png", "image/png");
+        mimeMap.put("jpg", "image/jpeg");
+        mimeMap.put("jpeg", "image/jpeg");
+        mimeMap.put("gif", "image/gif");
+        mimeMap.put("svg", "image/svg+xml");
+        mimeMap.put("webp", "image/webp");
+        return mimeMap.getOrDefault(ext, "application/octet-stream");
     }
 
     /**

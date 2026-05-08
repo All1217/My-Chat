@@ -73,4 +73,23 @@ public class FileController {
             return Result.fail(e.getMessage());
         }
     }
+
+    /**
+     * 以 Base64 形式读取文件（支持 docx / xlsx / pdf 等二进制格式）
+     */
+    @GetMapping("/workspace/read/binary")
+    public Result<Map<String, String>> readFileAsBase64(@RequestParam("path") String path) {
+        try {
+            String base64 = workspaceUtil.readFileAsBase64(path);
+            String mimeType = workspaceUtil.getMimeType(path);
+            Map<String, String> data = new HashMap<>();
+            data.put("base64", base64);
+            data.put("mimeType", mimeType);
+            data.put("name", path.substring(path.lastIndexOf('/') + 1));
+            return Result.ok(data);
+        } catch (Exception e) {
+            log.error("读取文件失败: {}", e.getMessage());
+            return Result.fail(e.getMessage());
+        }
+    }
 }

@@ -37,7 +37,7 @@ public class Result<T> {
         return build(data, ResultCodeEnum.SUCCESS);
     }
 
-    public static <T> Result<T> ok(String msg) {
+    public static <T> Result<T> okOnlyMessage(String msg) {
         Result<T> r = build(null, ResultCodeEnum.SUCCESS);
         r.setMessage(msg);
         return r;

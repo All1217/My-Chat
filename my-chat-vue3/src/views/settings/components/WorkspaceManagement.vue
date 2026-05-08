@@ -10,7 +10,7 @@
       <el-tree ref="treeRef" :data="treeData" node-key="path" :props="treeProps" :highlight-current="true"
         :expand-on-click-node="true" :default-expand-all="true" @node-click="handleNodeClick" class="workspace-tree">
         <template #default="{ node, data }">
-          <span class="tree-node-label">
+          <span class="tree-node-label" @dblclick.stop="handleNodeDblClick(data)">
             <el-icon v-if="data.directory" :size="16" color="#437dff">
               <Folder />
             </el-icon>
@@ -30,7 +30,7 @@
         </el-icon>
         <el-breadcrumb separator="/">
           <el-breadcrumb-item v-for="(seg, idx) in pathSegments" :key="idx" @click="navigateToSeg(seg.relative)">
-            {{ seg.label }}
+            <span class="breadcrumb-text">{{ seg.label }}</span>
           </el-breadcrumb-item>
         </el-breadcrumb>
       </div>
@@ -45,9 +45,9 @@
         </el-button>
       </div>
 
-      <div style="position: relative;">
+      <div class="file-table">
         <el-table :data="fileList" style="width: 100%" stripe highlight-current-row empty-text="暂无文件"
-          @row-contextmenu="handleRowContextMenu">
+          @row-contextmenu="handleRowContextMenu" @row-dblclick="handleRowDblClick">
           <el-table-column label="名称" min-width="200">
             <template #default="{ row }">
               <span class="file-name-cell">
@@ -71,36 +71,63 @@
               {{ row.modifiedAt }}
             </template>
           </el-table-column>
-          <!-- 原操作列移除，改为右键菜单触发的 Dropdown -->
         </el-table>
 
-        <!-- 自定义右键菜单 -->
-        <div v-if="contextMenuVisible" class="context-menu"
-          :style="{ left: contextMenuX + 'px', top: contextMenuY + 'px' }">
-          <div class="context-item" @click="handlePreview(contextMenuRow)">预览</div>
-          <div class="context-item" @click="handleRename(contextMenuRow)">重命名</div>
-          <div class="context-item" @click="handleDelete(contextMenuRow)">删除</div>
-        </div>
-
-        <!-- 点击空白区域关闭菜单 -->
-        <div v-if="contextMenuVisible" class="context-overlay" @click="closeContextMenu"></div>
+        <!-- 右键菜单（使用 el-popover + virtual-ref） -->
+        <el-popover ref="popoverRef" :visible="popoverVisible" trigger="manual" placement="right-start" :width="500"
+          :show-arrow="false" :virtual-ref="virtualTriggerRef" @hide="onPopoverHide">
+          <div class="menu-list">
+            <el-button link class="menu-btn" :disabled="!contextMenuRow || contextMenuRow.directory"
+              @click="onMenuCommand('preview')">
+              <el-icon :size="14" style="margin-right: 6px">
+                <View />
+              </el-icon>
+              预览
+            </el-button>
+            <el-button link class="menu-btn" @click="onMenuCommand('rename')">
+              <el-icon :size="14" style="margin-right: 6px">
+                <Edit />
+              </el-icon>
+              重命名
+            </el-button>
+            <el-button link class="menu-btn" @click="onMenuCommand('delete')">
+              <el-icon :size="14" style="margin-right: 6px">
+                <Delete />
+              </el-icon>
+              删除
+            </el-button>
+          </div>
+        </el-popover>
       </div>
     </div>
 
     <!-- 预览对话框（仅文本格式） -->
-    <el-dialog v-model="previewVisible" title="文件预览" width="800px" top="5vh" destroy-on-close>
-      <pre class="preview-content">{{ previewContent }}</pre>
+    <el-dialog v-model="previewVisible" :title="'文件预览'" width="900px" top="3vh" destroy-on-close
+      @closed="onPreviewClosed">
+      <!-- 文本预览 -->
+      <pre v-if="previewType === 'text'" class="preview-content">{{ previewContent }}</pre>
+
+      <!-- PDF 预览 -->
+      <iframe v-else-if="previewType === 'pdf'" :src="previewPdfUrl" class="preview-iframe" frameborder="0" />
+
+      <!-- DOCX / XLSX 预览（HTML） -->
+      <div v-else-if="previewType === 'docx' || previewType === 'xlsx'" class="preview-html" v-html="previewHtml" />
+
+      <!-- 图片预览 -->
+      <img v-else-if="previewType === 'image'" :src="previewImageUrl" class="preview-image" alt="预览图片" />
     </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { FolderOpened, Folder, Document, HomeFilled, Plus, Upload } from '@element-plus/icons-vue'
 import { ragHttp } from '@/utils/http'
 import { request } from '@/utils/request'
 import { FileTreeNode, FileInfo } from '@/types/settings/types'
+import mammoth from 'mammoth'
+import * as XLSX from 'xlsx'
 
 // ---------- 状态 ----------
 const treeRef = ref<any>(null)
@@ -173,26 +200,6 @@ function navigateToSeg(relative: string) {
   fetchFileList(relative)
 }
 
-// ---------- 右键菜单 ----------
-const contextMenuVisible = ref(false)
-const contextMenuX = ref(0)
-const contextMenuY = ref(0)
-const contextMenuRow = ref<FileInfo | null>(null)
-
-function handleRowContextMenu(row: FileInfo, column: any, event: MouseEvent) {
-  event.preventDefault()
-  event.stopPropagation()
-  contextMenuRow.value = row
-  contextMenuX.value = event.clientX
-  contextMenuY.value = event.clientY
-  contextMenuVisible.value = true
-}
-
-function closeContextMenu() {
-  contextMenuVisible.value = false
-  contextMenuRow.value = null
-}
-
 // ---------- 事件处理 ----------
 function handleNodeClick(data: FileTreeNode) {
   if (data.directory) {
@@ -200,7 +207,20 @@ function handleNodeClick(data: FileTreeNode) {
     fetchFileList(data.path)
   }
 }
-
+// 双击文件跳转到所属目录
+function handleNodeDblClick(data: FileTreeNode) {
+  if (data.directory) return  // 目录不需要处理，单击已经导航
+  // 提取父目录路径
+  const lastSlash = data.path.lastIndexOf('/')
+  const parentPath = lastSlash > -1 ? data.path.substring(0, lastSlash) : ''
+  // 导航到父目录
+  currentPath.value = parentPath
+  fetchFileList(parentPath)
+  // 左侧树高亮父目录节点
+  if (treeRef.value) {
+    treeRef.value.setCurrentKey(parentPath || '')   // 根目录可能 key 为空字符串
+  }
+}
 function handleCreateFolder() {
   ElMessage.info('新建文件夹功能待实现')
 }
@@ -208,19 +228,140 @@ function handleCreateFolder() {
 function handleImportFile() {
   ElMessage.info('导入文件功能待实现')
 }
-
+// 双击表格行
+function handleRowDblClick(row: FileInfo) {
+  if (row.directory) {
+    // 进入该文件夹
+    currentPath.value = row.path
+    fetchFileList(row.path)
+    // 同步左侧树高亮
+    if (treeRef.value) {
+      treeRef.value.setCurrentKey(row.path || '')
+    }
+  } else {
+    // 预览文件
+    handlePreview(row)
+  }
+}
+const previewType = ref<'text' | 'pdf' | 'docx' | 'xlsx' | 'image' | ''>('')
+const previewHtml = ref('')        // docx 转换后的 HTML / xlsx 转换后的 HTML table
+const previewPdfUrl = ref('')      // PDF 的 Blob URL
+const previewImageUrl = ref('')    // 图片的 Base64 URL
 async function handlePreview(row: FileInfo) {
-  const content = await request(
-    () =>
-      ragHttp.get<string>('/ai/file/workspace/read', {
-        path: row.path,
-      }),
+  const name = row.name
+
+  if (isText(name)) {
+    // ---------- 文本文件：沿用旧逻辑 ----------
+    const content = await request(
+      () => ragHttp.get<string>('/ai/file/workspace/read', { path: row.path }),
+      { errorMsg: '读取文件失败' }
+    )
+    if (content !== null) {
+      previewType.value = 'text'
+      previewContent.value = content
+      previewVisible.value = true
+    }
+    return
+  }
+
+  // ---------- 二进制文件：调用新接口获取 Base64 ----------
+  const data = await request(
+    () => ragHttp.get<{ base64: string; mimeType: string }>('/ai/file/workspace/read/binary', { path: row.path }),
     { errorMsg: '读取文件失败' }
   )
-  if (content !== null) {
-    previewContent.value = content
+  if (!data) return
+
+  const { base64, mimeType } = data
+
+  if (isPdf(name)) {
+    // PDF：转为 Blob URL，iframe 展示
+    const byteChars = atob(base64)
+    const byteNums = new Array(byteChars.length)
+    for (let i = 0; i < byteChars.length; i++) {
+      byteNums[i] = byteChars.charCodeAt(i)
+    }
+    const byteArr = new Uint8Array(byteNums)
+    const blob = new Blob([byteArr], { type: mimeType })
+    // 释放之前的 URL
+    if (previewPdfUrl.value) URL.revokeObjectURL(previewPdfUrl.value)
+    previewPdfUrl.value = URL.createObjectURL(blob)
+    previewType.value = 'pdf'
     previewVisible.value = true
+
+  } else if (isDocx(name)) {
+    // DOCX：mammoth 转 HTML
+    const byteChars = atob(base64)
+    const byteNums = new Array(byteChars.length)
+    for (let i = 0; i < byteChars.length; i++) {
+      byteNums[i] = byteChars.charCodeAt(i)
+    }
+    const buffer = new Uint8Array(byteNums).buffer
+    const result = await mammoth.convertToHtml({ arrayBuffer: buffer })
+    previewHtml.value = result.value
+    previewType.value = 'docx'
+    previewVisible.value = true
+
+  } else if (isXlsx(name)) {
+    // XLSX：SheetJS 解析为 HTML 表格
+    const byteChars = atob(base64)
+    const byteNums = new Array(byteChars.length)
+    for (let i = 0; i < byteChars.length; i++) {
+      byteNums[i] = byteChars.charCodeAt(i)
+    }
+    const workbook = XLSX.read(new Uint8Array(byteNums), { type: 'array' })
+    // 取第一个 Sheet
+    const sheetName = workbook.SheetNames[0]
+    const sheet = workbook.Sheets[sheetName]
+    const html = XLSX.utils.sheet_to_html(sheet, { id: 'xlsx-preview-table' })
+    previewHtml.value = html
+    previewType.value = 'xlsx'
+    previewVisible.value = true
+
+  } else if (isImage(name)) {
+    // 图片：直接显示 data URL
+    previewImageUrl.value = `data:${mimeType};base64,${base64}`
+    previewType.value = 'image'
+    previewVisible.value = true
+
+  } else {
+    ElMessage.warning('不支持预览该文件格式')
   }
+}
+/** 获取文件扩展名（小写） */
+function getExt(name: string): string {
+  return name.split('.').pop()?.toLowerCase() || ''
+}
+/** 是否为 PDF */
+function isPdf(name: string): boolean {
+  return getExt(name) === 'pdf'
+}
+/** 是否为 DOCX */
+function isDocx(name: string): boolean {
+  return getExt(name) === 'docx'
+}
+/** 是否为 XLSX */
+function isXlsx(name: string): boolean {
+  return getExt(name) === 'xlsx'
+}
+/** 是否为图片 */
+function isImage(name: string): boolean {
+  const exts = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp']
+  return exts.includes(getExt(name))
+}
+/** 是否为文本类型（使用旧逻辑） */
+function isText(name: string): boolean {
+  const exts = ['txt', 'md', 'json', 'xml', 'yaml', 'yml', 'properties', 'csv', 'log', 'sql', 'java', 'py', 'js', 'ts', 'html', 'css', 'vue', 'sh', 'bat']
+  return exts.includes(getExt(name))
+}
+function onPreviewClosed() {
+  if (previewPdfUrl.value) {
+    URL.revokeObjectURL(previewPdfUrl.value)
+    previewPdfUrl.value = ''
+  }
+  previewType.value = ''
+  previewContent.value = ''
+  previewHtml.value = ''
+  previewImageUrl.value = ''
 }
 
 function handleRename(row: FileInfo) {
@@ -235,24 +376,91 @@ function handleDelete(row: FileInfo) {
   }).then(async () => {
     // 实际删除逻辑待实现
     ElMessage.success('删除成功（模拟）')
-  }).catch(() => { })
+  }).catch(() => {
+  })
+}
+
+/**
+ * 右键菜单业务块
+ */
+// ---------- 右键菜单（el-popover + virtual-ref）----------
+const popoverRef = ref<any>(null)
+const popoverVisible = ref(false)
+const contextMenuRow = ref<FileInfo | null>(null)
+const contextMenuX = ref(0)
+const contextMenuY = ref(0)
+// 虚拟触发对象：Popper 每次定位时读取最新鼠标坐标
+const virtualTriggerRef = computed(() => ({
+  getBoundingClientRect() {
+    return {
+      top: contextMenuY.value,
+      bottom: contextMenuY.value,
+      left: contextMenuX.value,
+      right: contextMenuX.value,
+      width: 0,
+      height: 0,
+      x: contextMenuX.value,
+      y: contextMenuY.value,
+      toJSON: () => ({}),
+    }
+  }
+}))
+function handleRowContextMenu(row: FileInfo, _column: any, event: MouseEvent) {
+  event.preventDefault()
+  contextMenuRow.value = row
+  contextMenuX.value = event.clientX
+  contextMenuY.value = event.clientY
+  popoverVisible.value = true
+}
+async function onMenuCommand(command: string) {
+  if (!contextMenuRow.value) {
+    return
+  }
+  switch (command) {
+    case 'preview':
+      await handlePreview(contextMenuRow.value)
+      break
+    case 'rename':
+      handleRename(contextMenuRow.value)
+      break
+    case 'delete':
+      handleDelete(contextMenuRow.value)
+      break
+  }
+  popoverVisible.value = false
+}
+function onPopoverHide() {
+  popoverVisible.value = false
+  contextMenuRow.value = null
 }
 
 // ---------- 生命周期 ----------
+function handleDocumentClick(e: MouseEvent) {
+  // 如果菜单没打开，什么也不做
+  if (!popoverVisible.value) return
+  // 获取 popover 内容节点
+  const popoverContent = popoverRef.value?.popperRef?.contentRef
+  // 如果点击目标不在 popover 内，关闭菜单
+  if (popoverContent && !popoverContent.contains(e.target as Node)) {
+    popoverVisible.value = false
+    contextMenuRow.value = null
+  }
+}
 onMounted(() => {
+  document.addEventListener('click', handleDocumentClick, true)
   fetchTree()
   fetchFileList('')
+})
+onUnmounted(() => {
+  document.removeEventListener('click', handleDocumentClick, true)
 })
 </script>
 
 <style scoped>
 .workspace-container {
   display: flex;
-  height: calc(100vh - 120px);
-  background-color: #f5f7fa;
-  border-radius: 12px;
+  height: 100%;
   overflow: hidden;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
 }
 
 /* ---------- 左侧树 ---------- */
@@ -316,7 +524,12 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   padding: 16px 24px;
+  background-color: #f5f7fa;
   overflow: hidden;
+
+  .file-table {
+    position: relative;
+  }
 }
 
 .path-bar {
@@ -326,6 +539,10 @@ onMounted(() => {
   padding-bottom: 12px;
   border-bottom: 1px solid #ebeef5;
   margin-bottom: 12px;
+
+  .breadcrumb-text {
+    cursor: pointer;
+  }
 }
 
 .action-bar {
@@ -346,6 +563,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 4px;
+  cursor: pointer;
 }
 
 .preview-content {
@@ -361,41 +579,6 @@ onMounted(() => {
   color: #303133;
 }
 
-/* 右键菜单 */
-.context-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 999;
-  background: transparent;
-}
-
-.context-menu {
-  position: fixed;
-  z-index: 1000;
-  background: #fff;
-  border: 1px solid #e4e7ed;
-  border-radius: 4px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-  padding: 4px 0;
-  min-width: 100px;
-}
-
-.context-item {
-  padding: 8px 16px;
-  font-size: 13px;
-  color: #303133;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.context-item:hover {
-  background-color: #f5f0fa;
-  color: #9d48ff;
-}
-
 /* ---------- 响应式滚动 ---------- */
 .sidebar,
 .content {
@@ -405,5 +588,84 @@ onMounted(() => {
 .el-table {
   flex: 1;
   overflow-y: auto;
+}
+
+/* 右键菜单 */
+.menu-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.menu-btn {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  padding: 8px 12px;
+  margin: 0;
+  font-size: 13px;
+  color: #303133;
+  border: none;
+  border-radius: 6px;
+  transition: background 0.15s;
+  box-sizing: border-box;
+}
+
+.menu-btn:hover:not(:disabled) {
+  background-color: #f5f7fa;
+  color: #9d48ff;
+}
+
+.menu-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* PDF iframe */
+.preview-iframe {
+  width: 100%;
+  height: 75vh;
+  border: 1px solid #ebeef5;
+  border-radius: 8px;
+}
+
+/* DOCX / XLSX 渲染后的 HTML */
+.preview-html {
+  max-height: 70vh;
+  overflow-y: auto;
+  padding: 16px;
+  background: #fff;
+  border: 1px solid #ebeef5;
+  border-radius: 8px;
+  line-height: 1.7;
+}
+
+/* XLSX 表格样式 */
+.preview-html :deep(table) {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 13px;
+}
+
+.preview-html :deep(th),
+.preview-html :deep(td) {
+  border: 1px solid #dcdfe6;
+  padding: 6px 10px;
+  text-align: left;
+}
+
+.preview-html :deep(th) {
+  background-color: #f5f7fa;
+  font-weight: 600;
+}
+
+/* 图片预览 */
+.preview-image {
+  max-width: 100%;
+  max-height: 75vh;
+  display: block;
+  margin: 0 auto;
+  border-radius: 8px;
 }
 </style>

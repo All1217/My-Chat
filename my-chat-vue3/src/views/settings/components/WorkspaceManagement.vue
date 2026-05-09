@@ -34,7 +34,6 @@
           </el-breadcrumb-item>
         </el-breadcrumb>
       </div>
-
       <!-- 操作栏 -->
       <div class="action-bar">
         <el-button type="primary" size="small" round :icon="Plus" @click="handleCreateFolder">
@@ -42,6 +41,9 @@
         </el-button>
         <el-button size="small" round :icon="Upload" @click="handleImportFile">
           导入文件
+        </el-button>
+        <el-button size="small" round :icon="Refresh" @click="handleRefresh">
+          刷新
         </el-button>
       </div>
 
@@ -99,6 +101,7 @@
           </div>
         </el-popover>
       </div>
+      <input ref="fileInputRef" type="file" multiple style="display:none" @change="handleFileChange" />
     </div>
 
     <!-- 预览对话框（仅文本格式） -->
@@ -122,7 +125,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { FolderOpened, Folder, Document, HomeFilled, Plus, Upload } from '@element-plus/icons-vue'
+import { FolderOpened, Folder, Document, Refresh, Plus, Upload } from '@element-plus/icons-vue'
 import { ragHttp } from '@/utils/http'
 import { request } from '@/utils/request'
 import { FileTreeNode, FileInfo } from '@/types/settings/types'
@@ -138,6 +141,7 @@ const fileList = ref<FileInfo[]>([])
 
 const previewVisible = ref(false)
 const previewContent = ref('')
+const fileInputRef = ref<HTMLInputElement>()
 
 // ---------- 面包屑分段 ----------
 const pathSegments = computed(() => {
@@ -221,12 +225,55 @@ function handleNodeDblClick(data: FileTreeNode) {
     treeRef.value.setCurrentKey(parentPath || '')   // 根目录可能 key 为空字符串
   }
 }
-function handleCreateFolder() {
-  ElMessage.info('新建文件夹功能待实现')
+async function handleCreateFolder() {
+  try {
+    const { value: folderName } = await ElMessageBox.prompt('请输入文件夹名称', '新建文件夹', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      inputPattern: /\S+/,
+      inputErrorMessage: '名称不能为空',
+    })
+    if (!folderName) return
+
+    await request(
+      () => ragHttp.post('/ai/file/workspace/folder', null, {
+        params: { path: currentPath.value, name: folderName },
+      }),
+      { errorMsg: '创建文件夹失败' }
+    )
+    // 刷新目录树和当前文件列表
+    await fetchTree()
+    await fetchFileList(currentPath.value)
+    ElMessage.success('文件夹创建成功')
+  } catch {
+    // 用户取消，不做处理（request 内部已处理网络错误）
+  }
 }
 
 function handleImportFile() {
-  ElMessage.info('导入文件功能待实现')
+  fileInputRef.value?.click()
+}
+
+async function handleFileChange(event: Event) {
+  const input = event.target as HTMLInputElement
+  const files = input.files
+  if (!files || files.length === 0) return
+
+  const formData = new FormData()
+  for (const file of files) {
+    formData.append('files', file)
+  }
+  formData.append('path', currentPath.value)
+
+  await request(
+    () => ragHttp.post('/ai/file/workspace/import', formData),
+    { errorMsg: '导入文件失败' }
+  )
+  await fetchTree()
+  await fetchFileList(currentPath.value)
+  ElMessage.success(`成功导入 ${files.length} 个文件`)
+  // 清空 input，以便重复选择同一文件
+  input.value = ''
 }
 // 双击表格行
 function handleRowDblClick(row: FileInfo) {
@@ -364,20 +411,59 @@ function onPreviewClosed() {
   previewImageUrl.value = ''
 }
 
-function handleRename(row: FileInfo) {
-  ElMessage.info('重命名功能待实现')
+async function handleRename(row: FileInfo) {
+  try {
+    const { value: newName } = await ElMessageBox.prompt('请输入新名称', '重命名', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      inputValue: row.name,
+      inputPattern: /\S+/,
+      inputErrorMessage: '名称不能为空',
+    })
+    if (!newName || newName === row.name) return
+
+    await request(
+      () => ragHttp.post('/ai/file/workspace/rename', { path: row.path, newName }),
+      { errorMsg: '重命名失败' }
+    )
+    await fetchTree()
+    await fetchFileList(currentPath.value)
+    ElMessage.success('重命名成功')
+  } catch {
+    // 用户取消或请求失败
+  }
 }
 
-function handleDelete(row: FileInfo) {
-  ElMessageBox.confirm(`确定删除"${row.name}"吗？`, '提示', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
-    type: 'warning',
-  }).then(async () => {
-    // 实际删除逻辑待实现
-    ElMessage.success('删除成功（模拟）')
-  }).catch(() => {
-  })
+async function handleDelete(row: FileInfo) {
+  try {
+    await ElMessageBox.confirm(
+      row.directory
+        ? `确定删除文件夹"${row.name}"及其内部所有内容吗？`
+        : `确定删除"${row.name}"吗？`,
+      '删除确认',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    )
+  } catch {
+    return // 用户取消
+  }
+
+  await request(
+    () => ragHttp.post('/ai/file/workspace/delete', { path: row.path }),
+    { errorMsg: '删除失败' }
+  )
+  // 刷新目录树和当前文件列表
+  await fetchTree()
+  await fetchFileList(currentPath.value)
+  ElMessage.success('删除成功')
+}
+async function handleRefresh() {
+  await fetchTree()
+  await fetchFileList(currentPath.value)
+  ElMessage.success('刷新成功')
 }
 
 /**
@@ -424,7 +510,7 @@ async function onMenuCommand(command: string) {
       handleRename(contextMenuRow.value)
       break
     case 'delete':
-      handleDelete(contextMenuRow.value)
+      await handleDelete(contextMenuRow.value)
       break
   }
   popoverVisible.value = false

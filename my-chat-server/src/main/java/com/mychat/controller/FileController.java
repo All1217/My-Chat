@@ -7,7 +7,6 @@ import com.mychat.service.impl.VideoService;
 import com.mychat.utils.WorkspaceUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import reactor.core.publisher.Flux;
@@ -89,6 +88,89 @@ public class FileController {
             return Result.ok(data);
         } catch (Exception e) {
             log.error("读取文件失败: {}", e.getMessage());
+            return Result.fail(e.getMessage());
+        }
+    }
+
+    /**
+     * 新建文件夹
+     */
+    @PostMapping("/workspace/folder")
+    public Result<String> createFolder(
+            @RequestParam(value = "path", defaultValue = "") String path,
+            @RequestParam("name") String name) {
+        try {
+            String createdPath = workspaceUtil.createDirectory(path, name);
+            return Result.ok(createdPath);
+        } catch (Exception e) {
+            log.error("创建文件夹失败: {}", e.getMessage());
+            return Result.fail(e.getMessage());
+        }
+    }
+
+    /**
+     * 删除文件或文件夹（文件夹会递归删除其内所有内容）
+     */
+    @PostMapping("/workspace/delete")
+    public Result<Void> deleteFileOrFolder(@RequestBody Map<String, String> body) {
+        String path = body.get("path");
+        if (path == null || path.isEmpty()) {
+            return Result.fail("参数 path 不能为空");
+        }
+        try {
+            workspaceUtil.deleteFileOrDirectory(path);
+            return Result.ok();
+        } catch (Exception e) {
+            log.error("删除失败: {}", e.getMessage());
+            return Result.fail(e.getMessage());
+        }
+    }
+
+    /**
+     * 重命名文件或文件夹
+     */
+    @PostMapping("/workspace/rename")
+    public Result<String> renameFileOrFolder(@RequestBody Map<String, String> body) {
+        String path = body.get("path");
+        String newName = body.get("newName");
+        if (path == null || path.isEmpty()) {
+            return Result.fail("参数 path 不能为空");
+        }
+        if (newName == null || newName.isEmpty()) {
+            return Result.fail("参数 newName 不能为空");
+        }
+        try {
+            String newPath = workspaceUtil.renameFileOrDirectory(path, newName);
+            return Result.ok(newPath);
+        } catch (Exception e) {
+            log.error("重命名失败: {}", e.getMessage());
+            return Result.fail(e.getMessage());
+        }
+    }
+
+    /**
+     * 导入文件（上传到当前目录）
+     */
+    @PostMapping("/workspace/import")
+    public Result<List<String>> importFiles(
+            @RequestParam("files") List<MultipartFile> files,
+            @RequestParam(value = "path", defaultValue = "") String path) {
+        if (files == null || files.isEmpty()) {
+            return Result.fail("请选择文件");
+        }
+        List<String> savedPaths = new ArrayList<>();
+        try {
+            for (MultipartFile file : files) {
+                String originalFilename = file.getOriginalFilename();
+                if (originalFilename == null || originalFilename.isBlank()) {
+                    continue;
+                }
+                String savedPath = workspaceUtil.saveFile(path, originalFilename, file.getInputStream());
+                savedPaths.add(savedPath);
+            }
+            return Result.ok(savedPaths);
+        } catch (Exception e) {
+            log.error("导入文件失败: {}", e.getMessage());
             return Result.fail(e.getMessage());
         }
     }

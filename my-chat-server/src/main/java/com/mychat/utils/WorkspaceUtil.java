@@ -7,7 +7,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import java.io.*;
+import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
@@ -26,9 +27,6 @@ import java.util.*;
 @Component
 public class WorkspaceUtil {
 
-    /**
-     * 工作区根目录（可通过 application.yaml 配置）
-     */
     @Value("${app.workspace.root:./src/main/resources/workspace}")
     private String workspaceRootPath;
 
@@ -46,28 +44,18 @@ public class WorkspaceUtil {
         }
     }
 
-    // =============================
-    //  目录操作
-    // =============================
+    // ==================== 公共方法 ====================
 
-    /**
-     * 在指定父目录下创建子目录
-     *
-     * @param parentPath 父目录相对路径（相对于工作区根目录），空串表示工作区根目录
-     * @param dirName    新目录名（不允许包含 /、\ 等非法字符）
-     * @return 创建后的目录绝对路径
-     */
+    /** 在指定父目录下创建子目录 */
     public String createDirectory(String parentPath, String dirName) {
         validateName(dirName);
         Path parent = resolveSafe(parentPath);
         Path newDir = parent.resolve(dirName);
-
         if (Files.exists(newDir)) {
             throw new IllegalArgumentException("目录已存在: " + newDir.getFileName());
         }
         try {
             Files.createDirectory(newDir);
-//            log.info("目录创建成功: {}", newDir);
             return newDir.toAbsolutePath().toString();
         } catch (IOException e) {
             log.error("目录创建失败: {}", newDir, e);
@@ -75,225 +63,56 @@ public class WorkspaceUtil {
         }
     }
 
-    /**
-     * 删除目录（仅当目录为空时可删除）
-     *
-     * @param relativePath 目录相对路径
-     */
-    public void deleteDirectory(String relativePath) {
-        Path dir = resolveSafe(relativePath);
-        if (!Files.isDirectory(dir)) {
-            throw new IllegalArgumentException("目标不是目录: " + relativePath);
+    /** 删除文件或目录（目录递归删除） */
+    public void deleteFileOrDirectory(String relativePath) {
+        Path path = resolveSafe(relativePath);
+        if (!Files.exists(path)) {
+            throw new IllegalArgumentException("路径不存在: " + relativePath);
         }
-        try {
-            Files.delete(dir);
-            log.info("目录删除成功: {}", dir);
-        } catch (DirectoryNotEmptyException e) {
-            throw new IllegalArgumentException("目录非空，请先删除子文件/子目录: " + relativePath);
-        } catch (IOException e) {
-            log.error("目录删除失败: {}", dir, e);
-            throw new RuntimeException("目录删除失败", e);
+        if (Files.isDirectory(path)) {
+            deleteDirectoryForce(relativePath);
+        } else {
+            deleteFile(relativePath);
         }
     }
 
-    /**
-     * 强制删除目录（递归删除所有子文件和子目录）
-     *
-     * @param relativePath 目录相对路径
-     */
-    public void deleteDirectoryForce(String relativePath) {
-        Path dir = resolveSafe(relativePath);
-        if (!Files.isDirectory(dir)) {
-            throw new IllegalArgumentException("目标不是目录: " + relativePath);
-        }
-        try {
-            Files.walkFileTree(dir, new SimpleFileVisitor<>() {
-                @Override
-                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                    Files.delete(file);
-                    return FileVisitResult.CONTINUE;
-                }
-
-                @Override
-                public FileVisitResult postVisitDirectory(Path d, IOException exc) throws IOException {
-                    Files.delete(d);
-                    return FileVisitResult.CONTINUE;
-                }
-            });
-            log.info("目录(递归)删除成功: {}", dir);
-        } catch (IOException e) {
-            log.error("目录递归删除失败: {}", dir, e);
-            throw new RuntimeException("目录递归删除失败", e);
-        }
-    }
-
-    /**
-     * 重命名目录
-     *
-     * @param relativePath 目录相对路径
-     * @param newName      新名称（不允许包含 /、\）
-     */
-    public String renameDirectory(String relativePath, String newName) {
+    /** 重命名文件或目录 */
+    public String renameFileOrDirectory(String relativePath, String newName) {
         validateName(newName);
-        Path dir = resolveSafe(relativePath);
-        if (!Files.isDirectory(dir)) {
-            throw new IllegalArgumentException("目标不是目录: " + relativePath);
+        Path path = resolveSafe(relativePath);
+        if (!Files.exists(path)) {
+            throw new IllegalArgumentException("路径不存在: " + relativePath);
         }
-        Path target = dir.getParent().resolve(newName);
-        if (Files.exists(target)) {
-            throw new IllegalArgumentException("目标名称已存在: " + newName);
-        }
-        try {
-            Files.move(dir, target);
-            log.info("目录重命名成功: {} -> {}", dir, target);
-            return workspaceRoot.relativize(target).toString().replace("\\", "/");
-        } catch (IOException e) {
-            log.error("目录重命名失败: {}", dir, e);
-            throw new RuntimeException("目录重命名失败", e);
+        if (Files.isDirectory(path)) {
+            return moveAndGetRelative(path, newName);
+        } else {
+            return moveAndGetRelative(path, newName);
         }
     }
 
-    // =============================
-    //  文件操作
-    // =============================
-
-    /**
-     * 删除文件
-     *
-     * @param relativePath 文件相对路径
-     */
-    public void deleteFile(String relativePath) {
-        Path file = resolveSafe(relativePath);
-        if (!Files.isRegularFile(file)) {
-            throw new IllegalArgumentException("目标不是文件: " + relativePath);
-        }
-        try {
-            Files.delete(file);
-            log.info("文件删除成功: {}", file);
-        } catch (IOException e) {
-            log.error("文件删除失败: {}", file, e);
-            throw new RuntimeException("文件删除失败", e);
-        }
-    }
-
-    /**
-     * 重命名文件
-     *
-     * @param relativePath 文件相对路径
-     * @param newName      新名称（不允许包含 /、\）
-     */
-    public String renameFile(String relativePath, String newName) {
-        validateName(newName);
-        Path file = resolveSafe(relativePath);
-        if (!Files.isRegularFile(file)) {
-            throw new IllegalArgumentException("目标不是文件: " + relativePath);
-        }
-        Path target = file.getParent().resolve(newName);
+    /** 保存上传的文件到指定目录 */
+    public String saveFile(String parentPath, String originalFilename, InputStream inputStream) {
+        validateName(originalFilename);
+        Path parent = resolveSafe(parentPath);
+        Path target = parent.resolve(originalFilename);
         if (Files.exists(target)) {
-            throw new IllegalArgumentException("目标名称已存在: " + newName);
-        }
-        try {
-            Files.move(file, target);
-            log.info("文件重命名成功: {} -> {}", file, target);
-            return workspaceRoot.relativize(target).toString().replace("\\", "/");
-        } catch (IOException e) {
-            log.error("文件重命名失败: {}", file, e);
-            throw new RuntimeException("文件重命名失败", e);
-        }
-    }
-
-    /**
-     * 导入文件（从磁盘其他位置复制到工作区）
-     *
-     * @param sourcePath      源文件绝对路径
-     * @param targetParentDir 目标父目录相对路径（空串=工作区根目录）
-     * @return 导入后的文件相对路径
-     */
-    public String importFile(String sourcePath, String targetParentDir) {
-        Path source = Paths.get(sourcePath).toAbsolutePath().normalize();
-        if (!Files.isRegularFile(source)) {
-            throw new IllegalArgumentException("源文件不存在或不是文件: " + sourcePath);
-        }
-        Path parent = resolveSafe(targetParentDir);
-        Path target = parent.resolve(source.getFileName().toString());
-
-        // 若同名文件已存在，自动添加后缀
-        if (Files.exists(target)) {
-            String baseName = getBaseName(source.getFileName().toString());
-            String extension = getExtension(source.getFileName().toString());
+            String baseName = getBaseName(originalFilename);
+            String extension = getExtension(originalFilename);
             String newName = baseName + "_" + System.currentTimeMillis() +
                     (extension.isEmpty() ? "" : "." + extension);
             target = parent.resolve(newName);
         }
         try {
-            Files.copy(source, target, StandardCopyOption.COPY_ATTRIBUTES);
-            log.info("文件导入成功: {} -> {}", source, target);
+            Files.copy(inputStream, target, StandardCopyOption.REPLACE_EXISTING);
+            log.info("文件保存成功: {}", target);
             return workspaceRoot.relativize(target).toString().replace("\\", "/");
         } catch (IOException e) {
-            log.error("文件导入失败: {}", source, e);
-            throw new RuntimeException("文件导入失败", e);
+            log.error("文件保存失败: {}", target, e);
+            throw new RuntimeException("文件保存失败", e);
         }
     }
 
-    /**
-     * 导入目录（递归复制整个目录到工作区）
-     *
-     * @param sourcePath      源目录绝对路径
-     * @param targetParentDir 目标父目录相对路径（空串=工作区根目录）
-     * @return 导入后的目录相对路径
-     */
-    public String importDirectory(String sourcePath, String targetParentDir) {
-        Path source = Paths.get(sourcePath).toAbsolutePath().normalize();
-        if (!Files.isDirectory(source)) {
-            throw new IllegalArgumentException("源目录不存在或不是目录: " + sourcePath);
-        }
-        Path parent = resolveSafe(targetParentDir);
-        Path target = parent.resolve(source.getFileName().toString());
-
-        if (Files.exists(target)) {
-            String suffix = "_" + System.currentTimeMillis();
-            target = parent.resolve(source.getFileName().toString() + suffix);
-        }
-
-        // 将 target 捕获为 effectively final 变量，供内部类使用
-        final Path finalTarget = target;
-
-        try {
-            Files.walkFileTree(source, new SimpleFileVisitor<>() {
-                @Override
-                public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
-                    Path relative = source.relativize(dir);
-                    Path targetDir = finalTarget.resolve(relative);
-                    Files.createDirectories(targetDir);
-                    return FileVisitResult.CONTINUE;
-                }
-
-                @Override
-                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                    Path relative = source.relativize(file);
-                    Path targetFile = finalTarget.resolve(relative);
-                    Files.copy(file, targetFile, StandardCopyOption.COPY_ATTRIBUTES);
-                    return FileVisitResult.CONTINUE;
-                }
-            });
-            log.info("目录导入成功: {} -> {}", source, finalTarget);
-            return workspaceRoot.relativize(finalTarget).toString().replace("\\", "/");
-        } catch (IOException e) {
-            log.error("目录导入失败: {}", source, e);
-            throw new RuntimeException("目录导入失败", e);
-        }
-    }
-
-    // =============================
-    //  查询/读取操作
-    // =============================
-
-    /**
-     * 获取目录树结构
-     *
-     * @param relativePath 起始目录相对路径（空串=工作区根目录）
-     * @return 树形节点列表
-     */
+    /** 获取目录树 */
     public List<FileTreeNode> getDirectoryTree(String relativePath) {
         Path root = resolveSafe(relativePath);
         if (!Files.isDirectory(root)) {
@@ -307,12 +126,7 @@ public class WorkspaceUtil {
         }
     }
 
-    /**
-     * 列出指定目录下的直接子项（不递归）
-     *
-     * @param relativePath 目录相对路径
-     * @return 文件/目录信息列表
-     */
+    /** 列出目录下的直接子项 */
     public List<FileInfo> listDirectory(String relativePath) {
         Path dir = resolveSafe(relativePath);
         if (!Files.isDirectory(dir)) {
@@ -333,19 +147,13 @@ public class WorkspaceUtil {
         }
     }
 
-    /**
-     * 读取文件内容（仅支持文本类型文件）
-     *
-     * @param relativePath 文件相对路径
-     * @return 文件文本内容
-     */
+    /** 读取文本文件内容 */
     public String readFileContent(String relativePath) {
         Path file = resolveSafe(relativePath);
         if (!Files.isRegularFile(file)) {
             throw new IllegalArgumentException("目标不是文件: " + relativePath);
         }
         String extension = getExtension(file.getFileName().toString()).toLowerCase();
-        // 仅允许文本格式
         Set<String> allowedExtensions = Set.of(
                 "txt", "md", "json", "xml", "yaml", "yml",
                 "properties", "csv", "log", "sql", "java",
@@ -363,29 +171,7 @@ public class WorkspaceUtil {
         }
     }
 
-    /**
-     * 判断文件是否为文本类型（可预览）
-     */
-    public boolean isPreviewable(String relativePath) {
-        Path file = resolveSafe(relativePath);
-        String extension = getExtension(file.getFileName().toString()).toLowerCase();
-        Set<String> allowed = Set.of(
-                "txt", "md", "json", "xml", "yaml", "yml",
-                "properties", "csv", "log", "sql", "java",
-                "py", "js", "ts", "html", "css", "less", "scss",
-                "vue", "sh", "bat",
-                "pdf", "docx", "xlsx", "pptx",       // Office
-                "png", "jpg", "jpeg", "gif", "svg", "webp"  // 图片
-        );
-        return allowed.contains(extension) || extension.isEmpty();
-    }
-
-    /**
-     * 以 Base64 形式读取文件内容（支持任意格式）
-     *
-     * @param relativePath 文件相对路径
-     * @return Base64 编码的字符串
-     */
+    /** 以 Base64 读取文件 */
     public String readFileAsBase64(String relativePath) {
         Path file = resolveSafe(relativePath);
         if (!Files.isRegularFile(file)) {
@@ -400,48 +186,90 @@ public class WorkspaceUtil {
         }
     }
 
-    /**
-     * 获取文件的 MIME 类型
-     */
+    /** 获取文件的 MIME 类型 */
     public String getMimeType(String relativePath) {
-        Path file = resolveSafe(relativePath);
-        String ext = getExtension(file.getFileName().toString()).toLowerCase();
-        Map<String, String> mimeMap = new HashMap<>();
-        mimeMap.put("pdf", "application/pdf");
-        mimeMap.put("docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
-        mimeMap.put("xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-        mimeMap.put("doc", "application/msword");
-        mimeMap.put("xls", "application/vnd.ms-excel");
-        mimeMap.put("pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation");
-        mimeMap.put("png", "image/png");
-        mimeMap.put("jpg", "image/jpeg");
-        mimeMap.put("jpeg", "image/jpeg");
-        mimeMap.put("gif", "image/gif");
-        mimeMap.put("svg", "image/svg+xml");
-        mimeMap.put("webp", "image/webp");
+        String ext = getExtension(relativePath.substring(relativePath.lastIndexOf('/') + 1)).toLowerCase();
+        Map<String, String> mimeMap = Map.ofEntries(
+                Map.entry("pdf", "application/pdf"),
+                Map.entry("docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
+                Map.entry("xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+                Map.entry("doc", "application/msword"),
+                Map.entry("xls", "application/vnd.ms-excel"),
+                Map.entry("pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation"),
+                Map.entry("png", "image/png"),
+                Map.entry("jpg", "image/jpeg"),
+                Map.entry("jpeg", "image/jpeg"),
+                Map.entry("gif", "image/gif"),
+                Map.entry("svg", "image/svg+xml"),
+                Map.entry("webp", "image/webp")
+        );
         return mimeMap.getOrDefault(ext, "application/octet-stream");
     }
 
-    /**
-     * 获取文件信息
-     */
-    public FileInfo getFileInfo(String relativePath) {
-        Path path = resolveSafe(relativePath);
-        return buildFileInfo(path);
+    // ==================== 私有方法 ====================
+
+    private void deleteFile(String relativePath) {
+        Path file = resolveSafe(relativePath);
+        if (!Files.isRegularFile(file)) {
+            throw new IllegalArgumentException("目标不是文件: " + relativePath);
+        }
+        try {
+            Files.delete(file);
+            log.info("文件删除成功: {}", file);
+        } catch (IOException e) {
+            log.error("文件删除失败: {}", file, e);
+            throw new RuntimeException("文件删除失败", e);
+        }
     }
 
-    // =============================
-    //  内部辅助方法
-    // =============================
+    private void deleteDirectoryForce(String relativePath) {
+        Path dir = resolveSafe(relativePath);
+        if (!Files.isDirectory(dir)) {
+            throw new IllegalArgumentException("目标不是目录: " + relativePath);
+        }
+        try {
+            Files.walkFileTree(dir, new SimpleFileVisitor<>() {
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                    Files.delete(file);
+                    return FileVisitResult.CONTINUE;
+                }
+                @Override
+                public FileVisitResult postVisitDirectory(Path d, IOException exc) throws IOException {
+                    Files.delete(d);
+                    return FileVisitResult.CONTINUE;
+                }
+            });
+            log.info("目录(递归)删除成功: {}", dir);
+        } catch (IOException e) {
+            log.error("目录递归删除失败: {}", dir, e);
+            throw new RuntimeException("目录递归删除失败", e);
+        }
+    }
 
-    /**
-     * 安全解析相对路径，防止路径穿越
-     */
+    /** 重命名文件或目录（调用方已校验名称并解析 path） */
+    private String moveAndGetRelative(Path source, String newName) {
+        if (!Files.isRegularFile(source) && !Files.isDirectory(source)) {
+            throw new IllegalArgumentException("目标不存在: " + source.getFileName());
+        }
+        Path target = source.getParent().resolve(newName);
+        if (Files.exists(target)) {
+            throw new IllegalArgumentException("目标名称已存在: " + newName);
+        }
+        try {
+            Files.move(source, target);
+            log.info("重命名成功: {} -> {}", source, target);
+            return workspaceRoot.relativize(target).toString().replace("\\", "/");
+        } catch (IOException e) {
+            log.error("重命名失败: {}", source, e);
+            throw new RuntimeException("重命名失败", e);
+        }
+    }
+
     private Path resolveSafe(String relativePath) {
         if (relativePath == null || relativePath.isEmpty()) {
             return workspaceRoot;
         }
-        // 清理路径，移除可能的前导 /
         String cleaned = relativePath.replace("\\", "/").replaceAll("^/+", "");
         Path resolved = workspaceRoot.resolve(cleaned).normalize();
         if (!resolved.startsWith(workspaceRoot)) {
@@ -450,9 +278,6 @@ public class WorkspaceUtil {
         return resolved;
     }
 
-    /**
-     * 校验名称（文件/目录名不允许包含路径分隔符）
-     */
     private void validateName(String name) {
         if (name == null || name.isBlank()) {
             throw new IllegalArgumentException("名称不能为空");
@@ -465,9 +290,6 @@ public class WorkspaceUtil {
         }
     }
 
-    /**
-     * 获取文件扩展名（不含 .）
-     */
     private String getExtension(String fileName) {
         int dot = fileName.lastIndexOf('.');
         if (dot <= 0 || dot == fileName.length() - 1) {
@@ -476,18 +298,12 @@ public class WorkspaceUtil {
         return fileName.substring(dot + 1);
     }
 
-    /**
-     * 获取文件名（不含扩展名）
-     */
     private String getBaseName(String fileName) {
         int dot = fileName.lastIndexOf('.');
         if (dot <= 0) return fileName;
         return fileName.substring(0, dot);
     }
 
-    /**
-     * 递归构建目录树
-     */
     private List<FileTreeNode> buildTree(Path dir) throws IOException {
         List<FileTreeNode> result = new ArrayList<>();
         try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir)) {
@@ -508,9 +324,6 @@ public class WorkspaceUtil {
         return result;
     }
 
-    /**
-     * 构建文件/目录信息对象
-     */
     private FileInfo buildFileInfo(Path path) {
         FileInfo info = new FileInfo();
         info.setName(path.getFileName().toString());
@@ -522,7 +335,7 @@ public class WorkspaceUtil {
             info.setCreatedAt(formatTime(attrs.creationTime().toInstant()));
             info.setModifiedAt(formatTime(attrs.lastModifiedTime().toInstant()));
         } catch (IOException e) {
-            // 忽略属性读取失败
+            // ignore
         }
         return info;
     }

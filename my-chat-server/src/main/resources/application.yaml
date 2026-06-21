@@ -14,14 +14,23 @@ spring:
       api-key: ${OPENAI_API_KEY}
       chat:
         options:
-          model: deepseek-chat
+          model: deepseek-v4-pro
           max-tokens: 4096
           extra-body:
             thinking:
               type: disabled
+      embedding:
+        enabled: true
+        options:
+          model: text-embedding-v4
+          base-url: https://ws-lmxmf1i0bbkq5lo1.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1
+          api-key: ${EMBEDDING_MODEL_API_KEY}
       client:
-        connect-timeout: 15s
-        read-timeout: 120s
+        connect-timeout: 10s
+        read-timeout: 600s
+    vectorstore:
+      simple:
+        file-path: ./data/vectorstore.json
   datasource:
     url: jdbc:h2:file:./data/mychatdb;AUTO_SERVER=TRUE
     driver-class-name: org.h2.Driver

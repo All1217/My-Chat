@@ -24,10 +24,12 @@ CREATE TABLE IF NOT EXISTS spring_ai_chat_memory
     conversation_id VARCHAR(255) NOT NULL,
     type            VARCHAR(50)  NOT NULL,
     content         TEXT         NOT NULL,
-    timestamp       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    timestamp       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    sequence_id     BIGINT
 );
 
 -- 通用索引创建（H2兼容）
 CREATE INDEX IF NOT EXISTS idx_users_username ON users (username);
 CREATE INDEX IF NOT EXISTS idx_chat_sessions_user_id ON chat_sessions (user_id);
 CREATE INDEX IF NOT EXISTS idx_conversation_id ON spring_ai_chat_memory (conversation_id);
+CREATE INDEX IF NOT EXISTS SPRING_AI_CHAT_MEMORY_CONVERSATION_ID_SEQUENCE_ID_IDX  ON spring_ai_chat_memory (sequence_id);

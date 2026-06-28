@@ -32,24 +32,20 @@ spring:
       simple:
         file-path: ./data/vectorstore.json
   datasource:
-    url: jdbc:h2:file:./data/mychatdb;AUTO_SERVER=TRUE
-    driver-class-name: org.h2.Driver
+    url: jdbc:mysql://localhost:3306/db01?serverTimezone=Asia/Shanghai&useSSL=false&useUnicode=true&characterEncoding=utf-8&zeroDateTimeBehavior=convertToNull&transformedBitIsBoolean=true&tinyInt1isBit=false&allowPublicKeyRetrieval=true&allowMultiQueries=true&useServerPrepStmts=false
+    driver-class-name: com.mysql.cj.jdbc.Driver
     username: root
-    password:
-  h2:
-    console:
-      enabled: true
-      path: /h2-console
-  sql:
-    init:
-      schema-locations: classpath:schema.sql
-      mode: always
-      continue-on-error: true
+    password: ${MYSQL_PASS}
+#  sql:
+#    init:
+#      schema-locations: classpath:schema.sql
+#      mode: always
+#      continue-on-error: true
 logging:
   level:
     org.springframework.ai: debug
     com.mychat: debug
-    org.springframework.web.reactive.function.client.ExchangeFunctions: trace   # ← 新增：打印完整 HTTP 报文
+    org.springframework.web.reactive.function.client.ExchangeFunctions: trace
 app:
   ffmpeg:
     use-embedded: true

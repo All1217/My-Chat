@@ -8,17 +8,20 @@ import com.mychat.service.SpringAiChatMemoryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.messages.Message;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-@RequiredArgsConstructor
 @RestController
 @RequestMapping("/ai/history")
 public class ChatHistoryController {
-    private final ChatMemory chatMemory;
-    private final SpringAiChatMemoryService service;
-    private final ChatSessionsService chatSessionsService;
+    @Autowired
+    private ChatMemory chatMemory;
+    @Autowired
+    private SpringAiChatMemoryService service;
+    @Autowired
+    private ChatSessionsService chatSessionsService;
 
     /**
      * 获取指定会话的聊天历史

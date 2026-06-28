@@ -32,4 +32,8 @@ public class SpringAiChatMemory {
     @Schema(description = "这条记录生成时候的时间戳")
     @TableField(value = "timestamp")
     private Timestamp timestamp;
+
+    @Schema(description = "这条记录生成时候的时间戳")
+    @TableField(value = "sequence_id")
+    private Long sequenceId;
 }

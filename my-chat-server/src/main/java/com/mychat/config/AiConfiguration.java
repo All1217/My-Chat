@@ -17,15 +17,15 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class AiConfiguration {
-//    @Autowired
-//    JdbcChatMemoryRepository jdbcChatMemoryRepository;
     @Autowired
-    ChatMemoryRepository chatMemoryRepository;
+    JdbcChatMemoryRepository jdbcChatMemoryRepository;
+//    @Autowired
+//    ChatMemoryRepository chatMemoryRepository;
 
     @Bean
     public ChatMemory chatMemory() {
         return MessageWindowChatMemory.builder()
-                .chatMemoryRepository(chatMemoryRepository)
+                .chatMemoryRepository(jdbcChatMemoryRepository)
                 .maxMessages(64)
                 .build();
     }

@@ -1,7 +1,6 @@
 package com.mychat.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.mychat.common.result.Result;
 import com.mychat.entity.dto.ChatSessionsDTO;
@@ -34,11 +33,15 @@ public class ChatSessionsServiceImpl extends ServiceImpl<ChatSessionsMapper, Cha
         if (dto == null || dto.getConversationId() == null || dto.getConversationId().isEmpty()) {
             return Result.fail(NORMAL_PARAM_ERROR.getCode(), NORMAL_PARAM_ERROR.getMessage());
         }
-        LambdaUpdateWrapper<ChatSessions> wrapper = new LambdaUpdateWrapper<>();
-        wrapper.eq(ChatSessions::getConversationId, dto.getConversationId())
-                .set(dto.getTitle() != null, ChatSessions::getTitle, dto.getTitle())
-                .set(dto.getUserId() != null, ChatSessions::getUserId, dto.getUserId());
-        int res = chatSessionsMapper.update(wrapper);
+        ChatSessions entity = new ChatSessions();
+        entity.setConversationId(dto.getConversationId());
+        if (dto.getTitle() != null) {
+            entity.setTitle(dto.getTitle());
+        }
+        if (dto.getUserId() != null) {
+            entity.setUserId(dto.getUserId());
+        }
+        int res = chatSessionsMapper.updateById(entity);
         return res > 0 ? Result.ok("更新成功") : Result.fail("SQL执行失败");
     }
 

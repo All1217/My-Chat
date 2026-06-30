@@ -32,10 +32,14 @@ spring:
       simple:
         file-path: ./data/vectorstore.json
   datasource:
-    url: jdbc:mysql://localhost:3306/db01?serverTimezone=Asia/Shanghai&useSSL=false&useUnicode=true&characterEncoding=utf-8&zeroDateTimeBehavior=convertToNull&transformedBitIsBoolean=true&tinyInt1isBit=false&allowPublicKeyRetrieval=true&allowMultiQueries=true&useServerPrepStmts=false
-    driver-class-name: com.mysql.cj.jdbc.Driver
-    username: root
-    password: ${MYSQL_PASS}
+#    url: jdbc:mysql://localhost:3306/db01?serverTimezone=Asia/Shanghai&useSSL=false&useUnicode=true&characterEncoding=utf-8&zeroDateTimeBehavior=convertToNull&transformedBitIsBoolean=true&tinyInt1isBit=false&allowPublicKeyRetrieval=true&allowMultiQueries=true&useServerPrepStmts=false
+#    driver-class-name: com.mysql.cj.jdbc.Driver
+#    username: root
+#    password: ${MYSQL_PASS}
+    url: jdbc:postgresql://localhost:5432/postgres?currentSchema=public
+    driver-class-name: org.postgresql.Driver
+    username: postgres
+    password: ${PGSQL_PASS}
 logging:
   level:
     org.springframework.ai: debug
@@ -46,4 +50,4 @@ app:
     use-embedded: true
     cleanup-temp-on-exit: true
   workspace:
-    root: ./my-chat-server/src/main/resources/workspace
+    root: ./src/main/resources/workspace

@@ -20,11 +20,22 @@
         <maven.compiler.target>25</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <spring-ai.version>2.0.0</spring-ai.version>
-        <mysql.version>8.0.33</mysql.version>
+<!--        <mysql.version>8.0.33</mysql.version>-->
+        <postgresql.version>42.7.3</postgresql.version>
         <mybatis-plus.version>3.5.15</mybatis-plus.version>
     </properties>
 
     <dependencies>
+        <!-- Fluent ChatClient API with advisor support (used by AdvisorRagService) -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-client-chat</artifactId>
+        </dependency>
+        <!-- QuestionAnswerAdvisor — automatically retrieves relevant context and injects it into prompts -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-vector-store-advisor</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
@@ -43,19 +54,24 @@
         </dependency>
 <!--        <dependency>-->
 <!--            <groupId>org.springframework.ai</groupId>-->
-<!--            <artifactId>spring-ai-starter-vector-store-pgvector</artifactId>-->
+<!--            <artifactId>spring-ai-vector-store-pgvector</artifactId>-->
 <!--        </dependency>-->
-        <dependency>
-            <groupId>org.springframework.ai</groupId>
-            <artifactId>spring-ai-vector-store</artifactId>
-<!--            <version>1.1.8</version>-->
-<!--            <scope>compile</scope>-->
-        </dependency>
+<!--        <dependency>-->
+<!--            <groupId>org.springframework.ai</groupId>-->
+<!--            <artifactId>spring-ai-vector-store</artifactId>-->
+<!--        </dependency>-->
         <!-- mysql驱动 -->
+<!--        <dependency>-->
+<!--            <groupId>com.mysql</groupId>-->
+<!--            <artifactId>mysql-connector-j</artifactId>-->
+<!--            <version>${mysql.version}</version>-->
+<!--            <scope>runtime</scope>-->
+<!--        </dependency>-->
+        <!-- PostgreSQL驱动 -->
         <dependency>
-            <groupId>com.mysql</groupId>
-            <artifactId>mysql-connector-j</artifactId>
-            <version>${mysql.version}</version>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>${postgresql.version}</version>
             <scope>runtime</scope>
         </dependency>
         <dependency>
@@ -67,12 +83,6 @@
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <scope>provided</scope>
-        </dependency>
-        <!-- H2 嵌入式数据库 -->
-        <dependency>
-            <groupId>com.h2database</groupId>
-            <artifactId>h2</artifactId>
-            <scope>runtime</scope>
         </dependency>
         <!-- 单元测试 -->
         <dependency>

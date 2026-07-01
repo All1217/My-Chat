@@ -3,23 +3,73 @@ package com.mychat.controller;
 import com.mychat.common.result.Result;
 import com.mychat.entity.FileInfo;
 import com.mychat.entity.FileTreeNode;
+import com.mychat.service.DocumentService;
+import com.mychat.service.EmbeddingService;
 import com.mychat.service.impl.VideoService;
 import com.mychat.utils.WorkspaceUtil;
-import lombok.RequiredArgsConstructor;
+import com.mychat.vo.DocumentResponseVO;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import reactor.core.publisher.Flux;
 
+import java.io.InputStream;
 import java.util.*;
 
 @Slf4j
-@RequiredArgsConstructor
 @RestController
 @RequestMapping("/ai/file")
 public class FileController {
-    private final VideoService videoService;
-    private final WorkspaceUtil workspaceUtil;
+    @Autowired
+    private VideoService videoService;
+    @Autowired
+    private WorkspaceUtil workspaceUtil;
+    @Autowired
+    private DocumentService documentService;
+    @Autowired
+    private EmbeddingService embeddingService;
+
+    /**
+     * 上传文件并将其向量化
+     *
+     * @param file 文本文件
+     * @return processing result
+     */
+    @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public Result<?> uploadDocument(@RequestParam("file") MultipartFile file) {
+        log.info("Received document upload: {}", file.getOriginalFilename());
+        try {
+            // 1.校验文件
+            if (file.isEmpty()) return Result.fail(400, "空文件非法！");
+            String filename = file.getOriginalFilename();
+            if (filename == null || filename.isEmpty()) Result.fail(400, "文件名不能为空！");
+
+            // 2.处理文件
+            try (InputStream inputStream = file.getInputStream()) {
+                DocumentService.ProcessedDocument processed = documentService.processDocument(
+                        inputStream,
+                        filename
+                );
+
+                // 3.存储向量化后的文件
+                int embeddingCount = embeddingService.storeSegments(processed.segments());
+                log.info("Successfully processed document: {} ({} segments)",
+                        filename, embeddingCount);
+
+                // 4.返回结果
+                return Result.ok(new DocumentResponseVO(
+                        processed.documentId(),
+                        filename,
+                        "文件上传并向量化成功！",
+                        embeddingCount));
+            }
+        } catch (Exception e) {
+            log.error("Failed to process document", e);
+            return Result.fail(500, "文件处理失败！");
+        }
+    }
 
     // 视频总结接口
     @PostMapping("/video/summarize")

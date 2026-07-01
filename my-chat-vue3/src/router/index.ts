@@ -19,14 +19,14 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/ChatView.vue')
   },
   {
-    path: '/ManageTableDemo',
-    name: 'ManageTableDemo',
-    component: () => import('@/views/ManageTableDemo.vue')
-  },
-  {
     path: '/lobby',
     name: 'lobby',
     component: () => import('@/views/LobbyView.vue')
+  },
+  {
+    path: '/store',
+    name: 'store',
+    component: () => import('@/views/knowledgeStore/KnowledgeStore.vue')
   },
   {
     path: '/settings',

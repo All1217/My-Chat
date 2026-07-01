@@ -28,6 +28,7 @@ import {
     User,
     Setting,
     HomeFilled,
+    UploadFilled
 } from '@element-plus/icons-vue'
 
 const router = useRouter()
@@ -65,6 +66,14 @@ const cards: FeatureCard[] = [
         icon: Setting,
         color: '#ff484e',
         route: 'settings',
+    },
+    {
+        name: 'store',
+        title: '知识库管理',
+        desc: '个性化配置你的 AI 助手',
+        icon: UploadFilled,
+        color: '#9d48ff',
+        route: 'store',
     },
     {
         name: 'home',

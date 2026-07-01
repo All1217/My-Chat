@@ -23,6 +23,7 @@
 <!--        <mysql.version>8.0.33</mysql.version>-->
         <postgresql.version>42.7.3</postgresql.version>
         <mybatis-plus.version>3.5.15</mybatis-plus.version>
+        <pdfbox.version>2.0.31</pdfbox.version>
     </properties>
 
     <dependencies>
@@ -48,14 +49,20 @@
             <groupId>org.springframework.ai</groupId>
             <artifactId>spring-ai-starter-model-chat-memory-repository-jdbc</artifactId>
         </dependency>
+        <!-- Document parsers -->
         <dependency>
-            <groupId>org.springframework.ai</groupId>
-            <artifactId>spring-ai-pdf-document-reader</artifactId>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <version>${pdfbox.version}</version>
         </dependency>
 <!--        <dependency>-->
 <!--            <groupId>org.springframework.ai</groupId>-->
-<!--            <artifactId>spring-ai-vector-store-pgvector</artifactId>-->
+<!--            <artifactId>spring-ai-pdf-document-reader</artifactId>-->
 <!--        </dependency>-->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-vector-store-pgvector</artifactId>
+        </dependency>
 <!--        <dependency>-->
 <!--            <groupId>org.springframework.ai</groupId>-->
 <!--            <artifactId>spring-ai-vector-store</artifactId>-->

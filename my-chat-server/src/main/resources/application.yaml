@@ -30,10 +30,11 @@ spring:
               type: disabled
       embedding:
         enabled: true
+        base-url: https://ws-1b3a82l7nb8ysi9i.cn-beijing.maas.aliyuncs.com/compatible-mode/v1
+        api-key: ${EMBEDDING_MODEL_API_KEY}
         options:
           model: text-embedding-v4
-          base-url: https://ws-lmxmf1i0bbkq5lo1.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1
-          api-key: ${EMBEDDING_MODEL_API_KEY}
+          dimensions: 1536
       client:
         connect-timeout: 10s
         read-timeout: 600s

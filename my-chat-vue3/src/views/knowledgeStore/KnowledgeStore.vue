@@ -83,8 +83,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Upload, Delete, House, ArrowLeft } from '@element-plus/icons-vue'
-import { ragHttp } from '@/utils/http'
-import { request, mutate } from '@/utils/request'
+import { knowledgeApi } from '@/api/knowledge'
 import type { KnowledgeBase, DocumentMeta } from '@/types/knowledgeStore/types'
 
 const fileInputRef = ref<HTMLInputElement>()
@@ -112,14 +111,16 @@ function formatSize(bytes: number) {
 }
 
 async function fetchKbList() {
-  const data = await request(() => ragHttp.get<KnowledgeBase[]>('/ai/knowledge-base/list'))
-  if (data) kbList.value = data
+  try {
+    kbList.value = await knowledgeApi.list()
+  } catch { /* 已 toast */ }
 }
 
 async function fetchDocList() {
   if (!activeKbId.value) { docList.value = []; return }
-  const data = await request(() => ragHttp.get<DocumentMeta[]>('/ai/knowledge-base/documents', { kbId: activeKbId.value }))
-  if (data) docList.value = data
+  try {
+    docList.value = await knowledgeApi.documents(activeKbId.value)
+  } catch { /* 已 toast */ }
 }
 
 function handleSelectKb(id: string) {
@@ -133,27 +134,24 @@ async function handleCreateKb() {
     return
   }
   creating.value = true
-  const ok = await mutate(
-    () => ragHttp.post('/ai/knowledge-base/create', undefined, { params: createForm.value }),
-    '创建失败'
-  )
-  creating.value = false
-  if (ok) {
+  try {
+    await knowledgeApi.create(createForm.value.name, createForm.value.description)
     showCreateDialog.value = false
     createForm.value = { name: '', description: '' }
     await fetchKbList()
-  }
+  } catch { /* 已 toast */ }
+  creating.value = false
 }
 
 async function handleDeleteKb(id: string) {
   try {
     await ElMessageBox.confirm('确定删除该知识库及其所有文档？', '确认', { type: 'warning' })
   } catch { return }
-  const ok = await mutate(() => ragHttp.post('/ai/knowledge-base/delete', undefined, { params: { id } }), '删除失败')
-  if (ok) {
+  try {
+    await knowledgeApi.remove(id)
     if (activeKbId.value === id) { activeKbId.value = ''; docList.value = [] }
     await fetchKbList()
-  }
+  } catch { /* 已 toast */ }
 }
 
 function handleUploadClick() {
@@ -166,33 +164,23 @@ async function handleFileChange(event: Event) {
   if (!file || !activeKbId.value) return
 
   uploading.value = true
-  const formData = new FormData()
-  formData.append('file', file)
-  formData.append('kbId', activeKbId.value)
-
-  const data = await request(
-    () => ragHttp.post<{ documentId: string; filename: string; message: string; embeddingCount: number }>(
-      '/ai/file/upload',
-      formData
-    ),
-    { errorMsg: '文件上传失败' }
-  )
-
-  uploading.value = false
-  input.value = ''
-
-  if (data) {
+  try {
+    const data = await knowledgeApi.upload(file, activeKbId.value)
     ElMessage.success(`上传成功：${data.message}（${data.embeddingCount} 个分段）`)
     await fetchDocList()
-  }
+  } catch { /* 已 toast */ }
+  uploading.value = false
+  input.value = ''
 }
 
 async function handleDeleteDoc(id: string) {
   try {
     await ElMessageBox.confirm('确定删除该文档及其向量数据？', '确认', { type: 'warning' })
   } catch { return }
-  const ok = await mutate(() => ragHttp.post('/ai/file/delete', { id }), '删除失败')
-  if (ok) await fetchDocList()
+  try {
+    await knowledgeApi.deleteDocument(id)
+    await fetchDocList()
+  } catch { /* 已 toast */ }
 }
 
 onMounted(() => {

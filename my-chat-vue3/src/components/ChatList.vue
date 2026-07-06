@@ -96,6 +96,7 @@ function handleConfirmRename() {
         ElMessage.error('名称不能为空');
         return;
     }
+    if (!chatStore.currentChatId) return
     chatStore.updateConversation({ conversationId: chatStore.currentChatId, title: newName.value });
     showRenameDialog.value = false;
 }
@@ -103,6 +104,7 @@ function handleConfirmRename() {
 // 删除会话
 const showDeleteDialog = ref<boolean>(false);
 function handleDelete() {
+    if (!chatStore.currentChatId) return
     chatStore.deleteConversation(chatStore.currentChatId);
     showDeleteDialog.value = false;
 }

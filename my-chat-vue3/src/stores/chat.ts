@@ -1,8 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { ragHttp } from '@/utils/http'
+import { chatApi } from '@/api/chat'
 import type { ChatSessionVO, ChatSessionDTO } from '@/types/AiModule/types'
-import { request, mutate } from '@/utils/request'
 import { ElMessage } from 'element-plus'
 
 export const useChatStore = defineStore('chat', () => {
@@ -25,50 +24,40 @@ export const useChatStore = defineStore('chat', () => {
     // ========== 方法 ==========
     /** 获取会话列表 */
     async function fetchChatList() {
-        const list = await request(
-            () => ragHttp.get<ChatSessionVO[]>('/ai/history/getConversations'),
-            { errorMsg: '获取会话列表失败' }
-        )
-        if (list) {
-            chatList.value = list
-        }
+        try {
+            chatList.value = await chatApi.getConversations()
+        } catch { /* 已 toast */ }
     }
     /** 新建会话（持久化到后端并加入列表） */
     async function createConversation(id: string) {
         try {
-            await ragHttp.post(`/ai/history/addConversation?conversationId=${id}`)
-            // 能走到这里说明 HTTP 200，后端已写库
+            await chatApi.addConversation(id)
             chatList.value.push({ conversationId: id, title: '' })
             currentChatId.value = id
-        } catch {
-            ElMessage.error('创建会话失败！')
-        }
+        } catch { /* 已 toast */ }
     }
     /** 更新会话 */
     async function updateConversation(dto: ChatSessionDTO) {
-        const ok = await mutate(
-            () => ragHttp.post('/ai/history/update', dto),
-            '更新失败！'
-        )
-        if (ok) {
+        try {
+            await chatApi.updateConversation(dto)
             const index = chatList.value.findIndex(c => c.conversationId === dto.conversationId)
             if (index !== -1 && dto.title !== undefined) {
-                // 替换整个对象，确保响应式触发
                 chatList.value[index] = { ...chatList.value[index], title: dto.title }
             }
             ElMessage.success('更新成功！')
-        }
+        } catch { /* 已 toast */ }
     }
     /** 删除会话 */
     async function deleteConversation(id: string) {
-        // 删除接口没有返回值，所以直接调用 ragHttp.delete
-        ragHttp.delete(`/ai/history/deleteById?id=${id}`);
-        const index = chatList.value.findIndex(c => c.conversationId === id)
-        if (index !== -1) {
-            chatList.value.splice(index, 1);
-            currentChatId.value = '';
-            ElMessage.success('删除成功！');
-        }
+        try {
+            await chatApi.deleteConversation(id)
+            const index = chatList.value.findIndex(c => c.conversationId === id)
+            if (index !== -1) {
+                chatList.value.splice(index, 1)
+                currentChatId.value = ''
+                ElMessage.success('删除成功！')
+            }
+        } catch { /* 已 toast */ }
     }
 
     /** 切换当前会话 */

@@ -12,7 +12,7 @@
                         <div v-if="parseMessage(msg.text).thinking" class="thinking-box">
                             <el-collapse>
                                 <el-collapse-item title="🤔 思考过程">
-                                    <MarkdownRenderer :content="parseMessage(msg.text).thinking" />
+                                    <MarkdownRenderer :content="parseMessage(msg.text).thinking ?? ''" />
                                 </el-collapse-item>
                             </el-collapse>
                         </div>
@@ -30,7 +30,7 @@
                         <div v-if="parseMessage(streamingContent).thinking" class="thinking-box">
                             <el-collapse>
                                 <el-collapse-item title="🤔 思考过程（实时更新中...）">
-                                    <MarkdownRenderer :content="parseMessage(streamingContent).thinking" />
+                                    <MarkdownRenderer :content="parseMessage(streamingContent).thinking ?? ''" />
                                 </el-collapse-item>
                             </el-collapse>
                         </div>
@@ -66,8 +66,7 @@ import type { Message } from '@/types/AiModule/types'
 import { ref, nextTick, onMounted, onUnmounted, watch } from 'vue'
 import { streamChat, generateChatId } from '@/utils/streamChat'
 import { useChatStore } from '@/stores/chat'
-import { ragHttp } from '@/utils/http'
-import { request } from '@/utils/request'
+import { chatApi } from '@/api/chat'
 import { ElMessage } from 'element-plus'
 const chatStore = useChatStore()
 
@@ -248,15 +247,10 @@ function parseMessage(raw: string): Message {
 
 // 获取会话聊天记录
 async function getMessages(id: string) {
-    const list = await request(
-        () => ragHttp.get<Message[]>(`/ai/history/getMessages/${id}`),
-        { errorMsg: '获取聊天记录失败！' }
-    )
-    if (list) {
-        messages.value = list
-        // 进入会话时自动滚动到最新消息
+    try {
+        messages.value = await chatApi.getMessages(id)
         scrollToBottom()
-    }
+    } catch { /* 已 toast */ }
 }
 
 function copyText(text: string) {

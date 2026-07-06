@@ -9,7 +9,7 @@
       </div>
       <el-tree ref="treeRef" :data="treeData" node-key="path" :props="treeProps" :highlight-current="true"
         :expand-on-click-node="true" :default-expand-all="true" @node-click="handleNodeClick" class="workspace-tree">
-        <template #default="{ node, data }">
+        <template #default="{ data }">
           <span class="tree-node-label" @dblclick.stop="handleNodeDblClick(data)">
             <el-icon v-if="data.directory" :size="16" color="#437dff">
               <Folder />
@@ -126,9 +126,8 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { FolderOpened, Folder, Document, Refresh, Plus, Upload } from '@element-plus/icons-vue'
-import { ragHttp } from '@/utils/http'
-import { request } from '@/utils/request'
-import { FileTreeNode, FileInfo } from '@/types/settings/types'
+import { workspaceApi } from '@/api/workspace'
+import type { FileTreeNode, FileInfo } from '@/types/settings/types'
 import mammoth from 'mammoth'
 import * as XLSX from 'xlsx'
 
@@ -160,29 +159,18 @@ const pathSegments = computed(() => {
 
 // ---------- 网络请求 ----------
 async function fetchTree() {
-  const data = await request(
-    () =>
-      ragHttp.get<FileTreeNode[]>('/ai/file/workspace/tree', {
-        path: '',
-      }), { errorMsg: '获取目录树失败' }
-  )
-  if (data) {
-    treeData.value = data
-  }
+  try {
+    treeData.value = await workspaceApi.tree()
+  } catch { /* 已 toast */ }
 }
 
 async function fetchFileList(path: string) {
-  const data = await request(
-    () =>
-      ragHttp.get<FileInfo[]>('/ai/file/workspace/list', { path }),
-    { errorMsg: '获取文件列表失败' }
-  )
-  if (data) {
-    fileList.value = data.map((f) => ({
+  try {
+    fileList.value = (await workspaceApi.list(path)).map((f) => ({
       ...f,
       previewable: !f.directory && isPreviewableExt(f.name),
     }))
-  }
+  } catch { /* 已 toast */ }
 }
 
 // ---------- 辅助函数 ----------
@@ -235,18 +223,12 @@ async function handleCreateFolder() {
     })
     if (!folderName) return
 
-    await request(
-      () => ragHttp.post('/ai/file/workspace/folder', null, {
-        params: { path: currentPath.value, name: folderName },
-      }),
-      { errorMsg: '创建文件夹失败' }
-    )
-    // 刷新目录树和当前文件列表
+    await workspaceApi.createFolder(currentPath.value, folderName)
     await fetchTree()
     await fetchFileList(currentPath.value)
     ElMessage.success('文件夹创建成功')
   } catch {
-    // 用户取消，不做处理（request 内部已处理网络错误）
+    // 用户取消或请求失败（已 toast）
   }
 }
 
@@ -265,14 +247,12 @@ async function handleFileChange(event: Event) {
   }
   formData.append('path', currentPath.value)
 
-  await request(
-    () => ragHttp.post('/ai/file/workspace/import', formData),
-    { errorMsg: '导入文件失败' }
-  )
-  await fetchTree()
-  await fetchFileList(currentPath.value)
-  ElMessage.success(`成功导入 ${files.length} 个文件`)
-  // 清空 input，以便重复选择同一文件
+  try {
+    await workspaceApi.importFiles(formData)
+    await fetchTree()
+    await fetchFileList(currentPath.value)
+    ElMessage.success(`成功导入 ${files.length} 个文件`)
+  } catch { /* 已 toast */ }
   input.value = ''
 }
 // 双击表格行
@@ -298,27 +278,17 @@ async function handlePreview(row: FileInfo) {
   const name = row.name
 
   if (isText(name)) {
-    // ---------- 文本文件：沿用旧逻辑 ----------
-    const content = await request(
-      () => ragHttp.get<string>('/ai/file/workspace/read', { path: row.path }),
-      { errorMsg: '读取文件失败' }
-    )
-    if (content !== null) {
+    try {
+      const content = await workspaceApi.readText(row.path)
       previewType.value = 'text'
       previewContent.value = content
       previewVisible.value = true
-    }
+    } catch { /* 已 toast */ }
     return
   }
 
-  // ---------- 二进制文件：调用新接口获取 Base64 ----------
-  const data = await request(
-    () => ragHttp.get<{ base64: string; mimeType: string }>('/ai/file/workspace/read/binary', { path: row.path }),
-    { errorMsg: '读取文件失败' }
-  )
-  if (!data) return
-
-  const { base64, mimeType } = data
+  try {
+    const { base64, mimeType } = await workspaceApi.readBinary(row.path)
 
   if (isPdf(name)) {
     // PDF：转为 Blob URL，iframe 展示
@@ -373,6 +343,7 @@ async function handlePreview(row: FileInfo) {
   } else {
     ElMessage.warning('不支持预览该文件格式')
   }
+  } catch { /* 已 toast */ }
 }
 /** 获取文件扩展名（小写） */
 function getExt(name: string): string {
@@ -422,15 +393,12 @@ async function handleRename(row: FileInfo) {
     })
     if (!newName || newName === row.name) return
 
-    await request(
-      () => ragHttp.post('/ai/file/workspace/rename', { path: row.path, newName }),
-      { errorMsg: '重命名失败' }
-    )
+    await workspaceApi.rename(row.path, newName)
     await fetchTree()
     await fetchFileList(currentPath.value)
     ElMessage.success('重命名成功')
   } catch {
-    // 用户取消或请求失败
+    // 用户取消或请求失败（已 toast）
   }
 }
 
@@ -451,14 +419,12 @@ async function handleDelete(row: FileInfo) {
     return // 用户取消
   }
 
-  await request(
-    () => ragHttp.post('/ai/file/workspace/delete', { path: row.path }),
-    { errorMsg: '删除失败' }
-  )
-  // 刷新目录树和当前文件列表
-  await fetchTree()
-  await fetchFileList(currentPath.value)
-  ElMessage.success('删除成功')
+  try {
+    await workspaceApi.remove(row.path)
+    await fetchTree()
+    await fetchFileList(currentPath.value)
+    ElMessage.success('删除成功')
+  } catch { /* 已 toast */ }
 }
 async function handleRefresh() {
   await fetchTree()

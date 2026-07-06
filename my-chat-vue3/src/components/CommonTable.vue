@@ -77,7 +77,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
 import type { TableInstance } from "element-plus";
-import { Column } from "@/types/models";
+import type { Column } from "@/types/models";
 
 interface Props {
   columns: Column[];

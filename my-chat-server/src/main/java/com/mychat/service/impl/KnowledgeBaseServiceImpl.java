@@ -6,15 +6,14 @@ import com.mychat.entity.po.DocumentMeta;
 import com.mychat.entity.po.KnowledgeBase;
 import com.mychat.mapper.DocumentMetaMapper;
 import com.mychat.mapper.KnowledgeBaseMapper;
+import com.mychat.service.EmbeddingService;
 import com.mychat.service.KnowledgeBaseService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -22,7 +21,7 @@ import java.util.stream.Collectors;
 public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, KnowledgeBase> implements KnowledgeBaseService {
     private final KnowledgeBaseMapper knowledgeBaseMapper;
     private final DocumentMetaMapper documentMetaMapper;
-    private final VectorStore vectorStore;
+    private final EmbeddingService embeddingService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -30,8 +29,7 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
         List<DocumentMeta> docs = documentMetaMapper.selectList(
                 new LambdaQueryWrapper<DocumentMeta>().eq(DocumentMeta::getKbId, id));
         if (!docs.isEmpty()) {
-            List<String> docIds = docs.stream().map(DocumentMeta::getId).collect(Collectors.toList());
-            vectorStore.delete(docIds);
+            embeddingService.deleteByDocumentMetas(docs);
             documentMetaMapper.delete(new LambdaQueryWrapper<DocumentMeta>().eq(DocumentMeta::getKbId, id));
         }
         knowledgeBaseMapper.deleteById(id);

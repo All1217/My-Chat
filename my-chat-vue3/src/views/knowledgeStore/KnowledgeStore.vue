@@ -27,6 +27,12 @@
             上传文档
           </el-button>
           <input ref="fileInputRef" type="file" style="display: none" @change="handleFileChange" />
+          <el-button type="primary" :icon="ArrowLeft" @click="$router.push({ name: 'lobby' })">
+            回到大厅
+          </el-button>
+          <el-button type="primary" :icon="House" @click="$router.push({ name: 'home' })">
+            回到首页
+          </el-button>
         </div>
       </div>
 
@@ -76,7 +82,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Upload, Delete } from '@element-plus/icons-vue'
+import { Plus, Upload, Delete, House, ArrowLeft } from '@element-plus/icons-vue'
 import { ragHttp } from '@/utils/http'
 import { request, mutate } from '@/utils/request'
 import type { KnowledgeBase, DocumentMeta } from '@/types/knowledgeStore/types'

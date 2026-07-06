@@ -84,8 +84,11 @@ public class FileController {
         String id = body.get("id");
         if (id == null || id.isEmpty()) return Result.fail("参数 id 不能为空");
         try {
-            embeddingService.deleteByDocumentId(id);
-            documentMetaMapper.deleteById(id);
+            DocumentMeta meta = documentMetaMapper.selectById(id);
+            if (meta != null) {
+                embeddingService.deleteByDocumentId(meta.getId(), meta.getChunkCount());
+                documentMetaMapper.deleteById(id);
+            }
             return Result.ok();
         } catch (Exception e) {
             log.error("Failed to delete document: {}", id, e);

@@ -12,6 +12,7 @@ import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -39,7 +40,14 @@ public class DocumentService {
                     "filename", filename,
                     "documentId", documentId
             ));
-            List<Document> segments = splitter.split(document);
+            List<Document> rawSegments = splitter.split(document);
+            List<Document> segments = new ArrayList<>(rawSegments.size());
+            for (int i = 0; i < rawSegments.size(); i++) {
+                Document seg = rawSegments.get(i);
+                String segmentId = UUID.nameUUIDFromBytes(
+                        (documentId + "_" + i).getBytes(StandardCharsets.UTF_8)).toString();
+                segments.add(new Document(segmentId, seg.getText(), seg.getMetadata()));
+            }
             log.info("Document '{}' processed into {} segments", filename, segments.size());
             return new ProcessedDocument(documentId, filename, segments);
         } catch (Exception e) {

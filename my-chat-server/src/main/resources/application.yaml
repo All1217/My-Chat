@@ -52,8 +52,5 @@ logging:
     com.mychat: debug
     org.springframework.web.reactive.function.client.ExchangeFunctions: trace
 app:
-  ffmpeg:
-    use-embedded: true
-    cleanup-temp-on-exit: true
   workspace:
     root: ./src/main/resources/workspace

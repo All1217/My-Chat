@@ -35,7 +35,7 @@ public class DocumentService {
             if (content == null || content.isBlank()) {
                 throw new RuntimeException("空文件非法！");
             }
-            Document document = new Document(content, Map.of(
+            Document document = new Document(documentId, content, Map.of(
                     "filename", filename,
                     "documentId", documentId
             ));

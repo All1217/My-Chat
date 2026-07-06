@@ -3,9 +3,10 @@ package com.mychat.controller;
 import com.mychat.common.result.Result;
 import com.mychat.entity.FileInfo;
 import com.mychat.entity.FileTreeNode;
+import com.mychat.entity.po.DocumentMeta;
+import com.mychat.mapper.DocumentMetaMapper;
 import com.mychat.service.DocumentService;
 import com.mychat.service.EmbeddingService;
-import com.mychat.service.impl.VideoService;
 import com.mychat.utils.WorkspaceUtil;
 import com.mychat.vo.DocumentResponseVO;
 import lombok.extern.slf4j.Slf4j;
@@ -13,7 +14,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import reactor.core.publisher.Flux;
 
 import java.io.InputStream;
 import java.util.*;
@@ -23,9 +23,9 @@ import java.util.*;
 @RequestMapping("/ai/file")
 public class FileController {
     @Autowired
-    private VideoService videoService;
-    @Autowired
     private WorkspaceUtil workspaceUtil;
+    @Autowired
+    private DocumentMetaMapper documentMetaMapper;
     @Autowired
     private DocumentService documentService;
     @Autowired
@@ -35,30 +35,35 @@ public class FileController {
      * 上传文件并将其向量化
      *
      * @param file 文本文件
+     * @param kbId 可选：归入的知识库ID
      * @return processing result
      */
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public Result<?> uploadDocument(@RequestParam("file") MultipartFile file) {
-        log.info("Received document upload: {}", file.getOriginalFilename());
+    public Result<?> uploadDocument(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "kbId", required = false) String kbId) {
+        log.info("Received document upload: {}, kbId={}", file.getOriginalFilename(), kbId);
         try {
-            // 1.校验文件
             if (file.isEmpty()) return Result.fail(400, "空文件非法！");
             String filename = file.getOriginalFilename();
-            if (filename == null || filename.isEmpty()) Result.fail(400, "文件名不能为空！");
+            if (filename == null || filename.isEmpty()) return Result.fail(400, "文件名不能为空！");
 
-            // 2.处理文件
             try (InputStream inputStream = file.getInputStream()) {
-                DocumentService.ProcessedDocument processed = documentService.processDocument(
-                        inputStream,
-                        filename
-                );
-
-                // 3.存储向量化后的文件
+                DocumentService.ProcessedDocument processed = documentService.processDocument(inputStream, filename);
                 int embeddingCount = embeddingService.storeSegments(processed.segments());
-                log.info("Successfully processed document: {} ({} segments)",
-                        filename, embeddingCount);
 
-                // 4.返回结果
+                if (kbId != null && !kbId.isEmpty()) {
+                    DocumentMeta meta = new DocumentMeta();
+                    meta.setId(processed.documentId());
+                    meta.setKbId(kbId);
+                    meta.setFilename(filename);
+                    meta.setFileSize(file.getSize());
+                    meta.setFileType(filename.contains(".") ? filename.substring(filename.lastIndexOf('.') + 1) : "");
+                    meta.setChunkCount(embeddingCount);
+                    meta.setStatus("READY");
+                    documentMetaMapper.insert(meta);
+                }
+
                 return Result.ok(new DocumentResponseVO(
                         processed.documentId(),
                         filename,
@@ -71,13 +76,21 @@ public class FileController {
         }
     }
 
-    // 视频总结接口
-    @PostMapping("/video/summarize")
-    public Flux<String> summarizeVideo(
-            @RequestParam("file") MultipartFile file,
-            @RequestParam(value = "prompt", defaultValue = "请详细总结这个视频的内容") String prompt,
-            @RequestParam(value = "interval", defaultValue = "2") int intervalSec) {
-        return videoService.summarizeVideo(file, prompt, intervalSec);
+    /**
+     * 删除文档（同步清理向量 + 元数据）
+     */
+    @PostMapping("/delete")
+    public Result<Void> deleteDocument(@RequestBody Map<String, String> body) {
+        String id = body.get("id");
+        if (id == null || id.isEmpty()) return Result.fail("参数 id 不能为空");
+        try {
+            embeddingService.deleteByDocumentId(id);
+            documentMetaMapper.deleteById(id);
+            return Result.ok();
+        } catch (Exception e) {
+            log.error("Failed to delete document: {}", id, e);
+            return Result.fail(500, "文档删除失败！");
+        }
     }
 
     /**

@@ -25,4 +25,22 @@ public class EmbeddingService {
             throw new RuntimeException("Segment storage failed: " + e.getMessage(), e);
         }
     }
+
+    public void deleteByDocumentId(String documentId) {
+        log.info("Deleting segments for document: {}", documentId);
+        try {
+            vectorStore.delete(List.of(documentId));
+        } catch (Exception e) {
+            log.error("Failed to delete segments for document: {}", documentId, e);
+        }
+    }
+
+    public void deleteByDocumentIds(List<String> documentIds) {
+        log.info("Deleting segments for {} documents", documentIds.size());
+        try {
+            vectorStore.delete(documentIds);
+        } catch (Exception e) {
+            log.error("Failed to delete segments", e);
+        }
+    }
 }

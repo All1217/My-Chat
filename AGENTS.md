@@ -20,6 +20,8 @@ npm run dev                        # start dev server
 npm run build                      # typecheck + build (vue-tsc -b && vite build)
 ```
 
+**Frontend has no lint or test framework.** `npm run build` is the only verification step. No ESLint, Prettier, or Vitest is configured.
+
 ## Required environment variables
 
 | Variable | Used for |
@@ -37,29 +39,33 @@ Schema is in `my-chat-server/src/main/resources/schema.sql`. The file contains b
 ## Frontend proxy
 
 Vite dev server proxies:
-- `/rag/**` → `http://localhost:8100` (project backend)
-- `/api/**` → `http://localhost:8080/jeecg-boot` (legacy CRM, keep but don't modify unless asked)
+- `/rag/*` → `http://localhost:8100` (project backend, path prefix stripped)
+- `/api/*` → `http://localhost:8080/jeecg-boot` (legacy CRM — keep but don't modify unless asked)
 
-Two Axios instances in `src/utils/http.ts`: `ragHttp` (for this backend) and `crmHttp` (for legacy CRM). There is a hard-coded `X-Access-Token` header — don't remove it.
+Two Axios instances in `my-chat-vue3/src/utils/http.ts`: `ragHttp` (base `/rag`) and `crmHttp` (base `/api`). A hard-coded `X-Access-Token` header is injected in both — do not remove it.
 
 ## API conventions
 
-Backend wraps all responses in `Result<T>` (`{ code, message, data }`). Code 200 = success. Frontend `request.ts` auto-unwraps and error-handles.
+Backend wraps all responses in `Result<T>` (`{ code, message, data }`). Code 200 = success. Frontend `my-chat-vue3/src/utils/request.ts` auto-unwraps and error-handles.
 
-For SSE streaming chat, the frontend uses native `fetch` (not Axios) — see `src/utils/streamChat.ts`. The backend chat endpoint (`/ai/normalChat/chat`) produces `text/html` for streaming, not `text/event-stream`.
+For streaming chat, the frontend uses native `fetch` (not Axios) — see `my-chat-vue3/src/utils/streamChat.ts`. The backend chat endpoint `/ai/normalChat/chat` produces `text/html;charset=utf-8` (not `text/event-stream`). The stream may contain `[THINKING]...[/THINKING]` tags wrapping reasoning content — the frontend Markdown renderer must handle these.
 
 ## Key backend internals
 
-- `AiConfiguration` wires ChatClient with ShellTool + FFmpegTool as default tools, JDBC-backed `MessageWindowChatMemory` (max 64 messages), and `SimpleLoggerAdvisor`.
-- `EmbeddingService` writes debug logs to the project root `debug-d859f8.log` via `AgentDebugLog`. This is debug infrastructure — leave it alone unless instructed.
+- `AiConfiguration` wires ChatClient with ShellTool as the default tool, JDBC-backed `MessageWindowChatMemory` (max 64 messages), and `SimpleLoggerAdvisor`.
+- MyBatis-Plus 3.5.15 (uses `spring-boot4-starter` matching SB 4.x).
+- File upload: 200MB max (multipart). Read timeout: 600s.
+- Chat model: `deepseek-v4-pro` (OpenAI-compatible API at `api.deepseek.com`), thinking disabled.
+- Embedding model: Alibaba MaaS `text-embedding-v4`, 1536d, pgvector with HNSW + cosine distance.
+- `EmbeddingService` writes debug logs to project root `debug-d859f8.log` via `AgentDebugLog`. Leave it alone unless instructed.
 - `EmbeddingConfigProbe` logs resolved config at startup.
+- Knowledge base CRUD: `entity/po/KnowledgeBase.java`, `entity/po/DocumentMeta.java`, `KnowledgeBaseController` at `/ai/knowledge-base/*`.
+- Document upload accepts optional `kbId` param to associate with a knowledge base; document metadata goes into `document_meta` table. Vector cleanup uses `EmbeddingService.deleteByDocumentId`.
 
 ## Tests
 
-Tests are `@SpringBootTest` integration tests. They need a running PostgreSQL with pgvector and the required env vars set.
-
-Video-related tests (`FfmpegUtilTest`, `VideoServiceTest`) need `src/test/resources/test-video.mp4` placed manually — they silently skip if the file is missing.
+Tests are `@SpringBootTest` integration tests. They need a running PostgreSQL with pgvector and the required env vars set. Test config (`my-chat-server/src/test/resources/application-test.yaml`) overrides OpenAI to `localhost:9999` with dummy credentials — no real API calls during tests.
 
 ## Version note (README is stale)
 
-The README badges claim Spring Boot 3.5 and Spring AI 1.1.3, but the actual `pom.xml` declares Spring Boot **4.1.0**, Spring AI **2.0.0**, and Java **25**. Trust `pom.xml` over README.
+The README badges claim Spring Boot 3.5 and Spring AI 1.1.3, but `pom.xml` declares Spring Boot **4.1.0**, Spring AI **2.0.0**, and Java **25**. Trust `pom.xml` over README.

@@ -18,9 +18,12 @@ Two-package monorepo. Root `src/` is a vestige — ignore it.
 # Frontend (from my-chat-vue3/)
 npm run dev                        # start dev server
 npm run build                      # typecheck + build (vue-tsc -b && vite build)
+npm run preview                    # preview production build
 ```
 
 **Frontend has no lint or test framework.** `npm run build` is the only verification step. No ESLint, Prettier, or Vitest is configured.
+
+**Frontend path alias:** `@/` maps to `src/` (configured in `vite.config.ts`).
 
 ## Required environment variables
 
@@ -50,6 +53,13 @@ Backend wraps all responses in `Result<T>` (`{ code, message, data }`). Code 200
 
 For streaming chat, the frontend uses native `fetch` (not Axios) — see `my-chat-vue3/src/utils/streamChat.ts`. The backend chat endpoint `/ai/normalChat/chat` produces `text/html;charset=utf-8` (not `text/event-stream`). The stream may contain `[THINKING]...[/THINKING]` tags wrapping reasoning content — the frontend Markdown renderer must handle these.
 
+## Backend API surface
+
+Three controllers at `/ai/*`:
+- `ChatController` (`/ai/normalChat/chat`) — streaming POST, `text/html;charset=utf-8`, uses FormData (prompt + chatId + optional files)
+- `ChatHistoryController` (`/ai/history/*`) — session CRUD (getConversations, addConversation, update, deleteById, getMessages)
+- `FileController` (`/ai/file/*`) — workspace management (tree, list, read, CRUD) and document upload/vectorize
+
 ## Key backend internals
 
 - `AiConfiguration` wires ChatClient with ShellTool as the default tool, JDBC-backed `MessageWindowChatMemory` (max 64 messages), and `SimpleLoggerAdvisor`.
@@ -57,6 +67,9 @@ For streaming chat, the frontend uses native `fetch` (not Axios) — see `my-cha
 - File upload: 200MB max (multipart). Read timeout: 600s.
 - Chat model: `deepseek-v4-pro` (OpenAI-compatible API at `api.deepseek.com`), thinking disabled.
 - Embedding model: Alibaba MaaS `text-embedding-v4`, 1536d, pgvector with HNSW + cosine distance.
+- `ShellTool` is a **Windows-only** read-only PowerShell command executor with a whitelist. It runs in the `my-chat-server/` CWD and has a 15s timeout. Will not work on Linux/macOS.
+- Embedded FFmpeg bundled at `src/main/resources/ffmpeg/windows/ffmpeg.exe` (enabled via `app.ffmpeg.use-embedded: true`). Falls back to system PATH ffmpeg if missing.
+- Workspace root: `./src/main/resources/workspace` (configurable via `app.workspace.root`).
 - `EmbeddingService` writes debug logs to project root `debug-d859f8.log` via `AgentDebugLog`. Leave it alone unless instructed.
 - `EmbeddingConfigProbe` logs resolved config at startup.
 - Knowledge base CRUD: `entity/po/KnowledgeBase.java`, `entity/po/DocumentMeta.java`, `KnowledgeBaseController` at `/ai/knowledge-base/*`.

@@ -49,8 +49,9 @@ public class ChatHistoryController {
      * 删除指定会话的聊天历史
      */
     @DeleteMapping("/deleteById")
-    public void deleteChatSessionById(@RequestParam String id) {
+    public Result<Void> deleteChatSessionById(@RequestParam String id) {
         chatSessionsService.deleteChatSessionById(id);
+        return Result.ok();
     }
 
     /**
@@ -58,8 +59,9 @@ public class ChatHistoryController {
      * @param conversationId 会话ID
      */
     @PostMapping("/addConversation")
-    public void addConversation(@RequestParam String conversationId) {
+    public Result<Void> addConversation(@RequestParam String conversationId) {
         chatSessionsService.addConversation(conversationId);
+        return Result.ok();
     }
 
     /**

@@ -53,9 +53,15 @@
         <div class="chat-box">
             <textarea v-model="inputText" placeholder="输入你的问题……" @keydown.enter.exact.prevent="sendMessage"
                 :disabled="isStreaming"></textarea>
-            <button class="send-btn" @click="sendMessage" :disabled="isStreaming || !inputText.trim()">
-                <Promotion style="width: 16px; height: 16px; color: #fff;" />
+            <button class="chat-box-btn send-btn" @click="sendMessage" :disabled="isStreaming || !inputText.trim()">
+                <Promotion style="width: 17px; height: 17px; color: #fff;" />
             </button>
+            <button class="chat-box-btn upload-btn">
+                <Plus style="width: 17px; height: 17px; color: #fff;" />
+            </button>
+            <div class="option-bar">
+                <!-- 在此添加选择知识库的选项 -->
+            </div>
         </div>
     </div>
 </template>
@@ -74,6 +80,8 @@ const messages = ref<Message[]>([])
 const inputText = ref('')
 const isStreaming = ref(false)
 const streamingContent = ref('')
+// 流式响应期间是否自动滚动到底部（用户手动滚开后关闭，滚回底部时重新开启）
+const autoScrollEnabled = ref(true)
 
 /**
  * 自定义滑条
@@ -81,7 +89,8 @@ const streamingContent = ref('')
 const chatBoxulRef = ref<HTMLElement>()
 // 暴露 ulRef 给父组件
 defineExpose({ chatBoxulRef })
-function scrollToBottom() {
+function scrollToBottom(force = false) {
+    if (!force && !autoScrollEnabled.value) return
     nextTick(() => {
         if (chatBoxulRef.value) {
             chatBoxulRef.value.scrollTop = chatBoxulRef.value.scrollHeight
@@ -120,6 +129,10 @@ function jumpToBottom() {
 }
 function onUlScroll() {
     updateIsAtBottom()
+    // 流式响应期间：用户滚开底部则中断自动滚动，滚回底部则恢复
+    if (isStreaming.value) {
+        autoScrollEnabled.value = isAtBottom.value
+    }
     emit('scroll-changed')
 }
 /**
@@ -157,7 +170,7 @@ async function sendMessage() {
 
     messages.value.push({ text, messageType: MessageType.USER })
     inputText.value = ''
-    scrollToBottom()
+    scrollToBottom(true)
 
     // 如果没有当前会话，先创建
     let chatId = chatStore.currentChatId
@@ -175,6 +188,8 @@ async function sendMessage() {
 function startStreaming(prompt: string, chatId: string) {
     isStreaming.value = true
     streamingContent.value = ''
+    // 只在用户当前已在底部附近时才启用自动滚动
+    autoScrollEnabled.value = isAtBottom.value
 
     stopStreamingFn = streamChat({
         prompt,
@@ -233,23 +248,12 @@ function parseMessage(raw: string): Message {
     }
     return { thinking: null, text: raw, messageType: MessageType.ASSISTANT }
 }
-// function parseMessage(raw: string): Message {
-//     const thinkMatch = raw.match(/\[THINKING\]([\s\S]*?)\[\/THINKING\]/)
-//     if (thinkMatch) {
-//         return {
-//             thinking: thinkMatch[1].trim(),
-//             text: raw.replace(/\[THINKING\][\s\S]*?\[\/THINKING\]/g, '').trim(),
-//             messageType: MessageType.ASSISTANT
-//         }
-//     }
-//     return { thinking: null, text: raw, messageType: MessageType.ASSISTANT }
-// }
 
 // 获取会话聊天记录
 async function getMessages(id: string) {
     try {
         messages.value = await chatApi.getMessages(id)
-        scrollToBottom()
+        scrollToBottom(true)
     } catch { /* 已 toast */ }
 }
 
@@ -424,7 +428,7 @@ onUnmounted(() => {
         textarea {
             padding: 15px;
             width: 100%;
-            height: 100%;
+            height: 115px;
             border: none;
             resize: none;
             outline: none;
@@ -440,10 +444,8 @@ onUnmounted(() => {
             font-size: 16px;
         }
 
-        .send-btn {
+        .chat-box-btn {
             position: absolute;
-            right: 20px;
-            bottom: 15px;
             width: 25px;
             height: 25px;
             border-radius: 50%;
@@ -459,6 +461,24 @@ onUnmounted(() => {
             &:hover:not(:disabled) {
                 background-color: #3366ff;
             }
+        }
+
+        .send-btn {
+            right: 20px;
+            bottom: 37px;
+        }
+
+        .upload-btn {
+            right: 60px;
+            bottom: 37px;
+        }
+
+        .option-bar {
+            display: flex;
+            align-items: center;
+            height: 35px;
+            width: 100%;
+            background-color: #eeeeee;
         }
     }
 }

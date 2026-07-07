@@ -1,0 +1,43 @@
+spring:
+  application:
+    name: spring-ai-rag
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+  # Microsoft Foundry configuration via spring-ai-starter-model-openai
+  ai:
+    openai:
+      base-url: ${AZURE_OPENAI_ENDPOINT}
+      api-key: ${AZURE_OPENAI_API_KEY}
+      microsoft-deployment-name: ${AZURE_OPENAI_FAST_DEPLOYMENT}
+      chat:
+        model: ${AZURE_OPENAI_FAST_DEPLOYMENT}
+      embedding:
+        model: ${AZURE_OPENAI_EMBEDDING_DEPLOYMENT}
+
+server:
+  port: 8081
+
+app:
+  rag:
+    search:
+      max-results: 5
+      similarity-threshold: 0.5
+
+# Spring Boot Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+# Logging
+logging:
+  level:
+    "[com.example.springai]": DEBUG
+    "[org.springframework.ai]": DEBUG
+    "[org.springframework]": INFO

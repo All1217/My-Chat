@@ -45,7 +45,7 @@ Vite dev server proxies:
 - `/rag/*` → `http://localhost:8100` (project backend, path prefix stripped)
 - `/api/*` → `http://localhost:8080/jeecg-boot` (legacy CRM — keep but don't modify unless asked)
 
-Two Axios instances in `my-chat-vue3/src/utils/http.ts`: `ragHttp` (base `/rag`) and `crmHttp` (base `/api`). A hard-coded `X-Access-Token` header is injected in both — do not remove it.
+Two Axios clients in `my-chat-vue3/src/utils/http/` (a module, exports `ragClient` and `crmClient` from `index.ts`). A hard-coded `X-Access-Token` header is injected in both — do not remove it.
 
 ## API conventions
 
@@ -55,10 +55,12 @@ For streaming chat, the frontend uses native `fetch` (not Axios) — see `my-cha
 
 ## Backend API surface
 
-Three controllers at `/ai/*`:
+Five controllers at `/ai/*`:
 - `ChatController` (`/ai/normalChat/chat`) — streaming POST, `text/html;charset=utf-8`, uses FormData (prompt + chatId + optional files)
-- `ChatHistoryController` (`/ai/history/*`) — session CRUD (getConversations, addConversation, update, deleteById, getMessages)
+- `ChatHistoryController` (`/ai/history/*`) — session CRUD (getConversations, addConversation, update, deleteById, getMessages). `getConversations`/`addConversation` accept optional `kbId` param to associate a session with a knowledge base.
 - `FileController` (`/ai/file/*`) — workspace management (tree, list, read, CRUD) and document upload/vectorize
+- `KnowledgeBaseController` (`/ai/knowledge-base/*`) — knowledge base CRUD (list, create, delete) and document listing
+- `RagChatController` (`/ai/ragChat/chat`) — RAG streaming POST, same shape as normalChat/chat + required `kbId` param; uses `VectorStore.similaritySearch` with `filterExpression("kbId == '<id>'")` to scope retrieval
 
 ## Key backend internals
 

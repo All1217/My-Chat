@@ -36,13 +36,15 @@ public class ChatHistoryController {
     }
 
     /**
-     * 获取所有会话列表
+     * 获取会话列表
      *
-     * @return SpringAiChatMemoryVO 列表
+     * @param kbId 可选：null → 普通会话；具体值 → 该知识库的会话
+     * @return ChatSessionVO 列表
      */
     @GetMapping("/getConversations")
-    public Result<List<ChatSessionVO>> getAllConversation() {
-        return Result.ok(service.getAllConversation());
+    public Result<List<ChatSessionVO>> getConversations(
+            @RequestParam(value = "kbId", required = false) String kbId) {
+        return Result.ok(chatSessionsService.getConversationsByKbId(kbId));
     }
 
     /**
@@ -56,11 +58,15 @@ public class ChatHistoryController {
 
     /**
      * 新增聊天会话
+     *
      * @param conversationId 会话ID
+     * @param kbId           可选：关联的知识库ID
      */
     @PostMapping("/addConversation")
-    public Result<Void> addConversation(@RequestParam String conversationId) {
-        chatSessionsService.addConversation(conversationId);
+    public Result<Void> addConversation(
+            @RequestParam String conversationId,
+            @RequestParam(value = "kbId", required = false) String kbId) {
+        chatSessionsService.addConversation(conversationId, kbId);
         return Result.ok();
     }
 

@@ -23,16 +23,16 @@ export const useChatStore = defineStore('chat', () => {
 
     // ========== 方法 ==========
     /** 获取会话列表 */
-    async function fetchChatList() {
+    async function fetchChatList(kbId?: string) {
         try {
-            chatList.value = await chatApi.getConversations()
+            chatList.value = await chatApi.getConversations(kbId)
         } catch { /* 已 toast */ }
     }
     /** 新建会话（持久化到后端并加入列表） */
-    async function createConversation(id: string) {
+    async function createConversation(id: string, kbId?: string) {
         try {
-            await chatApi.addConversation(id)
-            chatList.value.push({ conversationId: id, title: '' })
+            await chatApi.addConversation(id, kbId)
+            chatList.value.push({ conversationId: id, title: '', kbId })
             currentChatId.value = id
         } catch { /* 已 toast */ }
     }

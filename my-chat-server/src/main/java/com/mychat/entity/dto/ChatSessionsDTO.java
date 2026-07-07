@@ -14,4 +14,7 @@ public class ChatSessionsDTO {
 
     @Schema(description = "标题")
     private String title;
+
+    @Schema(description = "关联知识库ID")
+    private String kbId;
 }

@@ -28,7 +28,8 @@ import {
     User,
     Setting,
     HomeFilled,
-    UploadFilled
+    UploadFilled,
+    Collection
 } from '@element-plus/icons-vue'
 
 const router = useRouter()
@@ -57,6 +58,14 @@ const cards: FeatureCard[] = [
         desc: '选择角色，沉浸式情景互动',
         icon: User,
         color: '#9d48ff',
+        route: 'chat',
+    },
+    {
+        name: 'kb-chat',
+        title: '知识库问答',
+        desc: '基于知识库内容与 AI 对话',
+        icon: Collection,
+        color: '#00b578',
         route: 'chat',
     },
     {

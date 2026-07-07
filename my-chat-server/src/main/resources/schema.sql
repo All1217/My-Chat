@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS chat_sessions
     conversation_id VARCHAR(255) PRIMARY KEY,
     user_id         BIGINT,
     title           VARCHAR(100),
+    kb_id       VARCHAR(64) DEFAULT NULL,
     created_at      DATETIME DEFAULT CURRENT_DATE,
     updated_at      DATETIME DEFAULT CURRENT_DATE ON UPDATE CURRENT_DATE
 );

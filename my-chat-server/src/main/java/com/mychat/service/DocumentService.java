@@ -13,6 +13,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -23,8 +24,8 @@ import java.util.stream.Collectors;
 public class DocumentService {
     private static final TokenTextSplitter splitter = TokenTextSplitter.builder().build();
 
-    public ProcessedDocument processDocument(InputStream inputStream, String filename) {
-        log.info("Processing document: {}", filename);
+    public ProcessedDocument processDocument(InputStream inputStream, String filename, String kbId) {
+        log.info("Processing document: {}, kbId={}", filename, kbId);
         String documentId = UUID.randomUUID().toString();
         try {
             String content;
@@ -36,10 +37,14 @@ public class DocumentService {
             if (content == null || content.isBlank()) {
                 throw new RuntimeException("空文件非法！");
             }
-            Document document = new Document(documentId, content, Map.of(
-                    "filename", filename,
-                    "documentId", documentId
-            ));
+            // 构建 metadata，写入 kbId 用于后续 RAG 检索过滤
+            Map<String, Object> metadata = new HashMap<>();
+            metadata.put("filename", filename);
+            metadata.put("documentId", documentId);
+            if (kbId != null && !kbId.isEmpty()) {
+                metadata.put("kbId", kbId);
+            }
+            Document document = new Document(documentId, content, metadata);
             List<Document> rawSegments = splitter.split(document);
             List<Document> segments = new ArrayList<>(rawSegments.size());
             for (int i = 0; i < rawSegments.size(); i++) {

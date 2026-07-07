@@ -6,6 +6,7 @@
 export interface ChatStreamOptions {
   prompt: string
   chatId: string
+  kbId?: string
   files?: File[]
   onMessage: (chunk: string) => void
   onComplete: () => void
@@ -20,7 +21,7 @@ export interface ChatStreamOptions {
  * 但是fetch原生支持流式读取，且听说内存效率更高
  */
 export function streamChat(options: ChatStreamOptions): () => void {
-  const { prompt, chatId, files, onMessage, onComplete, onError } = options
+  const { prompt, chatId, kbId, files, onMessage, onComplete, onError } = options
   
   // 创建FormData对象
   const formData = new FormData()
@@ -34,11 +35,17 @@ export function streamChat(options: ChatStreamOptions): () => void {
     })
   }
   
+  // 根据有无 kbId 分流到普通聊天或 RAG 聊天
+  if (kbId) {
+    formData.append('kbId', kbId)
+  }
+  const url = kbId ? '/rag/ai/ragChat/chat' : '/rag/ai/normalChat/chat'
+  
   // 创建AbortController用于取消请求
   const controller = new AbortController()
   
   // 发送请求，因为没用Axios，所以前头要加上/rag前缀。Axios会自动加。
-  fetch('/rag/ai/normalChat/chat', {
+  fetch(url, {
     method: 'POST',
     body: formData,
     signal: controller.signal,

@@ -49,7 +49,7 @@ public class FileController {
             if (filename == null || filename.isEmpty()) return Result.fail(400, "文件名不能为空！");
 
             try (InputStream inputStream = file.getInputStream()) {
-                DocumentService.ProcessedDocument processed = documentService.processDocument(inputStream, filename);
+                DocumentService.ProcessedDocument processed = documentService.processDocument(inputStream, filename, kbId);
                 int embeddingCount = embeddingService.storeSegments(processed.segments());
 
                 if (kbId != null && !kbId.isEmpty()) {

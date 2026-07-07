@@ -27,6 +27,9 @@
             上传文档
           </el-button>
           <input ref="fileInputRef" type="file" style="display: none" @change="handleFileChange" />
+          <el-button type="success" :icon="ChatDotRound" :disabled="!currentKb" @click="goChat">
+            开始问答
+          </el-button>
           <el-button type="primary" :icon="ArrowLeft" @click="$router.push({ name: 'lobby' })">
             回到大厅
           </el-button>
@@ -82,9 +85,12 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Upload, Delete, House, ArrowLeft } from '@element-plus/icons-vue'
+import { Plus, Upload, Delete, House, ArrowLeft, ChatDotRound } from '@element-plus/icons-vue'
+import { useRouter } from 'vue-router'
 import { knowledgeApi } from '@/api/knowledge'
 import type { KnowledgeBase, DocumentMeta } from '@/types/knowledgeStore/types'
+
+const router = useRouter()
 
 const fileInputRef = ref<HTMLInputElement>()
 const uploading = ref(false)
@@ -126,6 +132,12 @@ async function fetchDocList() {
 function handleSelectKb(id: string) {
   activeKbId.value = id
   fetchDocList()
+}
+
+/** 跳转到聊天页面，并携带当前选中的知识库信息 */
+function goChat() {
+  if (!currentKb.value) return
+  router.push({ name: 'chat', query: { kbId: currentKb.value.id, kbName: currentKb.value.name } })
 }
 
 async function handleCreateKb() {

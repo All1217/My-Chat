@@ -60,21 +60,85 @@
                 <Plus style="width: 17px; height: 17px; color: #fff;" />
             </button>
             <div class="option-bar">
-                <!-- 在此添加选择知识库的选项 -->
+                <el-tag v-if="currentKbId" type="primary" size="small" style="cursor: pointer; margin-left: 8px;"
+                    @click="switchKbDialogVisible = true">
+                    📚 当前知识库：{{ displayKbName }}
+                </el-tag>
             </div>
         </div>
     </div>
+
+    <!-- 切换知识库弹窗：选择其他知识库后将创建新的会话 -->
+    <el-dialog v-model="switchKbDialogVisible" title="切换知识库" width="400px" append-to-body teleported>
+        <el-select v-model="selectedNewKbId" placeholder="选择知识库" style="width: 100%">
+            <el-option v-for="kb in kbList" :key="kb.id" :label="kb.name" :value="kb.id" />
+        </el-select>
+        <p style="color: #909399; font-size: 12px; margin-top: 8px;">
+            ⚠️ 切换后将创建新的对话，当前对话不会受影响
+        </p>
+        <template #footer>
+            <el-button @click="switchKbDialogVisible = false">取消</el-button>
+            <el-button type="primary" :disabled="!selectedNewKbId" @click="confirmSwitchKb">切换并新建对话</el-button>
+        </template>
+    </el-dialog>
 </template>
 <script setup lang="ts">
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
 import { MessageType } from '@/types/AiModule/enums'
 import type { Message } from '@/types/AiModule/types'
-import { ref, nextTick, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue'
 import { streamChat, generateChatId } from '@/utils/streamChat'
 import { useChatStore } from '@/stores/chat'
 import { chatApi } from '@/api/chat'
+import { knowledgeApi } from '@/api/knowledge'
+import type { KnowledgeBase } from '@/types/knowledgeStore/types'
 import { ElMessage } from 'element-plus'
 const chatStore = useChatStore()
+
+// 从父组件接收初始知识库名称（从知识库管理跳转过来时携带）
+const props = defineProps<{
+    kbName?: string
+}>()
+
+/** 当前会话关联的知识库 ID（来自 store） */
+const currentKbId = computed(() => chatStore.currentChat?.kbId ?? null)
+
+/** 显示的KB名称：优先用 props.kbName 作为初始值，后续从 kbList 中查找 */
+const displayKbName = ref(props.kbName ?? '')
+
+// 切换知识库弹窗状态
+const switchKbDialogVisible = ref(false)
+const selectedNewKbId = ref('')
+const kbList = ref<KnowledgeBase[]>([])
+
+/** 当 currentKbId 变化时，从 kbList 中查找对应的名称 */
+watch(currentKbId, (id) => {
+    if (id && kbList.value.length > 0) {
+        const kb = kbList.value.find(k => k.id === id)
+        if (kb) displayKbName.value = kb.name
+    }
+})
+
+/** 确认切换知识库：创建新会话 */
+async function confirmSwitchKb() {
+    if (!selectedNewKbId.value) return
+    const kb = kbList.value.find(k => k.id === selectedNewKbId.value)
+    const newId = generateChatId()
+    await chatStore.createConversation(newId, selectedNewKbId.value)
+    displayKbName.value = kb?.name ?? ''
+    switchKbDialogVisible.value = false
+    selectedNewKbId.value = ''
+}
+
+// 加载知识库列表供切换弹窗使用
+knowledgeApi.list().then(list => {
+    kbList.value = list
+    // 如果已有 currentKbId，同步名称
+    if (currentKbId.value) {
+        const kb = list.find(k => k.id === currentKbId.value)
+        if (kb) displayKbName.value = kb.name
+    }
+}).catch(() => {})
 
 const messages = ref<Message[]>([])
 const inputText = ref('')
@@ -172,12 +236,12 @@ async function sendMessage() {
     inputText.value = ''
     scrollToBottom(true)
 
-    // 如果没有当前会话，先创建
+    // 如果没有当前会话，先创建（知识库模式下传入 kbId）
     let chatId = chatStore.currentChatId
     if (!chatId) {
         chatId = generateChatId()
         isLocalNewChat = true
-        await chatStore.createConversation(chatId)
+        await chatStore.createConversation(chatId, currentKbId.value ?? undefined)
         // createConversation 内部已设置 currentChatId，且 messages 已在上面 push
     }
 
@@ -194,6 +258,7 @@ function startStreaming(prompt: string, chatId: string) {
     stopStreamingFn = streamChat({
         prompt,
         chatId,
+        kbId: currentKbId.value ?? undefined,
         onMessage: (chunk) => {
             streamingContent.value += chunk
             scrollToBottom()

@@ -2,12 +2,15 @@ import { ragClient } from '@/utils/http'
 import type { ChatSessionVO, ChatSessionDTO, Message } from '@/types/AiModule/types'
 
 export const chatApi = {
-  getConversations: () =>
-    ragClient.get<ChatSessionVO[]>('/ai/history/getConversations'),
+  /** 获取会话列表 */
+  getConversations: (kbId?: string) =>
+    ragClient.get<ChatSessionVO[]>('/ai/history/getConversations', {
+      params: kbId ? { kbId } : undefined,
+    }),
 
-  addConversation: (conversationId: string) =>
+  addConversation: (conversationId: string, kbId?: string) =>
     ragClient.post<void>('/ai/history/addConversation', null, {
-      params: { conversationId },
+      params: kbId ? { conversationId, kbId } : { conversationId },
     }),
 
   updateConversation: (dto: ChatSessionDTO) =>

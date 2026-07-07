@@ -60,10 +60,13 @@
                 <Plus style="width: 17px; height: 17px; color: #fff;" />
             </button>
             <div class="option-bar">
-                <el-tag v-if="currentKbId" type="primary" size="small" style="cursor: pointer; margin-left: 8px;"
+                <el-tag v-if="localKbId" type="primary" size="small" style="cursor: pointer; margin-left: 8px;"
                     @click="switchKbDialogVisible = true">
                     📚 当前知识库：{{ displayKbName }}
                 </el-tag>
+                <el-button v-else size="small" text type="primary" @click="switchKbDialogVisible = true">
+                    📚 选择知识库
+                </el-button>
             </div>
         </div>
     </div>
@@ -86,7 +89,7 @@
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
 import { MessageType } from '@/types/AiModule/enums'
 import type { Message } from '@/types/AiModule/types'
-import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue'
+import { ref, nextTick, onMounted, onUnmounted, watch } from 'vue'
 import { streamChat, generateChatId } from '@/utils/streamChat'
 import { useChatStore } from '@/stores/chat'
 import { chatApi } from '@/api/chat'
@@ -100,8 +103,12 @@ const props = defineProps<{
     kbName?: string
 }>()
 
-/** 当前会话关联的知识库 ID（来自 store） */
-const currentKbId = computed(() => chatStore.currentChat?.kbId ?? null)
+/** 当前会话关联的知识库 ID，用本地 ref 而非 computed 以避免 Vue 响应式延迟问题 */
+const localKbId = ref<string | null>(null)
+// 监听 store 中当前会话的变化，同步 kbId 到本地 ref
+watch(() => chatStore.currentChat, (chat) => {
+    localKbId.value = chat?.kbId ?? null
+}, { immediate: true })
 
 /** 显示的KB名称：优先用 props.kbName 作为初始值，后续从 kbList 中查找 */
 const displayKbName = ref(props.kbName ?? '')
@@ -111,8 +118,8 @@ const switchKbDialogVisible = ref(false)
 const selectedNewKbId = ref('')
 const kbList = ref<KnowledgeBase[]>([])
 
-/** 当 currentKbId 变化时，从 kbList 中查找对应的名称 */
-watch(currentKbId, (id) => {
+/** 当 localKbId 变化时，从 kbList 中查找对应的名称 */
+watch(localKbId, (id) => {
     if (id && kbList.value.length > 0) {
         const kb = kbList.value.find(k => k.id === id)
         if (kb) displayKbName.value = kb.name
@@ -125,6 +132,7 @@ async function confirmSwitchKb() {
     const kb = kbList.value.find(k => k.id === selectedNewKbId.value)
     const newId = generateChatId()
     await chatStore.createConversation(newId, selectedNewKbId.value)
+    localKbId.value = selectedNewKbId.value  // 本地 ref 立即更新，避免依赖 watch 的异步时序
     displayKbName.value = kb?.name ?? ''
     switchKbDialogVisible.value = false
     selectedNewKbId.value = ''
@@ -133,9 +141,9 @@ async function confirmSwitchKb() {
 // 加载知识库列表供切换弹窗使用
 knowledgeApi.list().then(list => {
     kbList.value = list
-    // 如果已有 currentKbId，同步名称
-    if (currentKbId.value) {
-        const kb = list.find(k => k.id === currentKbId.value)
+    // 如果已有 localKbId，同步名称
+    if (localKbId.value) {
+        const kb = list.find(k => k.id === localKbId.value)
         if (kb) displayKbName.value = kb.name
     }
 }).catch(() => {})
@@ -241,7 +249,7 @@ async function sendMessage() {
     if (!chatId) {
         chatId = generateChatId()
         isLocalNewChat = true
-        await chatStore.createConversation(chatId, currentKbId.value ?? undefined)
+        await chatStore.createConversation(chatId, localKbId.value ?? undefined)
         // createConversation 内部已设置 currentChatId，且 messages 已在上面 push
     }
 
@@ -258,7 +266,7 @@ function startStreaming(prompt: string, chatId: string) {
     stopStreamingFn = streamChat({
         prompt,
         chatId,
-        kbId: currentKbId.value ?? undefined,
+        kbId: localKbId.value ?? undefined,
         onMessage: (chunk) => {
             streamingContent.value += chunk
             scrollToBottom()

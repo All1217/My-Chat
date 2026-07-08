@@ -7,8 +7,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
@@ -40,6 +42,12 @@ public class WorkspaceUtil {
             "/etc", "/usr", "/bin", "/boot", "/dev", "/proc", "/sys",
             "/System", "/Library", "/Applications"
     );
+
+    /** 文本读取大小上限（10MB），超出则截断 */
+    private static final long MAX_READ_SIZE = 10 * 1024 * 1024;
+
+    /** Base64 预览大小上限（50MB），超出拒绝 */
+    private static final long MAX_BASE64_SIZE = 50 * 1024 * 1024;
 
     @PostConstruct
     public void init() {
@@ -188,7 +196,32 @@ public class WorkspaceUtil {
         }
     }
 
-    /** 读取文本文件内容 */
+    /** 懒加载：获取指定路径的直接子节点（仅一层，用于 el-tree lazy） */
+    public List<FileTreeNode> listDirectoryAsTree(String relativePath) {
+        Path dir = resolveSafe(relativePath);
+        if (!Files.isDirectory(dir)) {
+            throw new IllegalArgumentException("路径不是目录: " + relativePath);
+        }
+        List<FileTreeNode> result = new ArrayList<>();
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir)) {
+            for (Path p : stream) {
+                FileTreeNode node = new FileTreeNode();
+                node.setName(p.getFileName().toString());
+                node.setPath(workspaceRoot.relativize(p).toString().replace("\\", "/"));
+                node.setDirectory(Files.isDirectory(p));
+                result.add(node);
+            }
+        } catch (IOException e) {
+            log.error("懒加载目录失败: {}", dir, e);
+            throw new RuntimeException("懒加载目录失败", e);
+        }
+        result.sort(Comparator
+                .comparingInt((FileTreeNode n) -> n.isDirectory() ? 0 : 1)
+                .thenComparing(FileTreeNode::getName, String.CASE_INSENSITIVE_ORDER));
+        return result;
+    }
+
+    /** 读取文本文件内容（超 10MB 截断并提示） */
     public String readFileContent(String relativePath) {
         Path file = resolveSafe(relativePath);
         if (!Files.isRegularFile(file)) {
@@ -205,6 +238,27 @@ public class WorkspaceUtil {
             throw new IllegalArgumentException("不支持预览该文件类型: ." + extension + "，仅支持文本格式");
         }
         try {
+            long size = Files.size(file);
+            if (size > MAX_READ_SIZE) {
+                StringBuilder sb = new StringBuilder((int) MAX_READ_SIZE);
+                try (InputStream is = Files.newInputStream(file);
+                     BufferedReader reader = new BufferedReader(
+                             new InputStreamReader(is, StandardCharsets.UTF_8))) {
+                    char[] buf = new char[8192];
+                    int total = 0;
+                    int n;
+                    while ((n = reader.read(buf, 0,
+                            (int) Math.min(buf.length, MAX_READ_SIZE - total))) != -1
+                            && total < MAX_READ_SIZE) {
+                        sb.append(buf, 0, n);
+                        total += n;
+                    }
+                }
+                sb.append("\n\n... [文件过大，仅显示前 ")
+                        .append(formatSize(MAX_READ_SIZE))
+                        .append("]");
+                return sb.toString();
+            }
             return Files.readString(file, StandardCharsets.UTF_8);
         } catch (IOException e) {
             log.error("读取文件失败: {}", file, e);
@@ -212,13 +266,16 @@ public class WorkspaceUtil {
         }
     }
 
-    /** 以 Base64 读取文件 */
+    /** 以 Base64 读取文件（超 50MB 拒绝） */
     public String readFileAsBase64(String relativePath) {
         Path file = resolveSafe(relativePath);
         if (!Files.isRegularFile(file)) {
             throw new IllegalArgumentException("目标不是文件: " + relativePath);
         }
         try {
+            if (Files.size(file) > MAX_BASE64_SIZE) {
+                throw new IllegalArgumentException("文件过大，不支持 Base64 读取（最大 50MB）");
+            }
             byte[] bytes = Files.readAllBytes(file);
             return Base64.getEncoder().encodeToString(bytes);
         } catch (IOException e) {
@@ -384,5 +441,12 @@ public class WorkspaceUtil {
     private String formatTime(Instant instant) {
         LocalDateTime dt = LocalDateTime.ofInstant(instant, ZoneId.systemDefault());
         return dt.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+    }
+
+    private String formatSize(long bytes) {
+        if (bytes < 1024) return bytes + " B";
+        if (bytes < 1024 * 1024) return String.format("%.1f KB", bytes / 1024.0);
+        if (bytes < 1024 * 1024 * 1024) return String.format("%.1f MB", bytes / (1024.0 * 1024.0));
+        return String.format("%.1f GB", bytes / (1024.0 * 1024.0 * 1024.0));
     }
 }

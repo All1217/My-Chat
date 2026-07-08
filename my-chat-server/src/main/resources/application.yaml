@@ -17,6 +17,9 @@ spring:
       max-request-size: 200MB
   application:
     name: my-chat
+  threads:
+    virtual:
+      enabled: true
   ai:
     openai:
       base-url: https://api.deepseek.com

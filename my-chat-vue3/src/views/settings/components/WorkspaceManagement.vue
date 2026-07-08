@@ -18,8 +18,8 @@
           <span class="current-root-text">{{ currentRoot }}</span>
         </el-tooltip>
       </div>
-      <el-tree ref="treeRef" :data="treeData" node-key="path" :props="treeProps" :highlight-current="true"
-        :expand-on-click-node="true" :default-expand-all="true" @node-click="handleNodeClick" class="workspace-tree">
+      <el-tree ref="treeRef" :data="treeData" :load="loadTreeNode" lazy node-key="path" :props="treeProps"
+        :highlight-current="true" :expand-on-click-node="true" @node-click="handleNodeClick" class="workspace-tree">
         <template #default="{ data }">
           <span class="tree-node-label" @dblclick.stop="handleNodeDblClick(data)">
             <el-icon v-if="data.directory" :size="16" color="#437dff">
@@ -145,7 +145,11 @@ import * as XLSX from 'xlsx'
 // ---------- 状态 ----------
 const treeRef = ref<any>(null)
 const treeData = ref<FileTreeNode[]>([])
-const treeProps = { children: 'children', label: 'name' }
+const treeProps = {
+  children: 'children',
+  label: 'name',
+  isLeaf: (data: FileTreeNode) => !data.directory,
+}
 const currentPath = ref('')
 const fileList = ref<FileInfo[]>([])
 
@@ -175,8 +179,18 @@ const pathSegments = computed(() => {
 // ---------- 网络请求 ----------
 async function fetchTree() {
   try {
-    treeData.value = await workspaceApi.tree()
+    treeData.value = await workspaceApi.treeLazy('')
   } catch { /* 已 toast */ }
+}
+
+async function loadTreeNode(node: any, resolve: (data: any[]) => void) {
+  const path = node?.data?.path ?? ''
+  try {
+    const children = await workspaceApi.treeLazy(path)
+    resolve(children)
+  } catch {
+    resolve([])
+  }
 }
 
 async function fetchFileList(path: string) {

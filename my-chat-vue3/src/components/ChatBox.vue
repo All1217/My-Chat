@@ -60,6 +60,10 @@
                 <Plus style="width: 17px; height: 17px; color: #fff;" />
             </button>
             <div class="option-bar">
+                <!-- 当前工作目录标签 -->
+                <el-tag v-if="chatStore.currentWorkspace" type="warning" size="small" style="margin-left: 8px;">
+                    📁 当前目录：{{ chatStore.currentWorkspace }}
+                </el-tag>
                 <el-tooltip v-if="chatStore.currentChat?.kbId" content="查看/切换知识库" placement="top">
                     <el-tag type="primary" size="small" style="cursor: pointer; margin-left: 8px;"
                         @click="goToKnowledgeStore">

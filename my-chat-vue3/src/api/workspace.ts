@@ -5,6 +5,9 @@ export const workspaceApi = {
   tree: (path = '') =>
     ragClient.get<FileTreeNode[]>('/ai/file/workspace/tree', { params: { path } }),
 
+  treeLazy: (path = '') =>
+    ragClient.get<FileTreeNode[]>('/ai/file/workspace/tree/lazy', { params: { path } }),
+
   list: (path: string) =>
     ragClient.get<FileInfo[]>('/ai/file/workspace/list', { params: { path } }),
 

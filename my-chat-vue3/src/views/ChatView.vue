@@ -8,12 +8,25 @@
       <div class="tool" title="开启新对话" @click="handleAddConversation">
         <Plus style="width: 20px; height: 20px;" />
       </div>
+      <div class="tool" title="打开目录" @click="handleOpenDirectory">
+        <Folder style="width: 20px; height: 20px;" />
+      </div>
       <div class="tool" @click="chatStore.openSidebar" title="打开侧边栏">
         <ArrowRight style="width: 20px; height: 20px;" />
       </div>
       <span v-if="chatStore.currentTitle" class="chat-title" :class="{ 'title-open': chatStore.isSidebarOpen }">
         {{ chatStore.currentTitle }}
       </span>
+      <!-- 打开目录弹窗 -->
+      <el-dialog v-model="showDirDialog" title="打开目录" width="400" append-to-body teleported>
+        <el-input v-model="dirInput" placeholder="请输入目录路径，如 ./src/main/resources/workspace" style="width: 100%" />
+        <template #footer>
+          <div class="dialog-footer">
+            <el-button @click="showDirDialog = false">取消</el-button>
+            <el-button type="primary" @click="handleConfirmDirectory">确定</el-button>
+          </div>
+        </template>
+      </el-dialog>
     </div>
     <div class="message-wrap">
       <div class="message-box" :class="{ 'close-sidebar': !chatStore.isSidebarOpen }">
@@ -35,6 +48,8 @@ import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import logo from '@/assets/my-chat-logo.png'
 import { generateChatId } from '@/utils/streamChat'
+import { workspaceApi } from '@/api/workspace'
+import { ElMessage } from 'element-plus'
 
 const route = useRoute()
 
@@ -106,6 +121,33 @@ function handleAddConversation() {
   chatStore.setKbContext(null)
   const id = generateChatId()
   chatStore.createConversation(id)
+}
+
+// 打开目录弹窗状态
+const showDirDialog = ref(false)
+const dirInput = ref('')
+function handleOpenDirectory() {
+  dirInput.value = chatStore.currentWorkspace || ''
+  showDirDialog.value = true
+}
+async function handleConfirmDirectory() {
+  const path = dirInput.value.trim()
+  if (!path) {
+    ElMessage.error('请输入目录路径')
+    return
+  }
+  try {
+    // 切换后端工作区根目录
+    await workspaceApi.switchRoot(path)
+    chatStore.setWorkspace(path)
+    showDirDialog.value = false
+    // 创建新会话，标题以目录路径命名
+    const id = generateChatId()
+    await chatStore.createConversation(id, undefined, path)
+    ElMessage.success(`已切换到目录：${path}`)
+  } catch {
+    // 失败时 ragClient 拦截器已弹出错误提示
+  }
 }
 
 onMounted(async () => {

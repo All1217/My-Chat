@@ -11,9 +11,13 @@
                 </div>
             </div>
             <div class="chat-header-down">
-                <div class="open-new-chat" @click="handleAddConversation">
+                <div class="chat-header-btn open-new-chat" @click="handleAddConversation">
                     <Plus style="width: 22px; height: 22px; margin-right: 5px;" />
-                    <span>打开新对话</span>
+                    <span>新对话</span>
+                </div>
+                <div class="chat-header-btn open-new-folder" @click="handleOpenDirectory">
+                    <Folder style="width: 22px; height: 22px; margin-right: 5px;" />
+                    <span>打开目录</span>
                 </div>
             </div>
         </div>
@@ -70,6 +74,17 @@
                 </div>
             </template>
         </el-dialog>
+
+        <!-- 打开目录弹窗 -->
+        <el-dialog v-model="showDirDialog" title="打开目录" width="400" append-to-body teleported>
+            <el-input v-model="dirInput" placeholder="请输入目录路径，如 ./src/main/resources/workspace" style="width: 100%" />
+            <template #footer>
+                <div class="dialog-footer">
+                    <el-button @click="showDirDialog = false">取消</el-button>
+                    <el-button type="primary" @click="handleConfirmDirectory">确定</el-button>
+                </div>
+            </template>
+        </el-dialog>
     </div>
 </template>
 
@@ -79,6 +94,7 @@ import { useChatStore } from '@/stores/chat'
 import { generateChatId } from '@/utils/streamChat'
 import logo from '@/assets/my-chat-logo.png'
 import { ElMessage } from "element-plus";
+import { workspaceApi } from '@/api/workspace'
 
 const chatStore = useChatStore()
 const curShowMore = ref<string>('')
@@ -108,6 +124,31 @@ function handleDelete() {
     if (!chatStore.currentChatId) return
     chatStore.deleteConversation(chatStore.currentChatId);
     showDeleteDialog.value = false;
+}
+
+// 打开目录弹窗状态
+const showDirDialog = ref(false)
+const dirInput = ref('')
+
+function handleOpenDirectory() {
+    dirInput.value = chatStore.currentWorkspace || ''
+    showDirDialog.value = true
+}
+
+async function handleConfirmDirectory() {
+    const path = dirInput.value.trim()
+    if (!path) {
+        ElMessage.error('请输入目录路径')
+        return
+    }
+    try {
+        await workspaceApi.switchRoot(path)
+        chatStore.setWorkspace(path)
+        showDirDialog.value = false
+        const id = generateChatId()
+        await chatStore.createConversation(id, undefined, path)
+        ElMessage.success(`已切换到目录：${path}`)
+    } catch { /* 已 toast */ }
 }
 </script>
 <style scoped lang="less">
@@ -168,13 +209,13 @@ function handleDelete() {
             justify-content: center;
             height: 60px;
 
-            .open-new-chat {
+            .chat-header-btn {
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                width: 200px;
+                width: 120px;
                 height: 40px;
-                background-color: #fff;
+                margin-right: 10px;
                 border-radius: 20px;
                 cursor: pointer;
                 box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.1);
@@ -182,7 +223,17 @@ function handleDelete() {
 
                 span {
                     font-size: 16px;
+                    color: inherit;
                 }
+            }
+
+            .open-new-chat {
+                background-color: #fff;
+            }
+
+            .open-new-folder {
+                background-color: #9d48ff;
+                color: #fff;
             }
 
             .open-new-chat:hover {

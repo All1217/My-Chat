@@ -114,6 +114,20 @@ public class FileController {
         }
     }
 
+    /**
+     * 懒加载：获取指定路径的直接子节点（仅一层，用于 el-tree lazy 模式）
+     */
+    @GetMapping("/workspace/tree/lazy")
+    public Result<List<FileTreeNode>> getLazyTree(
+            @RequestParam(value = "path", defaultValue = "") String path) {
+        try {
+            return Result.ok(workspaceUtil.listDirectoryAsTree(path));
+        } catch (Exception e) {
+            log.error("懒加载目录失败: {}", e.getMessage());
+            return Result.fail(e.getMessage());
+        }
+    }
+
     /* 列出文件目录 */
     @GetMapping("/workspace/list")
     public Result<List<FileInfo>> listDirectory(

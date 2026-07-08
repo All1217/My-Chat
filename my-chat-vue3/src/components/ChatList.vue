@@ -84,6 +84,7 @@ const chatStore = useChatStore()
 const curShowMore = ref<string>('')
 
 function handleAddConversation() {
+    chatStore.setKbContext(null)
     const id = generateChatId()
     chatStore.createConversation(id)
 }

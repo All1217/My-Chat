@@ -22,4 +22,7 @@ public interface ChatSessionsService extends IService<ChatSessions> {
      * @param kbId null → 返回普通会话（kb_id IS NULL）；具体值 → 返回该知识库的会话
      */
     List<ChatSessionVO> getConversationsByKbId(String kbId);
+
+    /** 获取全部会话（不分类型） */
+    List<ChatSessionVO> getAllConversations();
 }

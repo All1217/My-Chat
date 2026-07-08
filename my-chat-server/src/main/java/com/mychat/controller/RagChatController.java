@@ -7,6 +7,7 @@ import org.springframework.ai.chat.client.advisor.vectorstore.QuestionAnswerAdvi
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -15,19 +16,18 @@ import reactor.core.publisher.Flux;
 /**
  * 基于知识库的 RAG 流式对话端点
  * 使用 Spring AI 2.0 推荐的 QuestionAnswerAdvisor 机制：
- *   框架自动完成向量检索 → 上下文注入 → 模型回答，
- *   无需手动拼接 prompt，如官方示例 AdvisorRagService 所示。
+ * 框架自动完成向量检索 → 上下文注入 → 模型回答，
+ * 无需手动拼接 prompt，如官方示例 AdvisorRagService 所示。
  * 通过 filterExpression 按 kbId 过滤，实现知识库隔离。
  */
 @Slf4j
 @RestController
 @RequestMapping("/ai/ragChat")
-@RequiredArgsConstructor
 public class RagChatController {
-
-    private final ChatClient chatClient;
-    private final ChatMemory chatMemory;
-    private final VectorStore vectorStore;
+    @Autowired
+    private ChatClient ragChatClient;
+    @Autowired
+    private VectorStore vectorStore;
 
     @RequestMapping(value = "/chat", produces = "text/html;charset=utf-8")
     public Flux<String> chat(
@@ -45,7 +45,7 @@ public class RagChatController {
                 .build();
 
         // Advisor 自动：向量检索 → 上下文注入 → 生成基于知识库的回答
-        return chatClient.prompt()
+        return ragChatClient.prompt()
                 .advisors(qaAdvisor)
                 .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, chatId))
                 .user(prompt)

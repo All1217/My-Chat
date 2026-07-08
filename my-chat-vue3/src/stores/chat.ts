@@ -5,12 +5,14 @@ import type { ChatSessionVO, ChatSessionDTO } from '@/types/AiModule/types'
 import { ElMessage } from 'element-plus'
 
 export const useChatStore = defineStore('chat', () => {
-    // ========== 状态 ==========
     const chatList = ref<ChatSessionVO[]>([])
     const currentChatId = ref<string | null>(null)
     const isSidebarOpen = ref<boolean>(true)
+    /** 当前知识库模式：null=普通聊天，字符串=知识库ID */
+    const kbId = ref<string | null>(null)
+    /** 当前知识库名称（用于 ChatBox 标签显示） */
+    const kbName = ref<string>('')
 
-    // ========== 计算属性 ==========
     const currentChat = computed<ChatSessionVO | null>(() => {
         if (!currentChatId.value) return null
         return chatList.value.find(c => c.conversationId === currentChatId.value) ?? null
@@ -21,21 +23,28 @@ export const useChatStore = defineStore('chat', () => {
         return currentChat.value.title || currentChat.value.conversationId || ''
     })
 
-    // ========== 方法 ==========
-    /** 获取会话列表 */
-    async function fetchChatList(kbId?: string) {
+    /** 设置知识库模式（知识与名称同时设置） */
+    function setKbContext(id: string | null, name?: string) {
+        kbId.value = id
+        kbName.value = name ?? ''
+    }
+
+    /** 获取会话列表（可选按 kbId 过滤） */
+    async function fetchChatList(filterKbId?: string) {
         try {
-            chatList.value = await chatApi.getConversations(kbId)
+            chatList.value = await chatApi.getConversations(filterKbId)
         } catch { /* 已 toast */ }
     }
-    /** 新建会话（持久化到后端并加入列表） */
-    async function createConversation(id: string, kbId?: string) {
+
+    /** 新建会话（kbId 为显式传入，不自动使用 store 的 kbId 默认值） */
+    async function createConversation(id: string, explicitKbId?: string) {
         try {
-            await chatApi.addConversation(id, kbId)
-            chatList.value.push({ conversationId: id, title: '', kbId })
+            await chatApi.addConversation(id, explicitKbId)
+            chatList.value.push({ conversationId: id, title: id, kbId: explicitKbId })
             currentChatId.value = id
         } catch { /* 已 toast */ }
     }
+
     /** 更新会话 */
     async function updateConversation(dto: ChatSessionDTO) {
         try {
@@ -47,6 +56,7 @@ export const useChatStore = defineStore('chat', () => {
             ElMessage.success('更新成功！')
         } catch { /* 已 toast */ }
     }
+
     /** 删除会话 */
     async function deleteConversation(id: string) {
         try {
@@ -60,12 +70,10 @@ export const useChatStore = defineStore('chat', () => {
         } catch { /* 已 toast */ }
     }
 
-    /** 切换当前会话 */
     function selectConversation(id: string) {
         currentChatId.value = id
     }
 
-    /** 侧边栏控制 */
     function openSidebar() { isSidebarOpen.value = true }
     function closeSidebar() { isSidebarOpen.value = false }
     function toggleSidebar() { isSidebarOpen.value = !isSidebarOpen.value }
@@ -74,8 +82,11 @@ export const useChatStore = defineStore('chat', () => {
         chatList,
         currentChatId,
         isSidebarOpen,
+        kbId,
+        kbName,
         currentChat,
         currentTitle,
+        setKbContext,
         fetchChatList,
         createConversation,
         selectConversation,
@@ -83,6 +94,6 @@ export const useChatStore = defineStore('chat', () => {
         closeSidebar,
         toggleSidebar,
         updateConversation,
-        deleteConversation
+        deleteConversation,
     }
 })

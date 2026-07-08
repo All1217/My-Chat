@@ -2,7 +2,7 @@ import { ragClient } from '@/utils/http'
 import type { ChatSessionVO, ChatSessionDTO, Message } from '@/types/AiModule/types'
 
 export const chatApi = {
-  /** 获取会话列表 */
+  /** 获取会话列表（可选按 kbId 过滤） */
   getConversations: (kbId?: string) =>
     ragClient.get<ChatSessionVO[]>('/ai/history/getConversations', {
       params: kbId ? { kbId } : undefined,

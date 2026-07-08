@@ -60,30 +60,15 @@
                 <Plus style="width: 17px; height: 17px; color: #fff;" />
             </button>
             <div class="option-bar">
-                <el-tag v-if="localKbId" type="primary" size="small" style="cursor: pointer; margin-left: 8px;"
-                    @click="switchKbDialogVisible = true">
-                    📚 当前知识库：{{ displayKbName }}
-                </el-tag>
-                <el-button v-else size="small" text type="primary" @click="switchKbDialogVisible = true">
-                    📚 选择知识库
-                </el-button>
+                <el-tooltip v-if="chatStore.kbId" content="查看/切换知识库" placement="top">
+                    <el-tag type="primary" size="small" style="cursor: pointer; margin-left: 8px;"
+                        @click="goToKnowledgeStore">
+                        📚 当前知识库：{{ chatStore.kbName || chatStore.kbId }}
+                    </el-tag>
+                </el-tooltip>
             </div>
         </div>
     </div>
-
-    <!-- 切换知识库弹窗：选择其他知识库后将创建新的会话 -->
-    <el-dialog v-model="switchKbDialogVisible" title="切换知识库" width="400px" append-to-body teleported>
-        <el-select v-model="selectedNewKbId" placeholder="选择知识库" style="width: 100%">
-            <el-option v-for="kb in kbList" :key="kb.id" :label="kb.name" :value="kb.id" />
-        </el-select>
-        <p style="color: #909399; font-size: 12px; margin-top: 8px;">
-            ⚠️ 切换后将创建新的对话，当前对话不会受影响
-        </p>
-        <template #footer>
-            <el-button @click="switchKbDialogVisible = false">取消</el-button>
-            <el-button type="primary" :disabled="!selectedNewKbId" @click="confirmSwitchKb">切换并新建对话</el-button>
-        </template>
-    </el-dialog>
 </template>
 <script setup lang="ts">
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
@@ -93,60 +78,15 @@ import { ref, nextTick, onMounted, onUnmounted, watch } from 'vue'
 import { streamChat, generateChatId } from '@/utils/streamChat'
 import { useChatStore } from '@/stores/chat'
 import { chatApi } from '@/api/chat'
-import { knowledgeApi } from '@/api/knowledge'
-import type { KnowledgeBase } from '@/types/knowledgeStore/types'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 const chatStore = useChatStore()
+const router = useRouter()
 
-// 从父组件接收初始知识库名称（从知识库管理跳转过来时携带）
-const props = defineProps<{
-    kbName?: string
-}>()
-
-/** 当前会话关联的知识库 ID，用本地 ref 而非 computed 以避免 Vue 响应式延迟问题 */
-const localKbId = ref<string | null>(null)
-// 监听 store 中当前会话的变化，同步 kbId 到本地 ref
-watch(() => chatStore.currentChat, (chat) => {
-    localKbId.value = chat?.kbId ?? null
-}, { immediate: true })
-
-/** 显示的KB名称：优先用 props.kbName 作为初始值，后续从 kbList 中查找 */
-const displayKbName = ref(props.kbName ?? '')
-
-// 切换知识库弹窗状态
-const switchKbDialogVisible = ref(false)
-const selectedNewKbId = ref('')
-const kbList = ref<KnowledgeBase[]>([])
-
-/** 当 localKbId 变化时，从 kbList 中查找对应的名称 */
-watch(localKbId, (id) => {
-    if (id && kbList.value.length > 0) {
-        const kb = kbList.value.find(k => k.id === id)
-        if (kb) displayKbName.value = kb.name
-    }
-})
-
-/** 确认切换知识库：创建新会话 */
-async function confirmSwitchKb() {
-    if (!selectedNewKbId.value) return
-    const kb = kbList.value.find(k => k.id === selectedNewKbId.value)
-    const newId = generateChatId()
-    await chatStore.createConversation(newId, selectedNewKbId.value)
-    localKbId.value = selectedNewKbId.value  // 本地 ref 立即更新，避免依赖 watch 的异步时序
-    displayKbName.value = kb?.name ?? ''
-    switchKbDialogVisible.value = false
-    selectedNewKbId.value = ''
+/** 点击知识库标签跳转到知识库管理页面 */
+function goToKnowledgeStore() {
+    router.push({ name: 'store' })
 }
-
-// 加载知识库列表供切换弹窗使用
-knowledgeApi.list().then(list => {
-    kbList.value = list
-    // 如果已有 localKbId，同步名称
-    if (localKbId.value) {
-        const kb = list.find(k => k.id === localKbId.value)
-        if (kb) displayKbName.value = kb.name
-    }
-}).catch(() => {})
 
 const messages = ref<Message[]>([])
 const inputText = ref('')
@@ -225,7 +165,6 @@ watch(
         if (newId) {
             if (isLocalNewChat) {
                 isLocalNewChat = false
-                // messages.value = []
                 return
             }
             getMessages(newId)
@@ -233,6 +172,7 @@ watch(
             messages.value = []
         }
     },
+    { immediate: true },
 )
 
 // 发送消息
@@ -244,13 +184,12 @@ async function sendMessage() {
     inputText.value = ''
     scrollToBottom(true)
 
-    // 如果没有当前会话，先创建（知识库模式下传入 kbId）
+    // 如果没有当前会话，先创建（知识库模式下传入当前模式的 kbId）
     let chatId = chatStore.currentChatId
     if (!chatId) {
         chatId = generateChatId()
         isLocalNewChat = true
-        await chatStore.createConversation(chatId, localKbId.value ?? undefined)
-        // createConversation 内部已设置 currentChatId，且 messages 已在上面 push
+        await chatStore.createConversation(chatId, chatStore.kbId ?? undefined)
     }
 
     startStreaming(text, chatId)
@@ -266,7 +205,7 @@ function startStreaming(prompt: string, chatId: string) {
     stopStreamingFn = streamChat({
         prompt,
         chatId,
-        kbId: localKbId.value ?? undefined,
+        kbId: chatStore.kbId ?? undefined,
         onMessage: (chunk) => {
             streamingContent.value += chunk
             scrollToBottom()

@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS chat_sessions
     conversation_id VARCHAR(255) PRIMARY KEY,
     user_id         BIGINT,
     title           VARCHAR(100),
+    kb_id           VARCHAR(64) NULL,
     created_at      TIMESTAMP DEFAULT CURRENT_DATE,     -- DATETIME 改为 TIMESTAMP
     updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP -- 去掉了 ON UPDATE，PostgreSQL 不支持该写法
 );

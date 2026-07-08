@@ -17,7 +17,7 @@
     </div>
     <div class="message-wrap">
       <div class="message-box" :class="{ 'close-sidebar': !chatStore.isSidebarOpen }">
-        <ChatBox ref="chatBoxRef" :kbName="initialKbName" @scroll-changed="updateThumb" />
+        <ChatBox ref="chatBoxRef" @scroll-changed="updateThumb" />
         <!-- 自定义滑条 -->
         <div class="custom-scrollbar" v-if="showScrollbar" @mousedown="startDrag">
           <div class="custom-scrollbar-thumb" :style="{ height: thumbHeight + '%', top: thumbTop + '%' }"></div>
@@ -32,19 +32,13 @@ import ChatList from '@/components/ChatList.vue'
 import ChatBox from '@/components/ChatBox.vue'
 import { useChatStore } from '@/stores/chat'
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import logo from '@/assets/my-chat-logo.png'
 import { generateChatId } from '@/utils/streamChat'
 
 const route = useRoute()
-const router = useRouter()
 
-/** 从路由参数读取知识库名称（从 KnowledgeStore 跳转过来时携带） */
-const initialKbName = ref(route.query.kbName as string | undefined)
-
-/**
- * 自定义滑条
- */
+/** 自定义滑条 */
 const chatBoxRef = ref<InstanceType<typeof ChatBox>>()
 // 自定义滚动条状态
 const showScrollbar = ref(false)
@@ -109,21 +103,27 @@ function stopDrag() {
 const chatStore = useChatStore()
 
 function handleAddConversation() {
+  chatStore.setKbContext(null)
   const id = generateChatId()
   chatStore.createConversation(id)
 }
 
 onMounted(async () => {
-  // 从路由参数判断入口：知识库管理跳转 vs 大厅进入
-  const kbId = route.query.kbId as string | undefined
-  if (kbId) {
-    // 知识库模式：创建会话后本地 chatList 已有正确数据，
-    // 禁止再调 fetchChatList()，否则会因后端过滤 kb_id IS NULL 把刚创建的会话冲掉
-    const id = generateChatId()
-    await chatStore.createConversation(id, kbId)
-    router.replace({ query: {} })
+  const qKbId = route.query.kbId as string | undefined
+  if (qKbId) {
+    const qKbName = route.query.kbName as string | undefined
+    chatStore.setKbContext(qKbId, qKbName)
+    // 先查该知识库已有会话
+    await chatStore.fetchChatList(qKbId)
+    if (chatStore.chatList.length > 0) {
+      // 有会话 → 选中最近一个
+      chatStore.selectConversation(chatStore.chatList[0].conversationId)
+    } else {
+      // 无会话 → 新建
+      const id = generateChatId()
+      await chatStore.createConversation(id, qKbId)
+    }
   } else {
-    // 普通模式：正常拉取会话列表
     chatStore.fetchChatList()
   }
 

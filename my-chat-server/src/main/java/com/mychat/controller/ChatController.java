@@ -19,7 +19,7 @@ import java.util.Objects;
 @RequestMapping("/ai/normalChat")
 public class ChatController {
     private final ChatMemory chatMemory;
-    private final ChatClient chatClient;
+    private final ChatClient toolChatClient;
 
     @RequestMapping(value = "/chat", produces = "text/html;charset=utf-8")
     public Flux<String> chat(
@@ -34,7 +34,7 @@ public class ChatController {
     }
 
     private Flux<String> textChat(String prompt, String chatId) {
-        return chatClient.prompt()
+        return toolChatClient.prompt()
                 .user(prompt)
                 .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, chatId))
                 .stream()
@@ -64,7 +64,7 @@ public class ChatController {
                 )
                 .toList();
         // 2.请求模型
-        return chatClient.prompt()
+        return toolChatClient.prompt()
                 .user(prompt)
                 .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, chatId))
                 .stream()

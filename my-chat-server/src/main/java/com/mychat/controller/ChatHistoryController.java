@@ -38,13 +38,15 @@ public class ChatHistoryController {
     /**
      * 获取会话列表
      *
-     * @param kbId 可选：null → 普通会话；具体值 → 该知识库的会话
-     * @return ChatSessionVO 列表
+     * @param kbId 可选：null → 返回全部；具体值 → 返回该知识库的会话
      */
     @GetMapping("/getConversations")
     public Result<List<ChatSessionVO>> getConversations(
             @RequestParam(value = "kbId", required = false) String kbId) {
-        return Result.ok(chatSessionsService.getConversationsByKbId(kbId));
+        if (kbId != null) {
+            return Result.ok(chatSessionsService.getConversationsByKbId(kbId));
+        }
+        return Result.ok(chatSessionsService.getAllConversations());
     }
 
     /**

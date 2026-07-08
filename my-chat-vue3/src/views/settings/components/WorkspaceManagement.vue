@@ -8,8 +8,7 @@
         <span class="title">工作区</span>
       </div>
       <div class="project-switcher">
-        <el-input v-model="projectPath" placeholder="输入项目目录路径…" size="small" clearable
-          @keyup.enter="handleSwitch" />
+        <el-input v-model="projectPath" placeholder="输入项目目录路径…" size="small" clearable @keyup.enter="handleSwitch" />
         <el-button type="primary" size="small" :loading="switching" @click="handleSwitch">
           打开项目
         </el-button>
@@ -306,59 +305,59 @@ async function handlePreview(row: FileInfo) {
   try {
     const { base64, mimeType } = await workspaceApi.readBinary(row.path)
 
-  if (isPdf(name)) {
-    // PDF：转为 Blob URL，iframe 展示
-    const byteChars = atob(base64)
-    const byteNums = new Array(byteChars.length)
-    for (let i = 0; i < byteChars.length; i++) {
-      byteNums[i] = byteChars.charCodeAt(i)
+    if (isPdf(name)) {
+      // PDF：转为 Blob URL，iframe 展示
+      const byteChars = atob(base64)
+      const byteNums = new Array(byteChars.length)
+      for (let i = 0; i < byteChars.length; i++) {
+        byteNums[i] = byteChars.charCodeAt(i)
+      }
+      const byteArr = new Uint8Array(byteNums)
+      const blob = new Blob([byteArr], { type: mimeType })
+      // 释放之前的 URL
+      if (previewPdfUrl.value) URL.revokeObjectURL(previewPdfUrl.value)
+      previewPdfUrl.value = URL.createObjectURL(blob)
+      previewType.value = 'pdf'
+      previewVisible.value = true
+
+    } else if (isDocx(name)) {
+      // DOCX：mammoth 转 HTML
+      const byteChars = atob(base64)
+      const byteNums = new Array(byteChars.length)
+      for (let i = 0; i < byteChars.length; i++) {
+        byteNums[i] = byteChars.charCodeAt(i)
+      }
+      const buffer = new Uint8Array(byteNums).buffer
+      const result = await mammoth.convertToHtml({ arrayBuffer: buffer })
+      previewHtml.value = result.value
+      previewType.value = 'docx'
+      previewVisible.value = true
+
+    } else if (isXlsx(name)) {
+      // XLSX：SheetJS 解析为 HTML 表格
+      const byteChars = atob(base64)
+      const byteNums = new Array(byteChars.length)
+      for (let i = 0; i < byteChars.length; i++) {
+        byteNums[i] = byteChars.charCodeAt(i)
+      }
+      const workbook = XLSX.read(new Uint8Array(byteNums), { type: 'array' })
+      // 取第一个 Sheet
+      const sheetName = workbook.SheetNames[0]
+      const sheet = workbook.Sheets[sheetName]
+      const html = XLSX.utils.sheet_to_html(sheet, { id: 'xlsx-preview-table' })
+      previewHtml.value = html
+      previewType.value = 'xlsx'
+      previewVisible.value = true
+
+    } else if (isImage(name)) {
+      // 图片：直接显示 data URL
+      previewImageUrl.value = `data:${mimeType};base64,${base64}`
+      previewType.value = 'image'
+      previewVisible.value = true
+
+    } else {
+      ElMessage.warning('不支持预览该文件格式')
     }
-    const byteArr = new Uint8Array(byteNums)
-    const blob = new Blob([byteArr], { type: mimeType })
-    // 释放之前的 URL
-    if (previewPdfUrl.value) URL.revokeObjectURL(previewPdfUrl.value)
-    previewPdfUrl.value = URL.createObjectURL(blob)
-    previewType.value = 'pdf'
-    previewVisible.value = true
-
-  } else if (isDocx(name)) {
-    // DOCX：mammoth 转 HTML
-    const byteChars = atob(base64)
-    const byteNums = new Array(byteChars.length)
-    for (let i = 0; i < byteChars.length; i++) {
-      byteNums[i] = byteChars.charCodeAt(i)
-    }
-    const buffer = new Uint8Array(byteNums).buffer
-    const result = await mammoth.convertToHtml({ arrayBuffer: buffer })
-    previewHtml.value = result.value
-    previewType.value = 'docx'
-    previewVisible.value = true
-
-  } else if (isXlsx(name)) {
-    // XLSX：SheetJS 解析为 HTML 表格
-    const byteChars = atob(base64)
-    const byteNums = new Array(byteChars.length)
-    for (let i = 0; i < byteChars.length; i++) {
-      byteNums[i] = byteChars.charCodeAt(i)
-    }
-    const workbook = XLSX.read(new Uint8Array(byteNums), { type: 'array' })
-    // 取第一个 Sheet
-    const sheetName = workbook.SheetNames[0]
-    const sheet = workbook.Sheets[sheetName]
-    const html = XLSX.utils.sheet_to_html(sheet, { id: 'xlsx-preview-table' })
-    previewHtml.value = html
-    previewType.value = 'xlsx'
-    previewVisible.value = true
-
-  } else if (isImage(name)) {
-    // 图片：直接显示 data URL
-    previewImageUrl.value = `data:${mimeType};base64,${base64}`
-    previewType.value = 'image'
-    previewVisible.value = true
-
-  } else {
-    ElMessage.warning('不支持预览该文件格式')
-  }
   } catch { /* 已 toast */ }
 }
 /** 获取文件扩展名（小写） */
@@ -614,6 +613,8 @@ onUnmounted(() => {
 
   .file-table {
     position: relative;
+    flex: 1;
+    overflow-y: auto;
   }
 }
 

@@ -28,4 +28,7 @@ export const workspaceApi = {
 
   remove: (path: string) =>
     ragClient.post<void>('/ai/file/workspace/delete', { path }),
+
+  switchRoot: (path: string) =>
+    ragClient.post<string>('/ai/file/workspace/switch', { path }),
 }

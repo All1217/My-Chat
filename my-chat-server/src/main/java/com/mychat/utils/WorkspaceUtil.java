@@ -22,6 +22,7 @@ import java.util.*;
  * 工作区文件管理工具类
  * <p>
  * 所有操作限定在 workspaceRoot 目录内，防止路径穿越。
+ * 支持运行时切换工作目录（不持久化）。
  */
 @Slf4j
 @Component
@@ -31,6 +32,14 @@ public class WorkspaceUtil {
     private String workspaceRootPath;
 
     private Path workspaceRoot;
+
+    /** 禁止切换到的系统关键目录（不区分大小写） */
+    private static final Set<String> BLOCKED_PATHS = Set.of(
+            "C:\\Windows", "C:\\Program Files", "C:\\Program Files (x86)",
+            "C:\\System32", "C:\\Users\\Default",
+            "/etc", "/usr", "/bin", "/boot", "/dev", "/proc", "/sys",
+            "/System", "/Library", "/Applications"
+    );
 
     @PostConstruct
     public void init() {
@@ -42,6 +51,38 @@ public class WorkspaceUtil {
             log.error("创建工作区目录失败: {}", workspaceRoot, e);
             throw new RuntimeException("创建工作区目录失败", e);
         }
+    }
+
+    /** 获取当前工作区根目录 */
+    public Path getWorkspaceRoot() {
+        return workspaceRoot;
+    }
+
+    /**
+     * 切换工作目录（只在当前会话生效，不写配置文件）
+     *
+     * @param newPath 绝对路径
+     * @return 规范化后的路径字符串
+     * @throws IllegalArgumentException 目录不存在或不是目录
+     * @throws SecurityException        路径在黑名单中
+     */
+    public String switchRoot(String newPath) {
+        Path resolved = Paths.get(newPath).toAbsolutePath().normalize();
+        if (!Files.exists(resolved)) {
+            throw new IllegalArgumentException("目录不存在: " + newPath);
+        }
+        if (!Files.isDirectory(resolved)) {
+            throw new IllegalArgumentException("路径不是目录: " + newPath);
+        }
+        String upper = resolved.toString().toUpperCase();
+        for (String blocked : BLOCKED_PATHS) {
+            if (upper.startsWith(blocked.toUpperCase())) {
+                throw new SecurityException("禁止切换到系统目录: " + blocked);
+            }
+        }
+        this.workspaceRoot = resolved;
+        log.info("工作目录已切换至: {}", workspaceRoot);
+        return workspaceRoot.toString();
     }
 
     // ==================== 公共方法 ====================
@@ -266,7 +307,7 @@ public class WorkspaceUtil {
         }
     }
 
-    private Path resolveSafe(String relativePath) {
+    public Path resolveSafe(String relativePath) {
         if (relativePath == null || relativePath.isEmpty()) {
             return workspaceRoot;
         }

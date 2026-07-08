@@ -215,6 +215,23 @@ public class FileController {
     }
 
     /**
+     * 切换工作目录（只在当前会话生效）
+     */
+    @PostMapping("/workspace/switch")
+    public Result<String> switchWorkspace(@RequestBody Map<String, String> body) {
+        String path = body.get("path");
+        if (path == null || path.isEmpty()) {
+            return Result.fail("参数 path 不能为空");
+        }
+        try {
+            return Result.ok(workspaceUtil.switchRoot(path));
+        } catch (Exception e) {
+            log.error("切换工作目录失败: {}", e.getMessage());
+            return Result.fail(e.getMessage());
+        }
+    }
+
+    /**
      * 导入文件（上传到当前目录）
      */
     @PostMapping("/workspace/import")

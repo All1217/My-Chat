@@ -7,6 +7,18 @@
         </el-icon>
         <span class="title">工作区</span>
       </div>
+      <div class="project-switcher">
+        <el-input v-model="projectPath" placeholder="输入项目目录路径…" size="small" clearable
+          @keyup.enter="handleSwitch" />
+        <el-button type="primary" size="small" :loading="switching" @click="handleSwitch">
+          打开项目
+        </el-button>
+      </div>
+      <div v-if="currentRoot" class="current-root-line">
+        <el-tooltip :content="currentRoot" placement="top">
+          <span class="current-root-text">{{ currentRoot }}</span>
+        </el-tooltip>
+      </div>
       <el-tree ref="treeRef" :data="treeData" node-key="path" :props="treeProps" :highlight-current="true"
         :expand-on-click-node="true" :default-expand-all="true" @node-click="handleNodeClick" class="workspace-tree">
         <template #default="{ data }">
@@ -137,6 +149,10 @@ const treeData = ref<FileTreeNode[]>([])
 const treeProps = { children: 'children', label: 'name' }
 const currentPath = ref('')
 const fileList = ref<FileInfo[]>([])
+
+const projectPath = ref('')
+const switching = ref(false)
+const currentRoot = ref('')
 
 const previewVisible = ref(false)
 const previewContent = ref('')
@@ -426,6 +442,23 @@ async function handleDelete(row: FileInfo) {
     ElMessage.success('删除成功')
   } catch { /* 已 toast */ }
 }
+async function handleSwitch() {
+  if (!projectPath.value.trim()) {
+    ElMessage.warning('请输入项目路径')
+    return
+  }
+  switching.value = true
+  try {
+    const newRoot = await workspaceApi.switchRoot(projectPath.value.trim())
+    currentRoot.value = newRoot
+    await fetchTree()
+    await fetchFileList('')
+    currentPath.value = ''
+    ElMessage.success(`已切换至: ${newRoot}`)
+  } catch { /* 已 toast */ }
+  switching.value = false
+}
+
 async function handleRefresh() {
   await fetchTree()
   await fetchFileList(currentPath.value)
@@ -719,5 +752,27 @@ onUnmounted(() => {
   display: block;
   margin: 0 auto;
   border-radius: 8px;
+}
+
+/* 项目切换器 */
+.project-switcher {
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.current-root-line {
+  padding: 4px 12px 8px;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.current-root-text {
+  font-size: 11px;
+  color: #909399;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
 }
 </style>

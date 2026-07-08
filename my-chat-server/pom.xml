@@ -24,6 +24,8 @@
         <postgresql.version>42.7.3</postgresql.version>
         <mybatis-plus.version>3.5.15</mybatis-plus.version>
         <pdfbox.version>2.0.31</pdfbox.version>
+        <apache.poi.version>5.4.0</apache.poi.version>
+        <jsoup.version>1.18.3</jsoup.version>
     </properties>
 
     <dependencies>
@@ -117,6 +119,18 @@
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
             <scope>test</scope>
+        </dependency>
+        <!-- Apache POI: docx / xlsx / pptx 解析 -->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>${apache.poi.version}</version>
+        </dependency>
+        <!-- jsoup: HTML 解析 -->
+        <dependency>
+            <groupId>org.jsoup</groupId>
+            <artifactId>jsoup</artifactId>
+            <version>${jsoup.version}</version>
         </dependency>
     </dependencies>
 

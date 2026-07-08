@@ -60,10 +60,10 @@
                 <Plus style="width: 17px; height: 17px; color: #fff;" />
             </button>
             <div class="option-bar">
-                <el-tooltip v-if="chatStore.kbId" content="查看/切换知识库" placement="top">
+                <el-tooltip v-if="chatStore.currentChat?.kbId" content="查看/切换知识库" placement="top">
                     <el-tag type="primary" size="small" style="cursor: pointer; margin-left: 8px;"
                         @click="goToKnowledgeStore">
-                        📚 当前知识库：{{ chatStore.kbName || chatStore.kbId }}
+                        📚 当前知识库：{{ chatStore.getKbDisplayName(chatStore.currentChat?.kbId) }}
                     </el-tag>
                 </el-tooltip>
             </div>
@@ -278,6 +278,7 @@ function copyText(text: string) {
 }
 
 onMounted(() => {
+    chatStore.loadKbNames()
     const ul = chatBoxulRef.value
     if (ul) {
         ul.addEventListener('scroll', onUlScroll)

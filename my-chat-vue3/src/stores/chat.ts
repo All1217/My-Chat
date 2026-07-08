@@ -12,6 +12,8 @@ export const useChatStore = defineStore('chat', () => {
     const kbId = ref<string | null>(null)
     /** 当前知识库名称（用于 ChatBox 标签显示） */
     const kbName = ref<string>('')
+    /** KB ID → 名称映射缓存 */
+    const kbNameMap = ref<Record<string, string>>({})
 
     const currentChat = computed<ChatSessionVO | null>(() => {
         if (!currentChatId.value) return null
@@ -22,6 +24,25 @@ export const useChatStore = defineStore('chat', () => {
         if (!currentChat.value) return ''
         return currentChat.value.title || currentChat.value.conversationId || ''
     })
+
+    /** 从 API 加载所有知识库名称到缓存 */
+    async function loadKbNames() {
+        try {
+            const { knowledgeApi } = await import('@/api/knowledge')
+            const list = await knowledgeApi.list()
+            const map: Record<string, string> = {}
+            for (const kb of list) {
+                map[kb.id] = kb.name
+            }
+            kbNameMap.value = map
+        } catch { /* 静默 */ }
+    }
+
+    /** 根据 kbId 获取显示名称（缓存命中→名称，否则回退到 ID） */
+    function getKbDisplayName(id?: string | null): string {
+        if (!id) return ''
+        return kbNameMap.value[id] || id
+    }
 
     /** 设置知识库模式（知识与名称同时设置） */
     function setKbContext(id: string | null, name?: string) {
@@ -84,9 +105,12 @@ export const useChatStore = defineStore('chat', () => {
         isSidebarOpen,
         kbId,
         kbName,
+        kbNameMap,
         currentChat,
         currentTitle,
         setKbContext,
+        loadKbNames,
+        getKbDisplayName,
         fetchChatList,
         createConversation,
         selectConversation,

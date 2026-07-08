@@ -113,18 +113,20 @@ onMounted(async () => {
   if (qKbId) {
     const qKbName = route.query.kbName as string | undefined
     chatStore.setKbContext(qKbId, qKbName)
-    // 先查该知识库已有会话
-    await chatStore.fetchChatList(qKbId)
-    if (chatStore.chatList.length > 0) {
-      // 有会话 → 选中最近一个
-      chatStore.selectConversation(chatStore.chatList[0].conversationId)
+  }
+  // 始终查全部会话，左侧列表展示所有对话
+  if (!qKbId) {
+    await chatStore.fetchChatList()
+  } else {
+    // 先确保列表加载完毕，再从全量列表中找该知识库的会话
+    await chatStore.fetchChatList()
+    const kbConversations = chatStore.chatList.filter(c => c.kbId === qKbId)
+    if (kbConversations.length > 0) {
+      chatStore.selectConversation(kbConversations[0].conversationId)
     } else {
-      // 无会话 → 新建
       const id = generateChatId()
       await chatStore.createConversation(id, qKbId)
     }
-  } else {
-    chatStore.fetchChatList()
   }
 
   nextTick(() => {

@@ -161,6 +161,60 @@ public class WorkspaceUtil {
         }
     }
 
+    /** 创建或覆盖写入文本文件（自动创建父目录） */
+    public String writeFile(String relativePath, String content) {
+        Path file = resolveSafe(relativePath);
+        try {
+            Files.createDirectories(file.getParent());
+            Files.writeString(file, content, StandardCharsets.UTF_8);
+            log.info("文件写入成功: {} ({} bytes)", file, content.length());
+            return workspaceRoot.relativize(file).toString().replace("\\", "/");
+        } catch (IOException e) {
+            log.error("文件写入失败: {}", file, e);
+            throw new RuntimeException("文件写入失败", e);
+        }
+    }
+
+    /** 复制文件或目录 */
+    public String copyFileOrDirectory(String sourcePath, String targetPath) {
+        Path source = resolveSafe(sourcePath);
+        Path target = resolveSafe(targetPath);
+        if (!Files.exists(source)) {
+            throw new IllegalArgumentException("源路径不存在: " + sourcePath);
+        }
+        try {
+            Files.createDirectories(target.getParent());
+            if (Files.isDirectory(source)) {
+                copyDirectoryRecursively(source, target);
+            } else {
+                Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
+            }
+            log.info("复制成功: {} -> {}", source, target);
+            return workspaceRoot.relativize(target).toString().replace("\\", "/");
+        } catch (IOException e) {
+            log.error("复制失败: {} -> {}", source, target, e);
+            throw new RuntimeException("复制失败", e);
+        }
+    }
+
+    private void copyDirectoryRecursively(Path source, Path target) throws IOException {
+        Files.walkFileTree(source, new SimpleFileVisitor<>() {
+            @Override
+            public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+                Path targetDir = target.resolve(source.relativize(dir));
+                Files.createDirectories(targetDir);
+                return FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                Path targetFile = target.resolve(source.relativize(file));
+                Files.copy(file, targetFile, StandardCopyOption.REPLACE_EXISTING);
+                return FileVisitResult.CONTINUE;
+            }
+        });
+    }
+
     /** 获取目录树 */
     public List<FileTreeNode> getDirectoryTree(String relativePath) {
         Path root = resolveSafe(relativePath);

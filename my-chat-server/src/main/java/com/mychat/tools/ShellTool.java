@@ -26,16 +26,19 @@ public class ShellTool {
         this.workspaceUtil = workspaceUtil;
     }
 
-    @Tool(description = "在项目目录中执行只读文件操作。" +
+    @Tool(description = "在工作目录中执行文件操作。" +
             "可用操作: ls (列出目录), tree (目录树), cat (查看文件内容), " +
-            "grep (搜索文件内容), stat (文件/目录信息)。" +
-            "示例: 'ls src/main/java', 'tree src', 'cat pom.xml', " +
-            "'grep \"@Tool\" src\\main\\java', 'stat src'")
+            "grep (搜索文件内容), stat (文件/目录信息), " +
+            "write (写入文件), mkdir (创建目录), rm (删除), " +
+            "mv (移动/重命名), cp (复制文件)。" +
+            "示例: 'ls src/main/java', 'cat pom.xml', " +
+            "'write test.txt 你好世界', 'mkdir data', " +
+            "'rm old.txt', 'mv a.txt b.txt', 'cp src.txt dst.txt'")
     public String executeCommand(
-            @ToolParam(description = "操作命令，格式: <操作> [路径] [参数]") String command) {
+            @ToolParam(description = "操作命令，格式: <操作> [参数...]") String command) {
 
         if (command == null || command.isBlank()) {
-            return "错误：命令不能为空。可用: ls, tree, cat, grep, stat";
+            return "错误：命令不能为空。可用: ls, tree, cat, grep, stat, write, mkdir, rm, mv, cp";
         }
 
         String[] parts = command.trim().split("\\s+", 2);
@@ -49,7 +52,12 @@ public class ShellTool {
                 case "cat", "type" -> executeCat(arg);
                 case "grep", "select-string" -> executeGrep(arg);
                 case "stat" -> executeStat(arg);
-                default -> "未知操作: '" + action + "'。可用: ls, tree, cat, grep, stat";
+                case "write" -> executeWrite(arg);
+                case "mkdir" -> executeMkdir(arg);
+                case "rm", "del", "delete" -> executeRm(arg);
+                case "mv", "move", "rename" -> executeMv(arg);
+                case "cp", "copy" -> executeCp(arg);
+                default -> "未知操作: '" + action + "'。可用: ls, tree, cat, grep, stat, write, mkdir, rm, mv, cp";
             };
         } catch (SecurityException e) {
             return "安全拦截: " + e.getMessage();
@@ -203,6 +211,97 @@ public class ShellTool {
                 + "修改时间: " + attrs.lastModifiedTime() + "\n"
                 + "是否可读: " + Files.isReadable(target) + "\n"
                 + "是否可写: " + Files.isWritable(target);
+    }
+
+    // ==================== 写操作 ====================
+
+    /** write <路径> <内容> — 创建或覆盖文本文件 */
+    private String executeWrite(String arg) throws IOException {
+        // 格式: write <路径> <内容>，内容可能含空格，从第二个空格开始取
+        int firstSpace = arg.indexOf(' ');
+        if (firstSpace <= 0) {
+            return "错误: 格式 write <文件路径> <内容>";
+        }
+        String path = arg.substring(0, firstSpace).trim();
+        String content = arg.substring(firstSpace).trim();
+        String rel = workspaceUtil.writeFile(path, content);
+        return "文件写入成功: " + rel + " (" + content.length() + " 字符)";
+    }
+
+    /** mkdir <路径> — 创建目录 */
+    private String executeMkdir(String arg) throws IOException {
+        if (arg.isEmpty()) {
+            return "错误: 缺少目录路径";
+        }
+        // 提取父路径和目录名
+        Path target = resolvePath(arg);
+        String dirName = target.getFileName().toString();
+        String parentPath = target.getParent() != null
+                ? workspaceUtil.getWorkspaceRoot().relativize(target.getParent()).toString().replace("\\", "/")
+                : "";
+        try {
+            workspaceUtil.createDirectory(parentPath, dirName);
+            return "目录创建成功: " + arg;
+        } catch (IllegalArgumentException e) {
+            // "目录已存在" 或名称非法
+            return "错误: " + e.getMessage();
+        }
+    }
+
+    /** rm <路径> — 删除文件或目录（目录递归删除） */
+    private String executeRm(String arg) throws IOException {
+        if (arg.isEmpty()) {
+            return "错误: 缺少路径";
+        }
+        Path target = resolvePath(arg);
+        if (!Files.exists(target)) {
+            return "错误: 路径不存在: " + arg;
+        }
+        String type = Files.isDirectory(target) ? "目录" : "文件";
+        workspaceUtil.deleteFileOrDirectory(arg);
+        return type + "已删除: " + arg;
+    }
+
+    /** mv <源路径> <目标路径> — 移动/重命名 */
+    private String executeMv(String arg) throws IOException {
+        String[] parts = arg.split("\\s+", 2);
+        if (parts.length < 2 || parts[0].isEmpty() || parts[1].isEmpty()) {
+            return "错误: 格式 mv <源路径> <目标路径>";
+        }
+        String source = parts[0];
+        String target = parts[1];
+        // 提取新名称（目标路径的最后一段）
+        Path targetPath = resolvePath(target);
+        String newName = targetPath.getFileName().toString();
+        try {
+            workspaceUtil.renameFileOrDirectory(source, newName);
+            return "重命名成功: " + source + " → " + target;
+        } catch (Exception e) {
+            // 如果 rename 失败（跨目录移动），尝试 Files.move
+            try {
+                Path srcPath = resolvePath(source);
+                Path dstPath = resolvePath(target);
+                Files.createDirectories(dstPath.getParent());
+                Files.move(srcPath, dstPath, StandardCopyOption.REPLACE_EXISTING);
+                return "移动成功: " + source + " → " + target;
+            } catch (Exception e2) {
+                return "错误: 移动/重命名失败: " + e2.getMessage();
+            }
+        }
+    }
+
+    /** cp <源路径> <目标路径> — 复制文件或目录 */
+    private String executeCp(String arg) throws IOException {
+        String[] parts = arg.split("\\s+", 2);
+        if (parts.length < 2 || parts[0].isEmpty() || parts[1].isEmpty()) {
+            return "错误: 格式 cp <源路径> <目标路径>";
+        }
+        try {
+            String rel = workspaceUtil.copyFileOrDirectory(parts[0], parts[1]);
+            return "复制成功: " + rel;
+        } catch (Exception e) {
+            return "错误: 复制失败: " + e.getMessage();
+        }
     }
 
     private Path resolvePath(String path) {

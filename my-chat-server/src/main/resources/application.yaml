@@ -1,0 +1,59 @@
+server:
+  port: 8100
+  address: 0.0.0.0
+spring:
+  datasource:
+    #    url: jdbc:mysql://localhost:3306/db01?serverTimezone=Asia/Shanghai&useSSL=false&useUnicode=true&characterEncoding=utf-8&zeroDateTimeBehavior=convertToNull&transformedBitIsBoolean=true&tinyInt1isBit=false&allowPublicKeyRetrieval=true&allowMultiQueries=true&useServerPrepStmts=false
+    #    driver-class-name: com.mysql.cj.jdbc.Driver
+    #    username: root
+    #    password: ${MYSQL_PASS}
+    url: jdbc:postgresql://localhost:5432/postgres?currentSchema=public
+    driver-class-name: org.postgresql.Driver
+    username: postgres
+    password: ${PGSQL_PASS}
+  servlet:
+    multipart:
+      max-file-size: 200MB
+      max-request-size: 200MB
+  application:
+    name: my-chat
+  threads:
+    virtual:
+      enabled: true
+  ai:
+    openai:
+      base-url: https://api.deepseek.com
+      api-key: ${OPENAI_API_KEY}
+      chat:
+        options:
+          model: deepseek-v4-flash
+          max-tokens: 4096
+          extra-body:
+            thinking:
+              type: disabled
+      embedding:
+        enabled: true
+        base-url: https://ws-1b3a82l7nb8ysi9i.cn-beijing.maas.aliyuncs.com/compatible-mode/v1
+        api-key: ${EMBEDDING_MODEL_API_KEY}
+        options:
+          model: text-embedding-v4
+          dimensions: 1536
+      client:
+        connect-timeout: 10s
+        read-timeout: 600s
+    vectorstore:
+#      simple:
+#        file-path: ./data/vectorstore.json
+      pgvector:
+        index-type: HNSW
+        distance-type: COSINE_DISTANCE
+        dimensions: 1536
+        max-document-batch-size: 10000
+logging:
+  level:
+    org.springframework.ai: debug
+    com.mychat: debug
+    org.springframework.web.reactive.function.client.ExchangeFunctions: trace
+app:
+  workspace:
+    root: ./src/main/resources/workspace

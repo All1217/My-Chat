@@ -17,6 +17,13 @@ import java.util.stream.Stream;
  * 安全的只读 Shell 命令执行工具（纯 Java NIO 实现）
  * 不 fork 任何子进程，所有操作基于 Java NIO API，路径严格限定在 workspace root 内。
  */
+/**
+ * @deprecated 已由 {@link com.mychat.tools.FileTools} 替代。
+ * FileTools 将每个操作拆分为独立的 @Tool 方法，
+ * 支持类型安全的参数传递，解决空格文件名、换行符、通配符等字符串解析问题。
+ * 计划在验证稳定后删除此类。
+ */
+@Deprecated
 @Component
 public class ShellTool {
 

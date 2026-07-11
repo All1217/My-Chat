@@ -1,6 +1,6 @@
 package com.mychat.config;
 
-import com.mychat.tools.ShellTool;
+import com.mychat.tools.FileTools;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.SimpleLoggerAdvisor;
@@ -25,19 +25,19 @@ public class AiConfiguration {
                 .build();
     }
 
-    /** 普通对话：支持 Shell 工具调用 */
+    /** 普通对话：支持文件工具调用 */
     @Bean
-    public ChatClient toolChatClient(OpenAiChatModel model, ChatMemory chatMemory, ShellTool shellTool) {
+    public ChatClient toolChatClient(OpenAiChatModel model, ChatMemory chatMemory, FileTools fileTools) {
         return ChatClient.builder(model)
                 .defaultSystem(""" 
-                        涉及文件的查看、创建、写入、修改、删除、重命名、复制操作，须通过 executeCommand 工具实际执行。
-                        不能在回复中假装已经完成了文件操作。
+                        所有涉及文件的查看、创建、写入、修改、删除、重命名、复制操作，都必须通过可用工具实际执行。
+                        你绝不能在回复中假装已经完成了文件操作。
                         """)
                 .defaultAdvisors(
                         new SimpleLoggerAdvisor(),
                         MessageChatMemoryAdvisor.builder(chatMemory).build()
                 )
-                .defaultTools(shellTool)
+                .defaultTools(fileTools)
                 .build();
     }
 

@@ -43,9 +43,15 @@ public class FileTools {
         if (!Files.isDirectory(dir)) {
             return "错误: 路径不是目录";
         }
+        Path root = workspaceUtil.getWorkspaceRoot();
+        boolean isRoot = root.equals(dir);
         StringBuilder sb = new StringBuilder();
-        sb.append("目录: ").append(workspaceUtil.getWorkspaceRoot().relativize(dir).toString().replace("\\", "/"))
-                .append("\n----------------------------------------\n");
+        if (isRoot) {
+            sb.append("目录: .  ← 当前工作区根目录 (").append(root.toString()).append(")");
+        } else {
+            sb.append("目录: ").append(root.relativize(dir).toString().replace("\\", "/"));
+        }
+        sb.append("\n----------------------------------------\n");
         try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir)) {
             List<Path> items = new ArrayList<>();
             stream.forEach(items::add);
@@ -92,7 +98,8 @@ public class FileTools {
             @ToolParam(description = "写入的文本内容") String content) {
         try {
             String rel = workspaceUtil.writeFile(path, content);
-            return "文件写入成功: " + rel + " (" + content.length() + " 字符)";
+            Path fullPath = workspaceUtil.resolveSafe(path);
+            return "文件写入成功: " + rel + " (绝对路径: " + fullPath.toAbsolutePath() + ") [" + content.length() + " 字符]";
         } catch (Exception e) {
             return "错误: " + e.getMessage();
         }
@@ -165,7 +172,13 @@ public class FileTools {
         try {
             Path target = resolvePath(path);
             BasicFileAttributes attrs = Files.readAttributes(target, BasicFileAttributes.class);
-            String rel = workspaceUtil.getWorkspaceRoot().relativize(target).toString().replace("\\", "/");
+            Path root = workspaceUtil.getWorkspaceRoot();
+            String rel;
+            if (target.equals(root)) {
+                rel = "（当前工作区根目录）";
+            } else {
+                rel = root.relativize(target).toString().replace("\\", "/");
+            }
             return "路径: " + rel + "\n"
                     + "类型: " + (Files.isDirectory(target) ? "目录" : "文件") + "\n"
                     + "大小: " + formatSize(attrs.size()) + "\n"
@@ -233,9 +246,11 @@ public class FileTools {
             if (!Files.isDirectory(dir)) {
                 return "错误: 路径不是目录";
             }
+            Path root = workspaceUtil.getWorkspaceRoot();
+            boolean isRoot = root.equals(dir);
+            String rootLabel = isRoot ? "（当前工作区根目录）" : root.relativize(dir).toString().replace("\\", "/");
             StringBuilder sb = new StringBuilder();
-            sb.append("目录树: ").append(workspaceUtil.getWorkspaceRoot().relativize(dir).toString().replace("\\", "/"))
-                    .append("\n");
+            sb.append("目录树: ").append(rootLabel).append("\n");
             Files.walkFileTree(dir, new SimpleFileVisitor<>() {
                 private int depth = 0;
                 @Override
@@ -248,7 +263,8 @@ public class FileTools {
                 }
                 @Override
                 public FileVisitResult visitFile(Path f, BasicFileAttributes attrs) {
-                    sb.append("  ".repeat(depth)).append("├─ ").append(f.getFileName()).append("\n");
+                    sb.append("  ".repeat(depth)).append("├─ ").append(f.getFileName())
+                            .append(" (").append(formatSize(attrs.size())).append(")\n");
                     return FileVisitResult.CONTINUE;
                 }
                 @Override

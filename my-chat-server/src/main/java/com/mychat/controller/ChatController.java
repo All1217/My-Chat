@@ -3,6 +3,7 @@ package com.mychat.controller;
 import com.mychat.config.WorkspaceContext;
 import com.mychat.service.ChatSessionsService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.content.Media;
@@ -13,14 +14,15 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import reactor.core.publisher.Flux;
 
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.Objects;
 
+@Slf4j
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("/ai/normalChat")
 public class ChatController {
-    private final ChatMemory chatMemory;
     private final ChatClient toolChatClient;
     private final ChatSessionsService chatSessionsService;
 
@@ -29,10 +31,11 @@ public class ChatController {
             @RequestParam("prompt") String prompt,
             @RequestParam("chatId") String chatId,
             @RequestParam(value = "files", required = false) List<MultipartFile> files) {
-        // 根据会话ID设置线程级工作目录上下文（ShellTool 从中读取工作目录）
+        // 根据会话ID设置线程级工作目录上下文
         String workDir = chatSessionsService.getWorkDir(chatId);
         if (workDir != null) {
             WorkspaceContext.set(workDir);
+            log.info("会话 {} 工作目录已设置为: {}", chatId, workDir);
         }
         if (files == null || files.isEmpty()) {
             return textChat(prompt, chatId)
@@ -45,6 +48,7 @@ public class ChatController {
 
     private Flux<String> textChat(String prompt, String chatId) {
         return toolChatClient.prompt()
+                .system(buildWorkspaceSystemPrompt())
                 .user(prompt)
                 .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, chatId))
                 .stream()
@@ -75,6 +79,7 @@ public class ChatController {
                 .toList();
         // 2.请求模型
         return toolChatClient.prompt()
+                .system(buildWorkspaceSystemPrompt())
                 .user(prompt)
                 .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, chatId))
                 .stream()
@@ -92,5 +97,27 @@ public class ChatController {
                     }
                     return sb.toString();
                 });
+    }
+
+    /**
+     * 构建当前请求的 workspace 感知系统提示。
+     * 在请求线程上同步执行，此时 WorkspaceContext 一定包含当前会话的工作目录。
+     */
+    private String buildWorkspaceSystemPrompt() {
+        String workDir = WorkspaceContext.get();
+        if (workDir == null) return null;
+        String name = Paths.get(workDir).getFileName().toString();
+        return String.format("""
+                所有涉及文件的查看、创建、写入、修改、删除、重命名、复制操作，都必须通过可用工具实际执行。
+                你绝不能在回复中假装已经完成了文件操作。
+                
+                当前工作目录: %1$s
+                路径规则：所有路径都是相对于当前工作目录的**相对路径**。
+                不要再把工作目录名 "%2$s" 作为路径前缀。
+                ✅ 正确: path="src/components/App.vue"
+                ✅ 正确: path="README.md"
+                ❌ 错误: path="%2$s/src/components/App.vue"
+                ❌ 错误: path="%2$s/README.md"
+                """, workDir, name);
     }
 }

@@ -35,6 +35,14 @@ public class WorkspaceContext {
         WORK_DIR.remove();
     }
 
+    /** 获取当前工作区的目录名（最后一级），供系统提示使用 */
+    public static String getWorkspaceName() {
+        String dir = WORK_DIR.get();
+        if (dir == null) return null;
+        int lastSep = Math.max(dir.lastIndexOf('/'), dir.lastIndexOf('\\'));
+        return lastSep >= 0 ? dir.substring(lastSep + 1) : dir;
+    }
+
     /**
      * 注册到 Micrometer ContextRegistry，使 ThreadLocal 值随 Reactor Context 自动传播。
      */

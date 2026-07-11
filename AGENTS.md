@@ -2,7 +2,7 @@
 
 ## Architecture
 
-Two-package monorepo. Root `src/` is a vestige — ignore it.
+Root `src/` is a vestige — ignore it.
 
 - **`my-chat-server/`** — Java / Spring Boot 4.1.0 / Spring AI 2.0.0 backend (port **8100**)
 - **`my-chat-vue3/`** — Vue 3 + Vite 6 + TypeScript + Pinia + Element Plus frontend (dev port **5173**)
@@ -11,19 +11,19 @@ Two-package monorepo. Root `src/` is a vestige — ignore it.
 
 ```bash
 # Backend (from my-chat-server/)
-./mvnw.cmd spring-boot:run        # start dev server
-./mvnw.cmd test                    # run all tests
+./mvnw.cmd spring-boot:run        # start dev server on port 8100
+./mvnw.cmd test                    # run all integration tests
 ./mvnw.cmd test -Dtest=ClassName   # run single test class
 
 # Frontend (from my-chat-vue3/)
-npm run dev                        # start dev server
+npm run dev                        # start dev server on port 5173
 npm run build                      # typecheck + build (vue-tsc -b && vite build)
 npm run preview                    # preview production build
 ```
 
-**Frontend has no lint or test framework.** `npm run build` is the only verification step. No ESLint, Prettier, or Vitest is configured.
+**Frontend has no lint or test framework.** `npm run build` is the only verification step.
 
-**Frontend path alias:** `@/` maps to `src/` (configured in `vite.config.ts`).
+**Frontend path alias:** `@/` maps to `src/`.
 
 ## Required environment variables
 
@@ -35,52 +35,50 @@ npm run preview                    # preview production build
 
 ## Database
 
-Uses **PostgreSQL** (not MySQL — README badges are stale). Requires the **pgvector** extension.
-
-Schema is in `my-chat-server/src/main/resources/schema.sql`. The file contains both MySQL and PostgreSQL DDL; the PostgreSQL block is at the bottom. Spring AI auto-creates vector store tables at startup.
+PostgreSQL with **pgvector** extension. Schema: `my-chat-server/src/main/resources/schema.sql` (PostgreSQL block at the bottom). Spring AI auto-creates `vector_store` table.
 
 ## Frontend proxy
 
-Vite dev server proxies:
-- `/rag/*` → `http://localhost:8100` (project backend, path prefix stripped)
-- `/api/*` → `http://localhost:8080/jeecg-boot` (legacy CRM — keep but don't modify unless asked)
+Vite proxies:
+- `/rag/*` → `http://localhost:8100` (project backend, path prefix **stripped**)
+- `/api/*` → `http://localhost:8080/jeecg-boot` (legacy CRM — don't modify)
 
-Two Axios clients in `my-chat-vue3/src/utils/http/` (a module, exports `ragClient` and `crmClient` from `index.ts`). A hard-coded `X-Access-Token` header is injected in both — do not remove it.
+Two Axios clients in `my-chat-vue3/src/utils/http/` export `ragClient` (base `/rag`) and `crmClient` (base `/api`). A hard-coded `X-Access-Token` is injected in both interceptors — do not remove.
 
 ## API conventions
 
-Backend wraps all responses in `Result<T>` (`{ code, message, data }`). Code 200 = success. Frontend `my-chat-vue3/src/utils/request.ts` auto-unwraps and error-handles.
+Backend wraps responses in `Result<T>` (`{ code, message, data }`). Code 200 = success. Frontend `HttpClient` (built into `client.ts`) auto-unwraps and error-handles.
 
-For streaming chat, the frontend uses native `fetch` (not Axios) — see `my-chat-vue3/src/utils/streamChat.ts`. The backend chat endpoint `/ai/normalChat/chat` produces `text/html;charset=utf-8` (not `text/event-stream`). The stream may contain `[THINKING]...[/THINKING]` tags wrapping reasoning content — the frontend Markdown renderer must handle these.
+Streaming chat uses native `fetch` (not Axios) — see `streamChat.ts`. Endpoint produces `text/html;charset=utf-8`. The stream may embed `[THINKING]...[/THINKING]` tags; the Markdown renderer must handle them.
 
-## Backend API surface
+## Backend API surface (five controllers at `/ai/*`)
 
-Five controllers at `/ai/*`:
-- `ChatController` (`/ai/normalChat/chat`) — streaming POST, `text/html;charset=utf-8`, uses FormData (prompt + chatId + optional files)
-- `ChatHistoryController` (`/ai/history/*`) — session CRUD (getConversations, addConversation, update, deleteById, getMessages). `getConversations`/`addConversation` accept optional `kbId` param to associate a session with a knowledge base.
-- `FileController` (`/ai/file/*`) — workspace management (tree, list, read, CRUD) and document upload/vectorize
-- `KnowledgeBaseController` (`/ai/knowledge-base/*`) — knowledge base CRUD (list, create, delete) and document listing
-- `RagChatController` (`/ai/ragChat/chat`) — RAG streaming POST, same shape as normalChat/chat + required `kbId` param; uses `VectorStore.similaritySearch` with `filterExpression("kbId == '<id>'")` to scope retrieval
+- `ChatController` (`/ai/normalChat/chat`) — streaming POST, uses FormData (prompt + chatId + optional files). Uses `toolChatClient` which has ShellTool and chat memory.
+- `ChatHistoryController` (`/ai/history/*`) — session CRUD: getConversations, addConversation, update, deleteById, getMessages. Both `getConversations` and `addConversation` accept optional `kbId`. update uses `@RequestBody ChatSessionsDTO`.
+- `FileController` (`/ai/file/*`) — workspace management (tree, lazy tree, list, read, read/binary) + document upload (with optional kbId) / delete. Also: create folder, delete, rename, switch workspace root, import files.
+- `KnowledgeBaseController` (`/ai/knowledge-base/*`) — KB CRUD (list, create, delete) + list documents by kbId.
+- `RagChatController` (`/ai/ragChat/chat`) — RAG streaming POST, same shape as normalChat + required `kbId`. Uses `QuestionAnswerAdvisor` with `filterExpression("kbId == '<id>'")`, topK=5, similarityThreshold=0.5.
 
 ## Key backend internals
 
-- `AiConfiguration` wires ChatClient with ShellTool as the default tool, JDBC-backed `MessageWindowChatMemory` (max 64 messages), and `SimpleLoggerAdvisor`.
-- MyBatis-Plus 3.5.15 (uses `spring-boot4-starter` matching SB 4.x).
-- File upload: 200MB max (multipart). Read timeout: 600s.
-- Chat model: `deepseek-v4-pro` (OpenAI-compatible API at `api.deepseek.com`), thinking disabled.
-- Embedding model: Alibaba MaaS `text-embedding-v4`, 1536d, pgvector with HNSW + cosine distance.
-- `ShellTool` is a **Windows-only** read-only PowerShell command executor with a whitelist. It runs in the `my-chat-server/` CWD and has a 15s timeout. Will not work on Linux/macOS.
-- Embedded FFmpeg bundled at `src/main/resources/ffmpeg/windows/ffmpeg.exe` (enabled via `app.ffmpeg.use-embedded: true`). Falls back to system PATH ffmpeg if missing.
+- **`AiConfiguration`** wires two `ChatClient` beans:
+  - `toolChatClient` — normal chat, has `ShellTool` as default tool, `MessageWindowChatMemory` (max 64 messages), `SimpleLoggerAdvisor`
+  - `ragChatClient` — RAG chat, no tools, system prompt forbids tool use
+- **`ShellTool`** — pure **Java NIO** file tool, NOT a PowerShell executor. Runs in the workspace root. Commands: ls, tree, cat, grep, stat, write, mkdir, rm, mv, cp. File ops are read+write (no shell fork). Cross-platform (Java only).
+- MyBatis-Plus 3.5.15 (uses `spring-boot4-starter`).
+- File upload: 200MB max. Read timeout: 600s.
+- Chat model: `deepseek-v4-flash` (OpenAI-compatible at `api.deepseek.com`), thinking extra-body `disabled`. The controller code reads `reasoningContent` from metadata for future use when thinking is enabled.
+- Embedding: Alibaba MaaS `text-embedding-v4`, 1536d, pgvector HNSW + cosine distance.
+- Virtual threads enabled (`spring.threads.virtual.enabled: true`).
+- CORS: all origins allowed (`MvcConfiguration`).
 - Workspace root: `./src/main/resources/workspace` (configurable via `app.workspace.root`).
-- `EmbeddingService` writes debug logs to project root `debug-d859f8.log` via `AgentDebugLog`. Leave it alone unless instructed.
-- `EmbeddingConfigProbe` logs resolved config at startup.
-- Knowledge base CRUD: `entity/po/KnowledgeBase.java`, `entity/po/DocumentMeta.java`, `KnowledgeBaseController` at `/ai/knowledge-base/*`.
-- Document upload accepts optional `kbId` param to associate with a knowledge base; document metadata goes into `document_meta` table. Vector cleanup uses `EmbeddingService.deleteByDocumentId`.
+- Document processing: PDFBox (PDF), Apache POI (docx/xlsx).
+- Session table `chat_sessions` has `kb_id` column for KB-scoped sessions.
 
 ## Tests
 
-Tests are `@SpringBootTest` integration tests. They need a running PostgreSQL with pgvector and the required env vars set. Test config (`my-chat-server/src/test/resources/application-test.yaml`) overrides OpenAI to `localhost:9999` with dummy credentials — no real API calls during tests.
+`@SpringBootTest` integration tests. Need running PostgreSQL + pgvector + env vars. Test config (`src/test/resources/application-test.yaml`) overrides OpenAI model to `localhost:9999` with dummy creds — no real API calls.
 
-## Version note (README is stale)
+## Version note
 
-The README badges claim Spring Boot 3.5 and Spring AI 1.1.3, but `pom.xml` declares Spring Boot **4.1.0**, Spring AI **2.0.0**, and Java **25**. Trust `pom.xml` over README.
+README badges may be stale. `pom.xml` is the source of truth: Spring Boot **4.1.0**, Spring AI **2.0.0**, Java **25**.

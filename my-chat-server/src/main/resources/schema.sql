@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS chat_sessions
     user_id         BIGINT,
     title           VARCHAR(100),
     kb_id       VARCHAR(64) DEFAULT NULL,
+    work_dir VARCHAR(500) DEFAULT NULL,
     created_at      DATETIME DEFAULT CURRENT_DATE,
     updated_at      DATETIME DEFAULT CURRENT_DATE ON UPDATE CURRENT_DATE
 );
@@ -56,6 +57,7 @@ CREATE TABLE IF NOT EXISTS chat_sessions
     user_id         BIGINT,
     title           VARCHAR(100),
     kb_id           VARCHAR(64) NULL,
+    work_dir VARCHAR(500) DEFAULT NULL,
     created_at      TIMESTAMP DEFAULT CURRENT_DATE,     -- DATETIME 改为 TIMESTAMP
     updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP -- 去掉了 ON UPDATE，PostgreSQL 不支持该写法
 );
@@ -64,6 +66,7 @@ COMMENT ON COLUMN chat_sessions.conversation_id IS '会话唯一标识符（主�
 COMMENT ON COLUMN chat_sessions.user_id IS '发起该会话的用户ID，关联用户主表';
 COMMENT ON COLUMN chat_sessions.title IS '会话标题，方便用户历史记录展示';
 COMMENT ON COLUMN chat_sessions.kb_id IS '本次会话关联的知识库ID（可为空），用于RAG场景下的知识库隔离';
+COMMENT ON COLUMN chat_sessions.work_dir IS '本次会话关联的工作目录';
 COMMENT ON COLUMN chat_sessions.created_at IS '会话创建日期（注意：默认值为CURRENT_DATE，粒度只到天，不含具体时分秒）';
 COMMENT ON COLUMN chat_sessions.updated_at IS '会话最后更新时间（含时分秒），用于排序活跃会话；因PGSQL无ON UPDATE自动更新，需应用层手动维护';
 

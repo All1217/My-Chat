@@ -14,8 +14,10 @@ export const useChatStore = defineStore('chat', () => {
     const kbName = ref<string>('')
     /** KB ID → 名称映射缓存 */
     const kbNameMap = ref<Record<string, string>>({})
-    /** 当前工作空间 */
-    const currentWorkspace = ref<string>('')
+    /** 当前工作空间（派生自当前会话的 workDir，不再使用全局 ref） */
+    const currentWorkspace = computed(() => {
+        return currentChat.value?.workDir || ''
+    })
 
     const currentChat = computed<ChatSessionVO | null>(() => {
         if (!currentChatId.value) return null
@@ -52,11 +54,6 @@ export const useChatStore = defineStore('chat', () => {
         kbName.value = name ?? ''
     }
 
-    /** 设置当前工作空间 */
-    function setWorkspace(path: string) {
-        currentWorkspace.value = path
-    }
-
     /** 获取会话列表（可选按 kbId 过滤） */
     async function fetchChatList(filterKbId?: string) {
         try {
@@ -65,10 +62,10 @@ export const useChatStore = defineStore('chat', () => {
     }
 
     /** 新建会话（kbId 为显式传入，不自动使用 store 的 kbId 默认值） */
-    async function createConversation(id: string, explicitKbId?: string, title?: string) {
+    async function createConversation(id: string, explicitKbId?: string, title?: string, workDir?: string) {
         try {
-            await chatApi.addConversation(id, explicitKbId)
-            chatList.value.push({ conversationId: id, title: title || id, kbId: explicitKbId })
+            await chatApi.addConversation(id, explicitKbId, workDir)
+            chatList.value.push({ conversationId: id, title: title || id, kbId: explicitKbId, workDir })
             currentChatId.value = id
             // 如果传入的标题与 id 不同，调用更新接口设置标题
             if (title && title !== id) {
@@ -131,6 +128,5 @@ export const useChatStore = defineStore('chat', () => {
         updateConversation,
         deleteConversation,
         currentWorkspace,
-        setWorkspace,
     }
 })

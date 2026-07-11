@@ -48,7 +48,6 @@ import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import logo from '@/assets/my-chat-logo.png'
 import { generateChatId } from '@/utils/streamChat'
-import { workspaceApi } from '@/api/workspace'
 import { ElMessage } from 'element-plus'
 
 const route = useRoute()
@@ -137,14 +136,10 @@ async function handleConfirmDirectory() {
     return
   }
   try {
-    // 切换后端工作区根目录
-    await workspaceApi.switchRoot(path)
-    chatStore.setWorkspace(path)
     showDirDialog.value = false
-    // 创建新会话，标题以目录路径命名
     const id = generateChatId()
-    await chatStore.createConversation(id, undefined, path)
-    ElMessage.success(`已切换到目录：${path}`)
+    await chatStore.createConversation(id, undefined, path, path)
+    ElMessage.success(`已创建目录会话：${path}`)
   } catch {
     // 失败时 ragClient 拦截器已弹出错误提示
   }

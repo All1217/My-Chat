@@ -1,5 +1,7 @@
 package com.mychat.controller;
 
+import com.mychat.config.WorkspaceContext;
+import com.mychat.service.ChatSessionsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.memory.ChatMemory;
@@ -20,16 +22,24 @@ import java.util.Objects;
 public class ChatController {
     private final ChatMemory chatMemory;
     private final ChatClient toolChatClient;
+    private final ChatSessionsService chatSessionsService;
 
     @RequestMapping(value = "/chat", produces = "text/html;charset=utf-8")
     public Flux<String> chat(
             @RequestParam("prompt") String prompt,
             @RequestParam("chatId") String chatId,
             @RequestParam(value = "files", required = false) List<MultipartFile> files) {
+        // 根据会话ID设置线程级工作目录上下文（ShellTool 从中读取工作目录）
+        String workDir = chatSessionsService.getWorkDir(chatId);
+        if (workDir != null) {
+            WorkspaceContext.set(workDir);
+        }
         if (files == null || files.isEmpty()) {
-            return textChat(prompt, chatId);
+            return textChat(prompt, chatId)
+                    .doFinally(signalType -> WorkspaceContext.clear());
         } else {
-            return multiModalChat(prompt, chatId, files);
+            return multiModalChat(prompt, chatId, files)
+                    .doFinally(signalType -> WorkspaceContext.clear());
         }
     }
 

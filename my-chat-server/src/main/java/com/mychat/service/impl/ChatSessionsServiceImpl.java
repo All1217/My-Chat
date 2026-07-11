@@ -27,16 +27,28 @@ public class ChatSessionsServiceImpl extends ServiceImpl<ChatSessionsMapper, Cha
 
     @Override
     public void addConversation(String conversationId) {
-        addConversation(conversationId, null);
+        addConversation(conversationId, null, null);
     }
 
     @Override
     public void addConversation(String conversationId, String kbId) {
+        addConversation(conversationId, kbId, null);
+    }
+
+    @Override
+    public void addConversation(String conversationId, String kbId, String workDir) {
         ChatSessions dto = new ChatSessions();
         dto.setConversationId(conversationId);
         dto.setTitle(conversationId);
         dto.setKbId(kbId);
+        dto.setWorkDir(workDir);
         chatSessionsMapper.insert(dto);
+    }
+
+    @Override
+    public String getWorkDir(String conversationId) {
+        ChatSessions session = chatSessionsMapper.selectById(conversationId);
+        return session != null ? session.getWorkDir() : null;
     }
 
     @Override
@@ -49,8 +61,11 @@ public class ChatSessionsServiceImpl extends ServiceImpl<ChatSessionsMapper, Cha
         if (dto.getTitle() != null) {
             entity.setTitle(dto.getTitle());
         }
-        if (dto.getUserId() != null) {
-            entity.setUserId(dto.getUserId());
+        if (dto.getKbId() != null) {
+            entity.setKbId(dto.getKbId());
+        }
+        if (dto.getWorkDir() != null) {
+            entity.setWorkDir(dto.getWorkDir());
         }
         int res = chatSessionsMapper.updateById(entity);
         return res > 0 ? Result.ok("更新成功") : Result.fail("SQL执行失败");
@@ -90,6 +105,7 @@ public class ChatSessionsServiceImpl extends ServiceImpl<ChatSessionsMapper, Cha
             vo.setConversationId(s.getConversationId());
             vo.setTitle(s.getTitle());
             vo.setKbId(s.getKbId());
+            vo.setWorkDir(s.getWorkDir());
             return vo;
         }).collect(Collectors.toList());
     }

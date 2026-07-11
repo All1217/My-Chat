@@ -17,4 +17,7 @@ public class ChatSessionsDTO {
 
     @Schema(description = "关联知识库ID")
     private String kbId;
+
+    @Schema(description = "工作目录路径")
+    private String workDir;
 }

@@ -1,5 +1,6 @@
 package com.mychat.utils;
 
+import com.mychat.config.WorkspaceContext;
 import com.mychat.entity.FileInfo;
 import com.mychat.entity.FileTreeNode;
 import jakarta.annotation.PostConstruct;
@@ -67,12 +68,8 @@ public class WorkspaceUtil {
     }
 
     /**
-     * 切换工作目录（只在当前会话生效，不写配置文件）
-     *
-     * @param newPath 绝对路径
-     * @return 规范化后的路径字符串
-     * @throws IllegalArgumentException 目录不存在或不是目录
-     * @throws SecurityException        路径在黑名单中
+     * 切换当前请求线程的工作目录（只设 ThreadLocal，不修改全局单例）。
+     * 用于 FileController 的 ad-hoc 目录切换，会话级工作目录由 WorkspaceContext 在 Controller 中设置。
      */
     public String switchRoot(String newPath) {
         Path resolved = Paths.get(newPath).toAbsolutePath().normalize();
@@ -88,9 +85,9 @@ public class WorkspaceUtil {
                 throw new SecurityException("禁止切换到系统目录: " + blocked);
             }
         }
-        this.workspaceRoot = resolved;
-        log.info("工作目录已切换至: {}", workspaceRoot);
-        return workspaceRoot.toString();
+        WorkspaceContext.set(resolved.toString());
+        log.info("工作目录(ThreadLocal)已切换至: {}", resolved);
+        return resolved.toString();
     }
 
     // ==================== 公共方法 ====================
@@ -418,13 +415,22 @@ public class WorkspaceUtil {
         }
     }
 
+    /**
+     * 解析相对路径为绝对路径，限制在当前有效根目录内。
+     * 优先从 WorkspaceContext（ThreadLocal）获取当前会话的工作目录，
+     * 若为 null 则使用默认 workspaceRoot。
+     */
     public Path resolveSafe(String relativePath) {
+        String contextWorkDir = WorkspaceContext.get();
+        Path root = (contextWorkDir != null)
+                ? Paths.get(contextWorkDir).toAbsolutePath().normalize()
+                : workspaceRoot;
         if (relativePath == null || relativePath.isEmpty()) {
-            return workspaceRoot;
+            return root;
         }
         String cleaned = relativePath.replace("\\", "/").replaceAll("^/+", "");
-        Path resolved = workspaceRoot.resolve(cleaned).normalize();
-        if (!resolved.startsWith(workspaceRoot)) {
+        Path resolved = root.resolve(cleaned).normalize();
+        if (!resolved.startsWith(root)) {
             throw new SecurityException("非法的路径访问: " + relativePath);
         }
         return resolved;

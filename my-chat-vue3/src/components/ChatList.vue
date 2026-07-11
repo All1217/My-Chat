@@ -94,7 +94,6 @@ import { useChatStore } from '@/stores/chat'
 import { generateChatId } from '@/utils/streamChat'
 import logo from '@/assets/my-chat-logo.png'
 import { ElMessage } from "element-plus";
-import { workspaceApi } from '@/api/workspace'
 
 const chatStore = useChatStore()
 const curShowMore = ref<string>('')
@@ -142,12 +141,10 @@ async function handleConfirmDirectory() {
         return
     }
     try {
-        await workspaceApi.switchRoot(path)
-        chatStore.setWorkspace(path)
         showDirDialog.value = false
         const id = generateChatId()
-        await chatStore.createConversation(id, undefined, path)
-        ElMessage.success(`已切换到目录：${path}`)
+        await chatStore.createConversation(id, undefined, path, path)
+        ElMessage.success(`已创建目录会话：${path}`)
     } catch { /* 已 toast */ }
 }
 </script>

@@ -13,6 +13,11 @@ public interface ChatSessionsService extends IService<ChatSessions> {
 
     void addConversation(String conversationId, String kbId);
 
+    void addConversation(String conversationId, String kbId, String workDir);
+
+    /** 根据会话ID查询工作目录，可能为 null */
+    String getWorkDir(String conversationId);
+
     Result updateConversation(ChatSessionsDTO dto);
 
     void deleteChatSessionById(String id);

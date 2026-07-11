@@ -73,7 +73,8 @@ Streaming chat uses native `fetch` (not Axios) — see `streamChat.ts`. Endpoint
 - CORS: all origins allowed (`MvcConfiguration`).
 - Workspace root: `./src/main/resources/workspace` (configurable via `app.workspace.root`).
 - Document processing: PDFBox (PDF), Apache POI (docx/xlsx).
-- Session table `chat_sessions` has `kb_id` column for KB-scoped sessions.
+- Session table `chat_sessions` has `kb_id` and `work_dir` columns for KB-scoped and workspace-scoped sessions.
+- **ThreadLocal 跨线程传播**: `ChatController` 运行在 Tomcat 虚拟线程上，`ShellTool`（被 AI 模型通过 reactive streaming 调用）运行在 Netty 线程上。`WorkspaceContext` 使用 `ThreadLocal` 存储当前会话的 `workDir`，通过 Micrometer `ContextPropagation` + `Hooks.enableAutomaticContextPropagation()` 实现 `ThreadLocal` 值在 Tomcat → Netty 线程间自动传播。相关类：`WorkspaceContext`（含 `ThreadLocalAccessor`）、`ContextPropagationConfiguration`。
 
 ## Tests
 

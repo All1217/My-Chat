@@ -67,8 +67,9 @@ public class ChatHistoryController {
     @PostMapping("/addConversation")
     public Result<Void> addConversation(
             @RequestParam String conversationId,
-            @RequestParam(value = "kbId", required = false) String kbId) {
-        chatSessionsService.addConversation(conversationId, kbId);
+            @RequestParam(value = "kbId", required = false) String kbId,
+            @RequestParam(value = "workDir", required = false) String workDir) {
+        chatSessionsService.addConversation(conversationId, kbId, workDir);
         return Result.ok();
     }
 

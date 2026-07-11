@@ -132,6 +132,11 @@
             <artifactId>jsoup</artifactId>
             <version>${jsoup.version}</version>
         </dependency>
+        <!-- Micrometer Context Propagation: ThreadLocal 跨 reactive 线程传播 -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>context-propagation</artifactId>
+        </dependency>
     </dependencies>
 
     <dependencyManagement>

@@ -18,4 +18,8 @@ public class ChatSessionVO {
     @Schema(description = "关联知识库ID（null 表示普通会话）")
     @TableField(value = "kb_id")
     private String kbId;
+
+    @Schema(description = "工作目录路径（null 表示使用默认 workspace）")
+    @TableField(value = "work_dir")
+    private String workDir;
 }

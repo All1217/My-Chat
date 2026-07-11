@@ -8,9 +8,13 @@ export const chatApi = {
       params: kbId ? { kbId } : undefined,
     }),
 
-  addConversation: (conversationId: string, kbId?: string) =>
+  addConversation: (conversationId: string, kbId?: string, workDir?: string) =>
     ragClient.post<void>('/ai/history/addConversation', null, {
-      params: kbId ? { conversationId, kbId } : { conversationId },
+      params: {
+        conversationId,
+        ...(kbId ? { kbId } : {}),
+        ...(workDir ? { workDir } : {}),
+      },
     }),
 
   updateConversation: (dto: ChatSessionDTO) =>

@@ -38,7 +38,7 @@ public class ShellTool {
             @ToolParam(description = "操作命令，格式: <操作> [参数...]") String command) {
 
         if (command == null || command.isBlank()) {
-            return "错误：命令不能为空。可用: ls, tree, cat, grep, stat, write, mkdir, rm, mv, cp";
+            return "错误：命令不能为空。可用: ls, tree, cat, grep, stat, write, mkdir, rm, cp";
         }
 
         String[] parts = command.trim().split("\\s+", 2);

@@ -1,5 +1,7 @@
 package com.mychat.controller;
 
+import com.mychat.config.WorkspaceContext;
+import com.mychat.service.ChatSessionsService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -28,12 +30,20 @@ public class RagChatController {
     private ChatClient ragChatClient;
     @Autowired
     private VectorStore vectorStore;
+    @Autowired
+    private ChatSessionsService chatSessionsService;
 
     @RequestMapping(value = "/chat", produces = "text/html;charset=utf-8")
     public Flux<String> chat(
             @RequestParam("prompt") String prompt,
             @RequestParam("chatId") String chatId,
             @RequestParam("kbId") String kbId) {
+
+        // 根据会话ID设置线程级工作目录上下文
+        String workDir = chatSessionsService.getWorkDir(chatId);
+        if (workDir != null) {
+            WorkspaceContext.set(workDir);
+        }
 
         // 每个请求创建独立的 Advisor，携带当前知识库的过滤条件
         QuestionAnswerAdvisor qaAdvisor = QuestionAnswerAdvisor.builder(vectorStore)
@@ -63,6 +73,7 @@ public class RagChatController {
                         sb.append(content);
                     }
                     return sb.toString();
-                });
+                })
+                .doFinally(signalType -> WorkspaceContext.clear());
     }
 }

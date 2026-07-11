@@ -33,7 +33,7 @@ public class ShellTool {
             "mv (移动/重命名), cp (复制文件)。" +
             "示例: 'ls src/main/java', 'cat pom.xml', " +
             "'write test.txt 你好世界', 'mkdir data', " +
-            "'rm old.txt', 'mv a.txt b.txt', 'cp src.txt dst.txt'")
+            "'rm old.txt', 'rm file1.txt file2.txt', 'mv a.txt b.txt', 'cp src.txt dst.txt'")
     public String executeCommand(
             @ToolParam(description = "操作命令，格式: <操作> [参数...]") String command) {
 
@@ -67,7 +67,12 @@ public class ShellTool {
     }
 
     private String executeLs(String arg) throws IOException {
-        Path dir = resolvePath(arg.isEmpty() ? "." : arg);
+        // 忽略 shell 标志参数如 -la，退回到列出当前目录
+        String cleanArg = arg.strip();
+        if (cleanArg.startsWith("-")) {
+            cleanArg = ".";
+        }
+        Path dir = resolvePath(cleanArg.isEmpty() ? "." : cleanArg);
         if (!Files.isDirectory(dir)) {
             return "错误: 路径不是目录: " + dir.getFileName();
         }
@@ -248,18 +253,24 @@ public class ShellTool {
         }
     }
 
-    /** rm <路径> — 删除文件或目录（目录递归删除） */
+    /** rm <路径1> [<路径2> ...] — 删除文件或目录（目录递归删除），支持同时删除多个 */
     private String executeRm(String arg) throws IOException {
         if (arg.isEmpty()) {
             return "错误: 缺少路径";
         }
-        Path target = resolvePath(arg);
-        if (!Files.exists(target)) {
-            return "错误: 路径不存在: " + arg;
+        String[] paths = arg.split("\\s+");
+        StringBuilder result = new StringBuilder();
+        for (String path : paths) {
+            Path target = resolvePath(path);
+            if (!Files.exists(target)) {
+                result.append("错误: 路径不存在: ").append(path).append("\n");
+                continue;
+            }
+            String type = Files.isDirectory(target) ? "目录" : "文件";
+            workspaceUtil.deleteFileOrDirectory(path);
+            result.append(type).append("已删除: ").append(path).append("\n");
         }
-        String type = Files.isDirectory(target) ? "目录" : "文件";
-        workspaceUtil.deleteFileOrDirectory(arg);
-        return type + "已删除: " + arg;
+        return result.toString().trim();
     }
 
     /** mv <源路径> <目标路径> — 移动/重命名 */

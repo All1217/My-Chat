@@ -62,9 +62,17 @@ public class WorkspaceUtil {
         }
     }
 
+    /** 获取当前有效的工作区根目录（优先 ThreadLocal，否则默认 workspaceRoot） */
+    private Path getEffectiveRoot() {
+        String contextWorkDir = WorkspaceContext.get();
+        return (contextWorkDir != null)
+                ? Paths.get(contextWorkDir).toAbsolutePath().normalize()
+                : workspaceRoot;
+    }
+
     /** 获取当前工作区根目录 */
     public Path getWorkspaceRoot() {
-        return workspaceRoot;
+        return getEffectiveRoot();
     }
 
     /**
@@ -151,7 +159,7 @@ public class WorkspaceUtil {
         try {
             Files.copy(inputStream, target, StandardCopyOption.REPLACE_EXISTING);
             log.info("文件保存成功: {}", target);
-            return workspaceRoot.relativize(target).toString().replace("\\", "/");
+            return getEffectiveRoot().relativize(target).toString().replace("\\", "/");
         } catch (IOException e) {
             log.error("文件保存失败: {}", target, e);
             throw new RuntimeException("文件保存失败", e);
@@ -165,7 +173,7 @@ public class WorkspaceUtil {
             Files.createDirectories(file.getParent());
             Files.writeString(file, content, StandardCharsets.UTF_8);
             log.info("文件写入成功: {} ({} bytes)", file, content.length());
-            return workspaceRoot.relativize(file).toString().replace("\\", "/");
+            return getEffectiveRoot().relativize(file).toString().replace("\\", "/");
         } catch (IOException e) {
             log.error("文件写入失败: {}", file, e);
             throw new RuntimeException("文件写入失败", e);
@@ -187,7 +195,7 @@ public class WorkspaceUtil {
                 Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
             }
             log.info("复制成功: {} -> {}", source, target);
-            return workspaceRoot.relativize(target).toString().replace("\\", "/");
+            return getEffectiveRoot().relativize(target).toString().replace("\\", "/");
         } catch (IOException e) {
             log.error("复制失败: {} -> {}", source, target, e);
             throw new RuntimeException("复制失败", e);
@@ -258,7 +266,7 @@ public class WorkspaceUtil {
             for (Path p : stream) {
                 FileTreeNode node = new FileTreeNode();
                 node.setName(p.getFileName().toString());
-                node.setPath(workspaceRoot.relativize(p).toString().replace("\\", "/"));
+                node.setPath(getEffectiveRoot().relativize(p).toString().replace("\\", "/"));
                 node.setDirectory(Files.isDirectory(p));
                 result.add(node);
             }
@@ -408,7 +416,7 @@ public class WorkspaceUtil {
         try {
             Files.move(source, target);
             log.info("重命名成功: {} -> {}", source, target);
-            return workspaceRoot.relativize(target).toString().replace("\\", "/");
+            return getEffectiveRoot().relativize(target).toString().replace("\\", "/");
         } catch (IOException e) {
             log.error("重命名失败: {}", source, e);
             throw new RuntimeException("重命名失败", e);
@@ -416,15 +424,10 @@ public class WorkspaceUtil {
     }
 
     /**
-     * 解析相对路径为绝对路径，限制在当前有效根目录内。
-     * 优先从 WorkspaceContext（ThreadLocal）获取当前会话的工作目录，
-     * 若为 null 则使用默认 workspaceRoot。
+     * 解析相对路径为绝对路径，限制在当前有效 workspaceRoot 内。
      */
     public Path resolveSafe(String relativePath) {
-        String contextWorkDir = WorkspaceContext.get();
-        Path root = (contextWorkDir != null)
-                ? Paths.get(contextWorkDir).toAbsolutePath().normalize()
-                : workspaceRoot;
+        Path root = getEffectiveRoot();
         if (relativePath == null || relativePath.isEmpty()) {
             return root;
         }
@@ -468,7 +471,7 @@ public class WorkspaceUtil {
             for (Path p : stream) {
                 FileTreeNode node = new FileTreeNode();
                 node.setName(p.getFileName().toString());
-                node.setPath(workspaceRoot.relativize(p).toString().replace("\\", "/"));
+                node.setPath(getEffectiveRoot().relativize(p).toString().replace("\\", "/"));
                 node.setDirectory(Files.isDirectory(p));
                 if (Files.isDirectory(p)) {
                     node.setChildren(buildTree(p));
@@ -485,7 +488,7 @@ public class WorkspaceUtil {
     private FileInfo buildFileInfo(Path path) {
         FileInfo info = new FileInfo();
         info.setName(path.getFileName().toString());
-        info.setPath(workspaceRoot.relativize(path).toString().replace("\\", "/"));
+        info.setPath(getEffectiveRoot().relativize(path).toString().replace("\\", "/"));
         info.setDirectory(Files.isDirectory(path));
         try {
             BasicFileAttributes attrs = Files.readAttributes(path, BasicFileAttributes.class);

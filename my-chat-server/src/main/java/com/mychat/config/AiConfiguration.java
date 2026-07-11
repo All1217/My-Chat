@@ -29,7 +29,10 @@ public class AiConfiguration {
     @Bean
     public ChatClient toolChatClient(OpenAiChatModel model, ChatMemory chatMemory, ShellTool shellTool) {
         return ChatClient.builder(model)
-                .defaultSystem("请根据用户提问灵活回应。需要查看项目文件或执行只读命令时，可使用可用工具。")
+                .defaultSystem(""" 
+                        涉及文件的查看、创建、写入、修改、删除、重命名、复制操作，须通过 executeCommand 工具实际执行。
+                        不能在回复中假装已经完成了文件操作。
+                        """)
                 .defaultAdvisors(
                         new SimpleLoggerAdvisor(),
                         MessageChatMemoryAdvisor.builder(chatMemory).build()

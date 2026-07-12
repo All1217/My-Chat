@@ -2,8 +2,6 @@
 
 ## Architecture
 
-Root `src/` is a vestige — ignore it.
-
 - **`my-chat-server/`** — Java / Spring Boot 4.1.0 / Spring AI 2.0.0 backend (port **8100**)
 - **`my-chat-vue3/`** — Vue 3 + Vite 6 + TypeScript + Pinia + Element Plus frontend (dev port **5173**)
 - `docs/` — Chinese-language iteration planning & issue logs (not reliable for current state)
@@ -13,8 +11,8 @@ Root `src/` is a vestige — ignore it.
 ```bash
 # Backend (from my-chat-server/)
 ./mvnw.cmd spring-boot:run        # start dev server on port 8100
-./mvnw.cmd test                    # no test source files currently exist
-./mvnw.cmd test -Dtest=ClassName   # (runs nothing — no tests written yet)
+./mvnw.cmd test                    # runs nothing — no test source files exist
+./mvnw.cmd test -Dtest=ClassName   # (no src/test/java/ directory exists)
 
 # Frontend (from my-chat-vue3/)
 npm run dev                        # start dev server on port 5173
@@ -46,11 +44,11 @@ Vite proxies:
 
 Two Axios clients in `my-chat-vue3/src/utils/http/` export `ragClient` (base `/rag`) and `crmClient` (base `/api`). A hard-coded `X-Access-Token` is injected in both interceptors — do not remove.
 
-Streaming chat uses native `fetch` (not Axios) — see `streamChat.ts`. The endpoint produces `text/html;charset=utf-8` and may embed `[THINKING]...[/THINKING]` tags.
+Streaming chat uses native `fetch` (not Axios) — see `streamChat.ts`. The endpoint produces `text/html;charset=utf-8`. Frontend parses `[THINKING_START]...[/THINKING_END]` tags (see `ChatBox.vue:257`).
 
 ## API conventions
 
-Backend wraps responses in `Result<T>` (`{ code, message, data }`). Code 200 = success. `HttpClient` (`client.ts`) auto-unwraps `data` and error-handles via Element Plus `ElMessage`.
+Backend wraps responses in `Result<T>` (`{ code, message, data }`). Code 200 = success. `HttpClient` (`src/utils/http/client.ts`) auto-unwraps `data` and error-handles via Element Plus `ElMessage`.
 
 ## Backend API surface (five controllers at `/ai/*`)
 
@@ -58,7 +56,7 @@ All endpoints are under `com.mychat.controller`.
 
 - **`ChatController`** (`/ai/normalChat/chat`) — streaming POST, FormData (prompt + chatId + optional files). Uses `toolChatClient` which has `FileTools` and chat memory.
 - **`ChatHistoryController`** (`/ai/history/*`) — session CRUD. `addConversation` accepts optional `kbId` and `workDir`. `update` uses `@RequestBody ChatSessionsDTO`.
-- **`FileController`** (`/ai/file/*`) — workspace tree/lazy-tree/list/read/read-binary, document upload (optional `kbId`)/delete, create-folder, delete, rename, switch-root, import.
+- **`FileController`** (`/ai/file/*`) — workspace tree/lazy-tree/list/read/read-binary, document upload (optional `kbId`)/delete, create-folder, delete, rename, switch-root, import, **roots** (list filesystem drives), **browse** (list subdirectories of an absolute path).
 - **`KnowledgeBaseController`** (`/ai/knowledge-base/*`) — list, create, delete KB + list documents by `kbId`.
 - **`RagChatController`** (`/ai/ragChat/chat`) — RAG streaming POST, same shape + required `kbId`. Uses `QuestionAnswerAdvisor(filterExpression="kbId == '<id>'")`, topK=5, similarityThreshold=0.5.
 
@@ -87,7 +85,7 @@ All endpoints are under `com.mychat.controller`.
 
 ## Tests
 
-No test source files exist (`src/test/java/` is empty). `application-test.yaml` exists but is unused. Do not reference test commands without confirming tests first.
+No test source files exist (`src/test/java/` does not exist). `src/test/resources/application-test.yaml` exists but is unused.
 
 ## Version note
 

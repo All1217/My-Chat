@@ -2,6 +2,7 @@ package com.mychat.controller;
 
 import com.mychat.config.WorkspaceContext;
 import com.mychat.service.ChatSessionsService;
+import com.mychat.utils.WorkspaceUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -25,6 +26,7 @@ import java.util.Objects;
 public class ChatController {
     private final ChatClient toolChatClient;
     private final ChatSessionsService chatSessionsService;
+    private final WorkspaceUtil workspaceUtil;
 
     @RequestMapping(value = "/chat", produces = "text/html;charset=utf-8")
     public Flux<String> chat(
@@ -36,6 +38,11 @@ public class ChatController {
         if (workDir != null) {
             WorkspaceContext.set(workDir);
             log.info("会话 {} 工作目录已设置为: {}", chatId, workDir);
+        } else {
+            // 未指定目录的普通对话，使用配置的默认工作区根目录
+            String defaultRoot = workspaceUtil.getWorkspaceRoot().toString();
+            WorkspaceContext.set(defaultRoot);
+            log.info("会话 {} 使用默认工作目录: {}", chatId, defaultRoot);
         }
         if (files == null || files.isEmpty()) {
             return textChat(prompt, chatId)
@@ -101,11 +108,10 @@ public class ChatController {
 
     /**
      * 构建当前请求的 workspace 感知系统提示。
-     * 在请求线程上同步执行，此时 WorkspaceContext 一定包含当前会话的工作目录。
+     * chat() 中已确保 WorkspaceContext 始终被设置（DB 值或默认根目录）。
      */
     private String buildWorkspaceSystemPrompt() {
         String workDir = WorkspaceContext.get();
-        if (workDir == null) return null;
         String name = Paths.get(workDir).getFileName().toString();
         return String.format("""
                 所有涉及文件的查看、创建、写入、修改、删除、重命名、复制操作，都必须通过可用工具实际执行。

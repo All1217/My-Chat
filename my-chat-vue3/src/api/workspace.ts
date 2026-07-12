@@ -34,4 +34,20 @@ export const workspaceApi = {
 
   switchRoot: (path: string) =>
     ragClient.post<string>('/ai/file/workspace/switch', { path }),
+
+  /** 列出文件系统根目录（如 C:\、D:\） */
+  listRoots: () =>
+    ragClient.get<string[]>('/ai/file/workspace/roots'),
+
+  /** 浏览绝对路径下的子目录（仅目录） */
+  browse: (path: string) =>
+    ragClient.get<FileInfo[]>('/ai/file/workspace/browse', { params: { path } }),
+
+  /** 输入联想：根据已输入的绝对路径片段推荐可能的子目录 */
+  suggest: (query: string) =>
+    ragClient.get<string[]>('/ai/file/workspace/suggest', { params: { query } }),
+
+  /** 校验路径是否可用作工作区目录（无副作用） */
+  validate: (path: string, silent = false) =>
+    ragClient.get<void>('/ai/file/workspace/validate', { params: { path }, silent }),
 }

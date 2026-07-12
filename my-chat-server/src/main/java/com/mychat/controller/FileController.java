@@ -246,6 +246,70 @@ public class FileController {
     }
 
     /**
+     * 列出文件系统根目录（驱动器列表）
+     * 用于前端目录选择器首次打开时展示可选盘符
+     */
+    @GetMapping("/workspace/roots")
+    public Result<List<String>> listRoots() {
+        try {
+            return Result.ok(workspaceUtil.listRoots());
+        } catch (Exception e) {
+            log.error("获取系统根目录失败: {}", e.getMessage());
+            return Result.fail(e.getMessage());
+        }
+    }
+
+    /**
+     * 浏览绝对路径下的子目录（仅目录，用于目录选择器导航）
+     * 与 list 不同：该操作直接基于绝对路径，不经过 workspaceRoot 限制
+     */
+    @GetMapping("/workspace/browse")
+    public Result<List<FileInfo>> browseAbsoluteDirectory(
+            @RequestParam("path") String path) {
+        if (path == null || path.isEmpty()) {
+            return Result.fail("参数 path 不能为空");
+        }
+        try {
+            return Result.ok(workspaceUtil.listAbsoluteDirectory(path));
+        } catch (Exception e) {
+            log.error("浏览目录失败: {}", e.getMessage());
+            return Result.fail(e.getMessage());
+        }
+    }
+
+    /**
+     * 校验路径是否可用作工作区目录（无副作用）。
+     * 用于前端确认前的预校验，校验失败抛出异常，成功返回 ok。
+     */
+    @GetMapping("/workspace/validate")
+    public Result<Void> validateWorkspacePath(@RequestParam("path") String path) {
+        try {
+            workspaceUtil.validateWorkspacePath(path);
+            return Result.ok();
+        } catch (SecurityException e) {
+            log.warn("路径安全校验不通过: {} - {}", path, e.getMessage());
+            return Result.fail(e.getMessage());
+        } catch (Exception e) {
+            log.warn("路径校验失败: {}", e.getMessage());
+            return Result.fail(e.getMessage());
+        }
+    }
+
+    /**
+     * 输入联想：根据用户已输入的绝对路径片段推荐可能的子目录
+     * 用于 el-autocomplete 防抖搜索
+     */
+    @GetMapping("/workspace/suggest")
+    public Result<List<String>> suggestDirectories(@RequestParam("query") String query) {
+        try {
+            return Result.ok(workspaceUtil.suggestDirectories(query));
+        } catch (Exception e) {
+            log.warn("目录联想失败: {}", e.getMessage());
+            return Result.ok(Collections.emptyList());
+        }
+    }
+
+    /**
      * 导入文件（上传到当前目录）
      */
     @PostMapping("/workspace/import")

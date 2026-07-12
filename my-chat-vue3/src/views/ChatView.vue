@@ -19,7 +19,26 @@
       </span>
       <!-- 打开目录弹窗 -->
       <el-dialog v-model="showDirDialog" title="打开目录" width="400" append-to-body teleported>
-        <el-input v-model="dirInput" placeholder="请输入目录路径，如 ./src/main/resources/workspace" style="width: 100%" />
+        <el-autocomplete
+          v-model="dirInput"
+          :fetch-suggestions="querySearch"
+          :debounce="300"
+          placeholder="请输入目录路径，如 D:/projects"
+          style="width: 100%"
+          value-key="value"
+        >
+          <template #suffix>
+            <el-icon class="dir-input-icon" @click="handleBrowseDirectory" style="cursor: pointer;">
+              <FolderOpened />
+            </el-icon>
+          </template>
+          <template #default="{ item }">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <el-icon><Folder /></el-icon>
+              <span>{{ item.value }}</span>
+            </div>
+          </template>
+        </el-autocomplete>
         <template #footer>
           <div class="dialog-footer">
             <el-button @click="showDirDialog = false">取消</el-button>
@@ -27,6 +46,7 @@
           </div>
         </template>
       </el-dialog>
+      <DirectoryPicker v-model="showDirPicker" @selected="handleDirectorySelected" />
     </div>
     <div class="message-wrap">
       <div class="message-box" :class="{ 'close-sidebar': !chatStore.isSidebarOpen }">
@@ -43,12 +63,15 @@
 <script setup lang="ts">
 import ChatList from '@/components/ChatList.vue'
 import ChatBox from '@/components/ChatBox.vue'
+import DirectoryPicker from '@/components/DirectoryPicker.vue'
+import { workspaceApi } from '@/api/workspace'
 import { useChatStore } from '@/stores/chat'
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import logo from '@/assets/my-chat-logo.png'
 import { generateChatId } from '@/utils/streamChat'
 import { ElMessage } from 'element-plus'
+import { FolderOpened } from '@element-plus/icons-vue'
 
 const route = useRoute()
 
@@ -125,14 +148,37 @@ function handleAddConversation() {
 // 打开目录弹窗状态
 const showDirDialog = ref(false)
 const dirInput = ref('')
+/** 目录浏览器弹窗 */
+const showDirPicker = ref(false)
+
 function handleOpenDirectory() {
   dirInput.value = chatStore.currentWorkspace || ''
   showDirDialog.value = true
+}
+function handleBrowseDirectory() {
+  showDirPicker.value = true
+}
+function handleDirectorySelected(path: string) {
+  dirInput.value = path
+}
+async function querySearch(queryString: string, cb: (results: { value: string }[]) => void) {
+  if (!queryString || queryString.length < 2) { cb([]); return }
+  try {
+    const paths = await workspaceApi.suggest(queryString)
+    cb(paths.map(p => ({ value: p })))
+  } catch { cb([]) }
 }
 async function handleConfirmDirectory() {
   const path = dirInput.value.trim()
   if (!path) {
     ElMessage.error('请输入目录路径')
+    return
+  }
+  try {
+    // 先校验路径合法性（存在性、是否是目录、是否系统禁止目录）
+    await workspaceApi.validate(path, true)
+  } catch (err: any) {
+    // 安全校验失败时，拦截器已自动弹出提示，此处只需阻止会话创建
     return
   }
   try {

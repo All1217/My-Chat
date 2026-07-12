@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -20,6 +21,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * 工作区文件管理工具类
@@ -52,12 +54,20 @@ public class WorkspaceUtil {
 
     @PostConstruct
     public void init() {
-        this.workspaceRoot = Paths.get(workspaceRootPath).toAbsolutePath().normalize();
+        Path configured = Paths.get(workspaceRootPath).toAbsolutePath().normalize();
+        // 校验配置的根目录是否可用（存在、是目录、非系统禁止目录）
+        if (Files.exists(configured) && Files.isDirectory(configured) && !isBlockedPath(configured)) {
+            this.workspaceRoot = configured;
+        } else {
+            Path fallback = Paths.get("src/main/resources/workspace").toAbsolutePath().normalize();
+            log.warn("配置的工作区目录不可用 ({}), 使用默认目录: {}", configured, fallback);
+            this.workspaceRoot = fallback;
+        }
         try {
-            Files.createDirectories(workspaceRoot);
-            log.info("工作区初始化完成: {}", workspaceRoot);
+            Files.createDirectories(this.workspaceRoot);
+            log.info("工作区初始化完成: {}", this.workspaceRoot);
         } catch (IOException e) {
-            log.error("创建工作区目录失败: {}", workspaceRoot, e);
+            log.error("创建工作区目录失败: {}", this.workspaceRoot, e);
             throw new RuntimeException("创建工作区目录失败", e);
         }
     }
@@ -75,6 +85,34 @@ public class WorkspaceUtil {
         return getEffectiveRoot();
     }
 
+    /** 判断路径是否被列入系统禁止目录黑名单 */
+    private static boolean isBlockedPath(Path path) {
+        String upper = path.toAbsolutePath().normalize().toString().toUpperCase();
+        for (String blocked : BLOCKED_PATHS) {
+            if (upper.startsWith(blocked.toUpperCase())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 校验路径是否可用作工作区目录（无副作用，不切换）。
+     * 用于前端确认前的预校验。
+     */
+    public void validateWorkspacePath(String path) {
+        Path resolved = Paths.get(path).toAbsolutePath().normalize();
+        if (!Files.exists(resolved)) {
+            throw new IllegalArgumentException("目录不存在: " + path);
+        }
+        if (!Files.isDirectory(resolved)) {
+            throw new IllegalArgumentException("路径不是目录: " + path);
+        }
+        if (isBlockedPath(resolved)) {
+            throw new SecurityException("该目录不可作为工作区，请更换其他目录！");
+        }
+    }
+
     /**
      * 切换当前请求线程的工作目录（只设 ThreadLocal，不修改全局单例）。
      * 用于 FileController 的 ad-hoc 目录切换，会话级工作目录由 WorkspaceContext 在 Controller 中设置。
@@ -87,11 +125,8 @@ public class WorkspaceUtil {
         if (!Files.isDirectory(resolved)) {
             throw new IllegalArgumentException("路径不是目录: " + newPath);
         }
-        String upper = resolved.toString().toUpperCase();
-        for (String blocked : BLOCKED_PATHS) {
-            if (upper.startsWith(blocked.toUpperCase())) {
-                throw new SecurityException("禁止切换到系统目录: " + blocked);
-            }
+        if (isBlockedPath(resolved)) {
+            throw new SecurityException("禁止切换到系统目录: " + resolved);
         }
         WorkspaceContext.set(resolved.toString());
         log.info("工作目录(ThreadLocal)已切换至: {}", resolved);
@@ -361,6 +396,107 @@ public class WorkspaceUtil {
                 Map.entry("webp", "image/webp")
         );
         return mimeMap.getOrDefault(ext, "application/octet-stream");
+    }
+
+    /**
+     * 列出文件系统根目录（如 C:\、D:\ 或 /）
+     */
+    public List<String> listRoots() {
+        File[] roots = File.listRoots();
+        return Arrays.stream(roots)
+                .map(File::getPath)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 浏览绝对路径下的直接子目录（用于目录选择器）
+     * 不依赖 getEffectiveRoot()，直接操作绝对路径
+     */
+    public List<FileInfo> listAbsoluteDirectory(String absolutePath) {
+        Path dir = Paths.get(absolutePath).toAbsolutePath().normalize();
+        if (!Files.exists(dir)) {
+            throw new IllegalArgumentException("目录不存在: " + absolutePath);
+        }
+        if (!Files.isDirectory(dir)) {
+            throw new IllegalArgumentException("路径不是目录: " + absolutePath);
+        }
+        // 安全检查：禁止浏览系统关键目录
+        if (isBlockedPath(dir)) {
+            throw new SecurityException("禁止浏览系统目录: " + dir);
+        }
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir)) {
+            List<FileInfo> result = new ArrayList<>();
+            for (Path p : stream) {
+                if (!Files.isDirectory(p)) continue;
+                FileInfo info = new FileInfo();
+                info.setName(p.getFileName().toString());
+                info.setPath(p.toAbsolutePath().toString().replace("\\", "/"));
+                info.setDirectory(true);
+                result.add(info);
+            }
+            result.sort(Comparator.comparing(FileInfo::getName, String.CASE_INSENSITIVE_ORDER));
+            return result;
+        } catch (IOException e) {
+            log.error("浏览目录失败: {}", dir, e);
+            throw new RuntimeException("浏览目录失败", e);
+        }
+    }
+
+    /**
+     * 为绝对路径输入提供目录联想建议（用于 el-autocomplete 防抖搜索）。
+     * 纯绝对路径模式，不涉及 workspaceRoot。
+     * <p>
+     * 逻辑：
+     * 1. query 末尾无分隔符 → 取父目录 + 最后一段做前缀过滤
+     * 2. query 末尾有分隔符 → 直接列出该目录的子目录（无前缀过滤）
+     * 3. 父目录不存在 → 返回空
+     */
+    public List<String> suggestDirectories(String query) {
+        if (query == null || query.isBlank()) return Collections.emptyList();
+        String normalized = query.replace("/", "\\");
+        boolean endsWithSep = normalized.endsWith("\\");
+
+        // 去掉末尾分隔符以便推断父目录
+        String parentStr = endsWithSep ? normalized.substring(0, normalized.length() - 1) : normalized;
+        Path parent = Paths.get(parentStr).toAbsolutePath().normalize();
+
+        // 末尾有分隔符 → parent 是已存在的目录，列出其全部子目录
+        if (endsWithSep) {
+            if (!Files.isDirectory(parent)) return Collections.emptyList();
+            return listSubDirectories(parent, "");
+        }
+
+        // 末尾无分隔符 → 尝试直接作为目录
+        if (Files.isDirectory(parent)) {
+            return listSubDirectories(parent, "");
+        }
+
+        // 路径不存在 → 取父目录 + 最后一段作为前缀
+        Path dir = parent.getParent();
+        if (dir == null || !Files.isDirectory(dir)) return Collections.emptyList();
+        String prefix = parent.getFileName().toString();
+        return listSubDirectories(dir, prefix);
+    }
+
+    /** 列出 dir 下的子目录，按 prefix 做大小写不敏感前缀过滤 */
+    private List<String> listSubDirectories(Path dir, String prefix) {
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir)) {
+            List<String> result = new ArrayList<>();
+            for (Path p : stream) {
+                if (!Files.isDirectory(p)) continue;
+                // 跳过系统禁止目录（如 C:\Windows）
+                if (isBlockedPath(p)) continue;
+                String name = p.getFileName().toString();
+                if (prefix.isEmpty() || name.regionMatches(true, 0, prefix, 0, prefix.length())) {
+                    result.add(p.toAbsolutePath().normalize().toString() + "\\");
+                }
+            }
+            result.sort(String.CASE_INSENSITIVE_ORDER);
+            return result;
+        } catch (IOException e) {
+            log.warn("目录联想扫描失败: {}", dir, e);
+            return Collections.emptyList();
+        }
     }
 
     // ==================== 私有方法 ====================

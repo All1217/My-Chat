@@ -6,7 +6,7 @@
             </div>
             <ul ref="chatBoxulRef">
                 <li :class="msg.messageType === MessageType.ASSISTANT ? 'message-ai' : 'message-user'"
-                    v-for="msg in messages">
+                    v-for="msg in visibleMessages">
                     <p class="message-content" v-if="msg.messageType === MessageType.USER">{{ msg.text }}</p>
                     <div class="message-content" v-else>
                         <div v-if="parseMessage(msg.text).thinking" class="thinking-box">
@@ -43,20 +43,47 @@
                     </div>
                 </li>
             </ul>
-            <div class="jump-btn" v-if="(messages && messages.length > 0) || isStreaming">
-                <ArrowUpBold v-show="isAtBottom" @click="jumpToTop"
-                    style="width: 16px; height: 16px; margin-top: 6px;" />
-                <ArrowDownBold v-show="!isAtBottom" @click="jumpToBottom"
-                    style="width: 16px; height: 16px; margin-top: 6px;" />
+            <!-- 脱标悬浮：已选文件面板 -->
+            <div v-if="showFilePanel && selectedFiles.length" class="file-panel">
+                <div class="file-panel-header">
+                    <span class="file-panel-title">待发送文件</span>
+                    <el-button link type="info" size="small" :icon="Close" @click="showFilePanel = false" />
+                </div>
+                <div class="file-panel-body">
+                    <div v-for="(f, i) in selectedFiles" :key="i" class="file-panel-item">
+                        <span class="file-icon">{{ fileIcon(f) }}</span>
+                        <span class="file-name">{{ f.name }}</span>
+                        <span class="file-size">{{ formatFileSize(f.size) }}</span>
+                        <el-button link type="danger" size="small" :icon="Close" @click="selectedFiles.splice(i, 1)" />
+                    </div>
+                </div>
+            </div>
+            <div class="float-buttons" v-if="(messages && messages.length > 0) || isStreaming || selectedFiles.length">
+                <el-tooltip v-if="selectedFiles.length" content="查看待发送文件" placement="left">
+                    <div class="float-btn file-toggle-btn" :class="{ active: showFilePanel }"
+                        @click="showFilePanel = !showFilePanel">
+                        <UploadFilled style="width: 14px; height: 14px;" />
+                        <span class="file-badge">{{ selectedFiles.length }}</span>
+                    </div>
+                </el-tooltip>
+                <div class="jump-btn" @click="isAtBottom ? jumpToTop() : jumpToBottom()">
+                    <ArrowUpBold v-show="isAtBottom" style="width: 16px; height: 16px; margin-top: 6px;" />
+                    <ArrowDownBold v-show="!isAtBottom" style="width: 16px; height: 16px; margin-top: 6px;" />
+                </div>
             </div>
         </div>
         <div class="chat-box">
             <textarea v-model="inputText" placeholder="输入你的问题……" @keydown.enter.exact.prevent="sendMessage"
                 :disabled="isStreaming"></textarea>
+
+            <!-- 隐藏的文件选择 input -->
+            <input ref="fileInputRef" type="file" multiple style="display:none" accept="image/*,.pdf,.txt,.md"
+                @change="handleFileSelect" />
+
             <button class="chat-box-btn send-btn" @click="sendMessage" :disabled="isStreaming || !inputText.trim()">
                 <Promotion style="width: 17px; height: 17px; color: #fff;" />
             </button>
-            <button class="chat-box-btn upload-btn">
+            <button class="chat-box-btn upload-btn" @click="triggerFilePicker">
                 <Plus style="width: 17px; height: 17px; color: #fff;" />
             </button>
             <div class="option-bar">
@@ -78,199 +105,77 @@
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
 import { MessageType } from '@/types/AiModule/enums'
 import type { Message } from '@/types/AiModule/types'
-import { ref, nextTick, onMounted, onUnmounted, watch } from 'vue'
-import { streamChat, generateChatId } from '@/utils/streamChat'
+import { watch, nextTick } from 'vue'
 import { useChatStore } from '@/stores/chat'
-import { chatApi } from '@/api/chat'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { Close, UploadFilled } from '@element-plus/icons-vue'
+import { useChatScroll } from '@/composables/useChatScroll'
+import { useFileUpload } from '@/composables/useFileUpload'
+import { useChatStream } from '@/composables/useChatStream'
+
 const chatStore = useChatStore()
 const router = useRouter()
 
-/** 点击知识库标签跳转到知识库管理页面 */
+const emit = defineEmits<{ (e: 'scroll-changed'): void }>()
+
+// ---------- composable: 滚动 ----------
+const {
+    chatBoxulRef,
+    isAtBottom,
+    scrollToBottom,
+    jumpToTop,
+    jumpToBottom,
+    updateIsAtBottom,
+    connectStreaming,
+} = useChatScroll(() => emit('scroll-changed'))
+
+// ---------- composable: 文件上传 ----------
+const {
+    fileInputRef,
+    selectedFiles,
+    showFilePanel,
+    triggerFilePicker,
+    handleFileSelect,
+    fileIcon,
+    formatFileSize,
+    consumeFiles,
+} = useFileUpload()
+
+// ---------- composable: 流式聊天 ----------
+const {
+    messages,
+    visibleMessages,
+    inputText,
+    isStreaming,
+    streamingContent,
+    sendMessage,
+    stopStreaming,
+} = useChatStream(scrollToBottom, consumeFiles, formatFileSize)
+
+// 流式状态联动滚动
+connectStreaming(isStreaming)
+
+// 消息变化时更新底部位置
+watch(messages, () => nextTick(() => updateIsAtBottom()))
+
+// 暴露 ulRef 供父组件（ChatView）自定义滑条
+defineExpose({ chatBoxulRef })
+
 function goToKnowledgeStore() {
     router.push({ name: 'store' })
 }
 
-const messages = ref<Message[]>([])
-const inputText = ref('')
-const isStreaming = ref(false)
-const streamingContent = ref('')
-// 流式响应期间是否自动滚动到底部（用户手动滚开后关闭，滚回底部时重新开启）
-const autoScrollEnabled = ref(true)
-
-/**
- * 自定义滑条
- */
-const chatBoxulRef = ref<HTMLElement>()
-// 暴露 ulRef 给父组件
-defineExpose({ chatBoxulRef })
-function scrollToBottom(force = false) {
-    if (!force && !autoScrollEnabled.value) return
-    nextTick(() => {
-        if (chatBoxulRef.value) {
-            chatBoxulRef.value.scrollTop = chatBoxulRef.value.scrollHeight
-            // 通知父组件滚动位置已改变（可能有新消息导致滚动到底部）
-            emit('scroll-changed')
-        }
-    })
-}
-/**
- * 跳转按钮
- */
-const isAtBottom = ref(false)
-const BOTTOM_THRESHOLD = 100
-function updateIsAtBottom() {
-    const ul = chatBoxulRef.value
-    if (!ul) return
-    isAtBottom.value = ul.scrollHeight - ul.scrollTop - ul.clientHeight < BOTTOM_THRESHOLD
-}
-// 监听消息列表变化，待 DOM 更新后重新判断是否在底部
-watch(messages, () => {
-    nextTick(() => {
-        updateIsAtBottom()
-    })
-})
-// 滚动到顶部
-function jumpToTop() {
-    const ul = chatBoxulRef.value
-    if (!ul) return
-    ul.scrollTop = 0
-}
-
-function jumpToBottom() {
-    const ul = chatBoxulRef.value
-    if (!ul) return
-    ul.scrollTop = ul.scrollHeight
-}
-function onUlScroll() {
-    updateIsAtBottom()
-    // 流式响应期间：用户滚开底部则中断自动滚动，滚回底部则恢复
-    if (isStreaming.value) {
-        autoScrollEnabled.value = isAtBottom.value
-    }
-    emit('scroll-changed')
-}
-/**
- * 当新消息发送后，ChatBox 内部调用 scrollToBottom 时，父组件的滑块位置也应该同步更新
- */
-const emit = defineEmits<{
-    (e: 'scroll-changed'): void
-}>()
-
-let stopStreamingFn: (() => void) | null = null
-// 标记：当前消息是否由本组件本地发起的（不需要从后端拉历史）
-let isLocalNewChat = false
-
-// 监听 store 中 currentChatId 的变化来加载历史消息
-watch(
-    () => chatStore.currentChatId,
-    (newId) => {
-        if (newId) {
-            if (isLocalNewChat) {
-                isLocalNewChat = false
-                return
-            }
-            getMessages(newId)
-        } else {
-            messages.value = []
-        }
-    },
-    { immediate: true },
-)
-
-// 发送消息
-async function sendMessage() {
-    const text = inputText.value.trim()
-    if (!text || isStreaming.value) return
-
-    messages.value.push({ text, messageType: MessageType.USER })
-    inputText.value = ''
-    scrollToBottom(true)
-
-    // 如果没有当前会话，先创建（知识库模式下传入当前模式的 kbId）
-    let chatId = chatStore.currentChatId
-    if (!chatId) {
-        chatId = generateChatId()
-        isLocalNewChat = true
-        await chatStore.createConversation(chatId, chatStore.kbId ?? undefined)
-    }
-
-    startStreaming(text, chatId)
-}
-
-// 开始流式响应
-function startStreaming(prompt: string, chatId: string) {
-    isStreaming.value = true
-    streamingContent.value = ''
-    // 只在用户当前已在底部附近时才启用自动滚动
-    autoScrollEnabled.value = isAtBottom.value
-
-    stopStreamingFn = streamChat({
-        prompt,
-        chatId,
-        kbId: chatStore.kbId ?? undefined,
-        onMessage: (chunk) => {
-            streamingContent.value += chunk
-            scrollToBottom()
-        },
-        onComplete: () => {
-            messages.value.push({
-                text: streamingContent.value,
-                messageType: MessageType.ASSISTANT,
-            })
-            isStreaming.value = false
-            streamingContent.value = ''
-            stopStreamingFn = null
-            scrollToBottom()
-        },
-        onError: (error) => {
-            messages.value.push({
-                text: `抱歉，请求出错：${error.message}`,
-                messageType: MessageType.ASSISTANT,
-            })
-            isStreaming.value = false
-            streamingContent.value = ''
-            stopStreamingFn = null
-            scrollToBottom()
-        },
-    })
-}
-// 停止流式响应
-function stopStreaming() {
-    if (stopStreamingFn) {
-        stopStreamingFn()
-        stopStreamingFn = null
-    }
-    // 如果已经有内容，保存到消息列表
-    if (streamingContent.value.trim()) {
-        messages.value.push({
-            text: streamingContent.value + '\n\n*(用户中断了生成)*',
-            messageType: MessageType.ASSISTANT
-        })
-    }
-    isStreaming.value = false
-    streamingContent.value = ''
-    scrollToBottom()
-}
 function parseMessage(raw: string): Message {
     const thinkMatch = raw.match(/\[THINKING_START\]([\s\S]*?)\[THINKING_END\]/)
     if (thinkMatch) {
         return {
             thinking: thinkMatch[1].trim(),
             text: raw.replace(/\[THINKING_START\][\s\S]*?\[THINKING_END\]/g, '').trim(),
-            messageType: MessageType.ASSISTANT
+            messageType: MessageType.ASSISTANT,
         }
     }
     return { thinking: null, text: raw, messageType: MessageType.ASSISTANT }
-}
-
-// 获取会话聊天记录
-async function getMessages(id: string) {
-    try {
-        messages.value = await chatApi.getMessages(id)
-        scrollToBottom(true)
-    } catch { /* 已 toast */ }
 }
 
 function copyText(text: string) {
@@ -280,25 +185,6 @@ function copyText(text: string) {
         ElMessage.error('复制失败')
     })
 }
-
-onMounted(() => {
-    chatStore.loadKbNames()
-    const ul = chatBoxulRef.value
-    if (ul) {
-        ul.addEventListener('scroll', onUlScroll)
-    }
-})
-// 组件卸载时停止流式请求
-onUnmounted(() => {
-    if (stopStreamingFn) {
-        stopStreamingFn()
-    }
-    const ul = chatBoxulRef.value
-    if (ul) {
-        ul.removeEventListener('scroll', onUlScroll)
-    }
-})
-
 </script>
 <style scoped lang="less">
 // 无序、有序列表每一行前面的小黑点或者序号没有正确显示
@@ -315,17 +201,140 @@ onUnmounted(() => {
         padding-top: 50px;
         height: 100%;
 
-        .jump-btn {
+        /* 脱标悬浮按钮组 */
+        .float-buttons {
             position: absolute;
             right: 0;
-            bottom: 15px;
-            width: 28px;
-            height: 28px;
-            background-color: #fff;
-            border-radius: 50%;
+            bottom: 10px;
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: right;
+            gap: 6px;
+
+            .jump-btn {
+                width: 28px;
+                height: 28px;
+                background-color: #fff;
+                border-radius: 50%;
+                text-align: center;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+                cursor: pointer;
+                transition: all 0.2s;
+
+                &:hover {
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+                    transform: scale(1.05);
+                }
+            }
+
+            .float-btn {
+                width: 28px;
+                height: 28px;
+                border-radius: 50%;
+                background: #fff;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+                cursor: pointer;
+                transition: all 0.2s;
+                position: relative;
+
+                &:hover {
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+                    transform: scale(1.05);
+                }
+
+                &.active {
+                    background: #437dff;
+                    color: #fff;
+                }
+            }
+        }
+
+        .file-badge {
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            min-width: 14px;
+            height: 14px;
+            padding: 0 3px;
+            font-size: 10px;
+            line-height: 14px;
             text-align: center;
-            box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
-            cursor: pointer;
+            border-radius: 7px;
+            background: #f56c6c;
+            color: #fff;
+        }
+
+        /* 脱标悬浮文件面板 */
+        .file-panel {
+            position: absolute;
+            right: 0;
+            bottom: 10px;
+            width: 100%;
+            max-height: 200px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(8px);
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+            border: 1px solid rgba(0, 0, 0, 0.06);
+            display: flex;
+            flex-direction: column;
+            z-index: 15;
+            overflow: hidden;
+        }
+
+        .file-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            border-bottom: 1px solid #f0f0f0;
+
+            .file-panel-title {
+                font-size: 12px;
+                font-weight: 600;
+                color: #303133;
+            }
+        }
+
+        .file-panel-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 4px 0;
+        }
+
+        .file-panel-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 12px;
+            font-size: 12px;
+            transition: background 0.15s;
+
+            &:hover {
+                background: #f5f7fa;
+            }
+
+            .file-icon {
+                font-size: 14px;
+                flex-shrink: 0;
+            }
+
+            .file-name {
+                flex: 1;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                color: #303133;
+            }
+
+            .file-size {
+                flex-shrink: 0;
+                color: #909399;
+            }
         }
 
         .default-advice {
@@ -349,6 +358,7 @@ onUnmounted(() => {
                 margin-bottom: 15px;
 
                 .message-content {
+                    white-space: pre-wrap;
                     padding: 10px;
                     font-size: 15px;
                     color: #000;

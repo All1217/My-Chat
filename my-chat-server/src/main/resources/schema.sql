@@ -13,10 +13,10 @@ CREATE TABLE IF NOT EXISTS chat_sessions
     conversation_id VARCHAR(255) PRIMARY KEY,
     user_id         BIGINT,
     title           VARCHAR(100),
-    kb_id       VARCHAR(64) DEFAULT NULL,
-    work_dir VARCHAR(500) DEFAULT NULL,
-    created_at      DATETIME DEFAULT CURRENT_DATE,
-    updated_at      DATETIME DEFAULT CURRENT_DATE ON UPDATE CURRENT_DATE
+    kb_id           VARCHAR(64)  DEFAULT NULL,
+    work_dir        VARCHAR(500) DEFAULT NULL,
+    created_at      DATETIME     DEFAULT CURRENT_DATE,
+    updated_at      DATETIME     DEFAULT CURRENT_DATE ON UPDATE CURRENT_DATE
 );
 
 -- Spring AI 聊天记忆表
@@ -39,7 +39,7 @@ CREATE INDEX IF NOT EXISTS SPRING_AI_CHAT_MEMORY_CONVERSATION_ID_SEQUENCE_ID_IDX
 -- 1. 用户表
 CREATE TABLE IF NOT EXISTS users
 (
-    id         BIGSERIAL PRIMARY KEY, -- AUTO_INCREMENT 改为 BIGSERIAL
+    id BIGSERIAL PRIMARY KEY, -- AUTO_INCREMENT 改为 BIGSERIAL
     username   VARCHAR(50) UNIQUE NOT NULL,
     email      VARCHAR(100),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -57,9 +57,9 @@ CREATE TABLE IF NOT EXISTS chat_sessions
     user_id         BIGINT,
     title           VARCHAR(100),
     kb_id           VARCHAR(64) NULL,
-    work_dir VARCHAR(500) DEFAULT NULL,
-    created_at      TIMESTAMP DEFAULT CURRENT_DATE,     -- DATETIME 改为 TIMESTAMP
-    updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP -- 去掉了 ON UPDATE，PostgreSQL 不支持该写法
+    work_dir        VARCHAR(500) DEFAULT NULL,
+    created_at      TIMESTAMP    DEFAULT CURRENT_DATE,     -- DATETIME 改为 TIMESTAMP
+    updated_at      TIMESTAMP    DEFAULT CURRENT_TIMESTAMP -- 去掉了 ON UPDATE，PostgreSQL 不支持该写法
 );
 COMMENT ON TABLE chat_sessions IS '聊天会话总表，用于存储用户与AI的每一次对话会话基本信息';
 COMMENT ON COLUMN chat_sessions.conversation_id IS '会话唯一标识符（主键），通常由前端生成UUID或雪花ID';
@@ -73,7 +73,7 @@ COMMENT ON COLUMN chat_sessions.updated_at IS '会话最后更新时间（含时
 -- 3. Spring AI 聊天记忆表
 CREATE TABLE IF NOT EXISTS spring_ai_chat_memory
 (
-    id              BIGSERIAL PRIMARY KEY, -- AUTO_INCREMENT 改为 BIGSERIAL
+    id BIGSERIAL PRIMARY KEY, -- AUTO_INCREMENT 改为 BIGSERIAL
     conversation_id VARCHAR(255) NOT NULL,
     type            VARCHAR(50)  NOT NULL,
     content         TEXT         NOT NULL,
@@ -95,15 +95,17 @@ CREATE INDEX IF NOT EXISTS idx_conversation_id ON spring_ai_chat_memory (convers
 CREATE INDEX IF NOT EXISTS idx_memory_sequence_conv ON spring_ai_chat_memory (sequence_id, conversation_id);
 
 -- 向量存储表初始化
-CREATE EXTENSION IF NOT EXISTS vector;
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE
+EXTENSION IF NOT EXISTS vector;
+CREATE
+EXTENSION IF NOT EXISTS "uuid-ossp";
 
 CREATE TABLE IF NOT EXISTS public.vector_store
 (
-    id        uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    content   text,
+    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    content text,
     -- metadata 对应 Document 类的 metadata 属性，Document --> org.springframework.ai.document;
-    metadata  jsonb,
+    metadata jsonb,
     embedding vector(1536)
 );
 COMMENT ON TABLE vector_store IS '向量存储主表';
@@ -135,15 +137,15 @@ COMMENT ON COLUMN knowledge_base.updated_at IS '更新时间（应用层维护�
 -- document_meta（文档元数据）
 CREATE TABLE IF NOT EXISTS document_meta
 (
-    id              VARCHAR(64) PRIMARY KEY,
-    kb_id           VARCHAR(64)  NOT NULL REFERENCES knowledge_base(id) ON DELETE CASCADE,
-    filename        VARCHAR(500) NOT NULL,
-    file_size       BIGINT,
-    file_type       VARCHAR(50),
-    chunk_count     INT       DEFAULT 0,
-    status          VARCHAR(20) DEFAULT 'PROCESSING',
-    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    id          VARCHAR(64) PRIMARY KEY,
+    kb_id       VARCHAR(64)  NOT NULL REFERENCES knowledge_base (id) ON DELETE CASCADE,
+    filename    VARCHAR(500) NOT NULL,
+    file_size   BIGINT,
+    file_type   VARCHAR(50),
+    chunk_count INT         DEFAULT 0,
+    status      VARCHAR(20) DEFAULT 'PROCESSING',
+    created_at  TIMESTAMP   DEFAULT CURRENT_TIMESTAMP,
+    updated_at  TIMESTAMP   DEFAULT CURRENT_TIMESTAMP
 );
 COMMENT ON TABLE document_meta IS '文档元数据及处理状态';
 COMMENT ON COLUMN document_meta.id IS '文档唯一ID';

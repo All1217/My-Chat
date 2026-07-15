@@ -1,0 +1,23 @@
+server:
+  port: 8101
+  address: 0.0.0.0
+
+spring:
+  application:
+    name: mcp-server-demo
+  ai:
+    openai:
+      api-key: placeholder
+      # 禁用不需要的自动配置模块，仅保留基础依赖
+      chat:
+        enabled: false
+      embedding:
+        enabled: false
+      audio:
+        speech:
+          enabled: false
+      image:
+        enabled: false
+    mcp:
+      client:
+        enabled: false

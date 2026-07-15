@@ -51,6 +51,11 @@
             <groupId>org.springframework.ai</groupId>
             <artifactId>spring-ai-starter-model-chat-memory-repository-jdbc</artifactId>
         </dependency>
+        <!-- pom.xml 新增，与 spring-ai-bom 配合，无需指定版本 -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-mcp-client</artifactId>
+        </dependency>
         <!-- Document parsers -->
         <dependency>
             <groupId>org.apache.pdfbox</groupId>

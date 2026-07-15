@@ -41,14 +41,14 @@ spring:
       client:
         connect-timeout: 10s
         read-timeout: 600s
-    vectorstore:
-#      simple:
-#        file-path: ./data/vectorstore.json
       pgvector:
         index-type: HNSW
         distance-type: COSINE_DISTANCE
         dimensions: 1536
         max-document-batch-size: 10000
+    mcp:
+      client:
+        enabled: false
 logging:
   level:
     org.springframework.ai: debug

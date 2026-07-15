@@ -30,8 +30,7 @@ public class AiConfiguration {
     public ChatClient toolChatClient(OpenAiChatModel model, ChatMemory chatMemory, FileTools fileTools) {
         return ChatClient.builder(model)
                 .defaultSystem("""
-                        所有涉及文件的查看、创建、写入、修改、删除、重命名、复制操作，务必积极调用可用工具实际执行。
-                        不能在回复中假装执行了文件操作。
+                        涉及文件的查看、创建、写入、修改、删除、重命名、复制操作，请积极调用可用工具执行。
                         """)
                 .defaultAdvisors(
                         new SimpleLoggerAdvisor(),

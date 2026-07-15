@@ -343,16 +343,203 @@ spring.ai.mcp.client.connections:
 
 ---
 
-### 阶段四：前端 MCP 工具管理面板（进阶，可选）
+### 阶段四：接入第三方 MCP 服务（3-4 小时）
 
-**目标**：在设置页面中展示已连接的 MCP 服务器列表及其工具，支持热切换。
+**目标**：连接社区已有的 MCP 服务器，扩展 AI 能力（网页抓取、搜索、计算等），无需自己编写工具代码。
 
-**前端改动思路**：
+#### 4.1 哪里找第三方 MCP 服务？
 
-1. 新增 API 端点：`GET /ai/mcp/connections` 返回当前 MCP 连接状态
-2. 前端新增 `McpManagement.vue` 设置页
-3. 用 Element Plus `el-table` 展示 MCP 服务器列表（名称、地址、工具数量、连接状态）
-4. 支持动态添加/删除 MCP 服务器连接
+| 来源 | 说明 | 例子 |
+|------|------|------|
+| **npm registry** | 最多 MCP Server 的生态，以 `@modelcontextprotocol/server-*` 命名 | `server-filesystem`、`server-puppeteer` |
+| **GitHub** | 社区贡献的各种 MCP 实现 | mcp-servers 合集 |
+| **官方 MCP 列表** | [modelcontextprotocol.io](https://modelcontextprotocol.io) 官方收录 | Brave Search、Playwright |
+
+Spring AI 官方文档中推荐了以下示例：
+
+```
+spring-ai-examples/
+  model-context-protocol/
+    web-search/brave-chatbot/    ← Brave Search MCP 客户端示例
+    filesystem/                   ← 文件系统 MCP 示例（含 Windows 跨平台配置）
+```
+
+#### 4.2 STDIO 模式接入（通过 npx 运行）
+
+大多数社区 MCP Server 发布为 npm 包，通过 `npx` 以 STDIO 协议运行。
+
+**application.yaml 配置：**
+
+```yaml
+spring:
+  ai:
+    mcp:
+      client:
+        stdio:
+          connections:
+            # 网页抓取（mcp-web-fetcher）
+            web-fetcher:
+              command: cmd.exe
+              args:
+                - /c
+                - npx
+                - -y
+                - @anthropic/mcp-web-fetcher
+            # 文件系统（限定目录范围）
+            filesystem:
+              command: cmd.exe
+              args:
+                - /c
+                - npx
+                - -y
+                - @modelcontextprotocol/server-filesystem
+                - "D:\\projects"
+```
+
+> **Windows 注意**：`npx` 是 `.cmd` 批处理文件，必须用 `cmd.exe /c` 包裹，否则 Java `ProcessBuilder` 无法直接执行。Linux/macOS 可直接写 `command: npx`。
+
+从 Spring AI 官方文档引用的跨平台示例：
+
+```java
+// 跨平台 MCP 客户端配置
+@Bean(destroyMethod = "close")
+public McpSyncClient mcpClient() {
+    ServerParameters stdioParams;
+    if (isWindows()) {
+        stdioParams = ServerParameters.builder("cmd.exe")
+                .args("/c", "npx", "-y", "@modelcontextprotocol/server-filesystem", "target")
+                .build();
+    } else {
+        stdioParams = ServerParameters.builder("npx")
+                .args("-y", "@modelcontextprotocol/server-filesystem", "target")
+                .build();
+    }
+    return McpClient.sync(new StdioClientTransport(stdioParams))
+            .requestTimeout(Duration.ofSeconds(10))
+            .build()
+            .initialize();
+}
+private static boolean isWindows() {
+    return System.getProperty("os.name").toLowerCase().contains("win");
+}
+```
+
+#### 4.3 Streamable-HTTP 模式接入（远程服务）
+
+对于已经部署为 HTTP 服务的 MCP Server，使用 Streamable-HTTP 连接：
+
+```yaml
+spring:
+  ai:
+    mcp:
+      client:
+        streamable-http:
+          connections:
+            weather-service:
+              url: http://localhost:8081
+              endpoint: /mcp
+            calculator:
+              url: http://localhost:8082
+              endpoint: /mcp
+```
+
+#### 4.4 工具名称冲突处理
+
+当多个 MCP 服务器定义了同名工具时，Spring AI 的 `DefaultMcpToolNamePrefixGenerator` 自动处理：
+
+| 场景 | 行为 |
+|------|------|
+| 同一个工具名只出现一次 | 使用原名，如 `search` |
+| 不同服务器出现同名工具 | 自动加前缀区分，如 `alt_1_search`、`alt_2_search` |
+| 自定义前缀策略 | 实现 `McpToolNamePrefixGenerator` 接口注册为 Bean |
+
+自定义前缀生成器示例：
+
+```java
+@Component
+public class CustomToolNamePrefix implements McpToolNamePrefixGenerator {
+    @Override
+    public String prefixedToolName(McpConnectionInfo connectionInfo, McpSchema.Tool tool) {
+        String serverName = connectionInfo.initializeResult().serverInfo().name();
+        return serverName + "_" + tool.name();
+    }
+}
+```
+
+#### 4.5 工具过滤：选择性暴露
+
+通过 `McpToolFilter` 接口，让 AI 只看到特定的 MCP 工具，避免暴露不需要的或危险的操作：
+
+```java
+@Component
+public class SafeMcpToolFilter implements McpToolFilter {
+    @Override
+    public boolean test(McpConnectionInfo connectionInfo, McpSchema.Tool tool) {
+        // 只允许 filesystem 服务中的 read 类操作
+        if (connectionInfo.clientInfo().name().equals("filesystem")) {
+            return tool.name().startsWith("read_");
+        }
+        return true;
+    }
+}
+```
+
+也可在 `application.yaml` 中通过全局开关禁用 MCP 工具回调：
+
+```yaml
+spring:
+  ai:
+    mcp:
+      client:
+        toolcallback:
+          enabled: true        # 设为 false 则 MCP 工具不注入 ChatClient
+```
+
+#### 4.6 完整集成示例：引入 Web Fetch + Brave Search
+
+```yaml
+spring:
+  ai:
+    mcp:
+      client:
+        stdio:
+          connections:
+            web-fetcher:
+              command: cmd.exe
+              args: [/c, npx, -y, @anthropic/mcp-web-fetcher]
+            brave-search:
+              command: cmd.exe
+              args: [/c, npx, -y, @anthropic/mcp-brave-search]
+        streamable-http:
+          connections:
+            my-calculator:
+              url: http://localhost:9090
+              endpoint: /mcp
+        toolcallback:
+          enabled: true
+```
+
+配置后，AI 可以做出以下响应：
+
+```
+用户："帮我查一下最近关于 Spring AI 的新闻，然后把结果汇总保存到 workspace 的 report.txt"
+
+AI 的行动：
+1. 调用 brave-search → 搜索 "Spring AI recent news"
+2. 调用 web-fetcher → 抓取每条新闻的详细内容
+3. 调用本地 FileTools.write → 将汇总结果写入 report.txt
+```
+
+三个工具来自三个不同的 MCP 服务器，AI 完全透明的调用它们。
+
+#### 4.7 安全注意事项（补充阶段二/三）
+
+| 风险 | 防护措施 |
+|------|---------|
+| 第三方 MCP Server 行为不可控 | 用 `McpToolFilter` 限制 AI 可调用的工具范围 |
+| 工具名冲突导致调用混乱 | 用 `DefaultMcpToolNamePrefixGenerator` 自动去重 |
+| STDIO 本地进程占用系统资源 | 设 `request-timeout: 10s` 防止长时间卡死 |
+| 远程 MCP Server 不可用 | 用 `@ConditionalOnMissingBean` 做兜底 |
 
 ---
 

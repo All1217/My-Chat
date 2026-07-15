@@ -50,7 +50,8 @@ spring:
       client:
         enabled: true
         type: SYNC
-        request-timeout: 30s
+        # 远程 Smithery / Exa 搜索可能较慢，适当放宽超时
+        request-timeout: 60s
         # MCP 天气服务未启动时，将 initialized 设为 false 可避免启动期 initialize() 连不上而失败
         # 需要 MCP 工具时请先启动 mcp-server-demo（8101），再改回 true（或不写，默认 true）
         initialized: true
@@ -62,6 +63,11 @@ spring:
               # url 为服务根地址；endpoint 默认 /mcp，显式写出避免歧义
               url: http://localhost:8101
               endpoint: /mcp
+            # Smithery 工具箱 Namespace MCP Endpoint（含 Exa Search 等）
+            # 切勿把完整 URL 写到 url 且留下默认 endpoint=/mcp，否则会请求到 .../2625705206/mcp
+            smithery-toolbox:
+              url: https://mcp.smithery.run
+              endpoint: /2625705206
 logging:
   level:
     org.springframework.ai: debug
@@ -70,3 +76,8 @@ logging:
 app:
   workspace:
     root: ./src/main/resources/workspace
+  mcp:
+    smithery:
+      # 从 https://smithery.ai/account/api-keys 获取，通过环境变量注入，勿写死进仓库
+      api-key: ${SMITHERY_API_KEY}
+      connection-name: smithery-toolbox

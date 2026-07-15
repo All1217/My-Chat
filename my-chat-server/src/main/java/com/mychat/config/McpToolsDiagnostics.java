@@ -41,9 +41,9 @@ public class McpToolsDiagnostics implements ApplicationRunner {
                 .toList();
 
         if (names.isEmpty()) {
-            log.warn("MCP tools discovered: (none) — 请先启动 mcp-server-demo(8101)，并确认 initialized=true 后重启本服务");
+            log.warn("local MCP tools discovered: (none) — 请先启动 mcp-server-demo(8101)，并确认 initialized=true 后重启本服务");
         } else {
-            log.info("MCP tools discovered: {}", names);
+            log.info("local MCP tools discovered: {}", names);
         }
     }
 }

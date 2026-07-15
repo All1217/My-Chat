@@ -42,7 +42,7 @@ public class AiConfiguration {
         ChatClient.Builder builder = ChatClient.builder(model)
                 .defaultSystem("""
                         涉及文件的查看、创建、写入、修改、删除、重命名、复制操作，请积极调用可用工具执行。
-                        若可用远程 MCP 工具（如天气查询 get_weather），也可按需调用。
+                        若可用远程 MCP 工具（如天气查询 get_weather、网页搜索类 Exa/Smithery 工具），请按需调用。
                         """)
                 .defaultAdvisors(
                         new SimpleLoggerAdvisor(),

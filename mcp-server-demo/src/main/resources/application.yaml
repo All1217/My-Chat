@@ -19,5 +19,11 @@ spring:
       image:
         enabled: false
     mcp:
-      client:
-        enabled: false
+      server:
+        name: mcp-weather-server
+        version: 1.0.0
+        type: SYNC
+        protocol: STREAMABLE
+        request-timeout: 30s
+        annotation-scanner:
+          enabled: true

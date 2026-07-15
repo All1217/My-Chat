@@ -7,7 +7,9 @@ import org.springframework.ai.chat.client.advisor.SimpleLoggerAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
 import org.springframework.ai.chat.memory.repository.jdbc.JdbcChatMemoryRepository;
+import org.springframework.ai.mcp.SyncMcpToolCallbackProvider;
 import org.springframework.ai.openai.OpenAiChatModel;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -25,19 +27,33 @@ public class AiConfiguration {
                 .build();
     }
 
-    /** 普通对话：支持文件工具调用 */
+    /**
+     * 普通对话：本地 FileTools + 远程 MCP 工具。
+     * <p>
+     * Spring AI 2.0：MCP 工具不会自动挂到 ChatClient，必须显式注入
+     * {@link SyncMcpToolCallbackProvider} 并调用 {@code defaultTools(...)}。
+     * 用 ObjectProvider 软依赖：MCP Client starter 未生效时仍可仅用 FileTools 启动。
+     */
     @Bean
-    public ChatClient toolChatClient(OpenAiChatModel model, ChatMemory chatMemory, FileTools fileTools) {
-        return ChatClient.builder(model)
+    public ChatClient toolChatClient(OpenAiChatModel model,
+                                     ChatMemory chatMemory,
+                                     FileTools fileTools,
+                                     ObjectProvider<SyncMcpToolCallbackProvider> mcpTools) {
+        ChatClient.Builder builder = ChatClient.builder(model)
                 .defaultSystem("""
                         涉及文件的查看、创建、写入、修改、删除、重命名、复制操作，请积极调用可用工具执行。
+                        若可用远程 MCP 工具（如天气查询 get_weather），也可按需调用。
                         """)
                 .defaultAdvisors(
                         new SimpleLoggerAdvisor(),
                         MessageChatMemoryAdvisor.builder(chatMemory).build()
                 )
-                .defaultTools(fileTools)
-                .build();
+                .defaultTools(fileTools);
+
+        // 有 SyncMcpToolCallbackProvider 时合并远程 MCP 工具（append，不覆盖 FileTools）
+        mcpTools.ifAvailable(builder::defaultTools);
+
+        return builder.build();
     }
 
     /** 知识库 RAG：不注册任何工具，强制基于检索上下文回答 */

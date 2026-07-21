@@ -71,4 +71,17 @@ public class AiConfiguration {
                 )
                 .build();
     }
+
+    /**
+     * Agent Workflow 专用客户端：无 FileTools / MCP、无会话记忆。
+     * <p>
+     * 用于 Routing 分类器与 general 路由，避免分类阶段误调工具。
+     * 与 {@link #toolChatClient}、{@link #ragChatClient} 并列，职责隔离。
+     */
+    @Bean
+    public ChatClient agentWorkflowChatClient(OpenAiChatModel model) {
+        return ChatClient.builder(model)
+                .defaultAdvisors(new SimpleLoggerAdvisor())
+                .build();
+    }
 }

@@ -9,14 +9,15 @@
                     v-for="msg in visibleMessages">
                     <p class="message-content" v-if="msg.messageType === MessageType.USER">{{ msg.text }}</p>
                     <div class="message-content" v-else>
-                        <div v-if="parseMessage(msg.text).thinking" class="thinking-box">
+                        <AgentActivityTimeline :parts="msg.parts" />
+                        <div v-if="msg.thinking" class="thinking-box">
                             <el-collapse>
-                                <el-collapse-item title="🤔 思考过程">
-                                    <MarkdownRenderer :content="parseMessage(msg.text).thinking ?? ''" />
+                                <el-collapse-item title="思考过程">
+                                    <MarkdownRenderer :content="msg.thinking" />
                                 </el-collapse-item>
                             </el-collapse>
                         </div>
-                        <MarkdownRenderer :content="msg.text" />
+                        <MarkdownRenderer v-if="msg.text" :content="msg.text" />
                     </div>
                     <div class="tool">
                         <div class="tool-item" title="复制文本" @click="copyText(msg.text)">
@@ -27,14 +28,15 @@
                 <!-- 正在输入的AI消息 -->
                 <li class="message-ai" v-if="isStreaming">
                     <div class="message-content">
-                        <div v-if="parseMessage(streamingContent).thinking" class="thinking-box">
+                        <AgentActivityTimeline :parts="streamingParts" />
+                        <div v-if="streamingThinking" class="thinking-box">
                             <el-collapse>
-                                <el-collapse-item title="🤔 思考过程（实时更新中...）">
-                                    <MarkdownRenderer :content="parseMessage(streamingContent).thinking ?? ''" />
+                                <el-collapse-item title="思考过程（实时更新中...）">
+                                    <MarkdownRenderer :content="streamingThinking" />
                                 </el-collapse-item>
                             </el-collapse>
                         </div>
-                        <MarkdownRenderer :content="streamingContent" />
+                        <MarkdownRenderer v-if="streamingContent" :content="streamingContent" />
                     </div>
                     <div class="tool">
                         <div class="tool-item" title="停止生成" @click="stopStreaming">
@@ -103,8 +105,8 @@
 </template>
 <script setup lang="ts">
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
+import AgentActivityTimeline from '@/components/AgentActivityTimeline.vue'
 import { MessageType } from '@/types/AiModule/enums'
-import type { Message } from '@/types/AiModule/types'
 import { watch, nextTick } from 'vue'
 import { useChatStore } from '@/stores/chat'
 import { useRouter } from 'vue-router'
@@ -149,6 +151,8 @@ const {
     inputText,
     isStreaming,
     streamingContent,
+    streamingThinking,
+    streamingParts,
     sendMessage,
     stopStreaming,
 } = useChatStream(scrollToBottom, consumeFiles, formatFileSize)
@@ -164,18 +168,6 @@ defineExpose({ chatBoxulRef })
 
 function goToKnowledgeStore() {
     router.push({ name: 'store' })
-}
-
-function parseMessage(raw: string): Message {
-    const thinkMatch = raw.match(/\[THINKING_START\]([\s\S]*?)\[THINKING_END\]/)
-    if (thinkMatch) {
-        return {
-            thinking: thinkMatch[1].trim(),
-            text: raw.replace(/\[THINKING_START\][\s\S]*?\[THINKING_END\]/g, '').trim(),
-            messageType: MessageType.ASSISTANT,
-        }
-    }
-    return { thinking: null, text: raw, messageType: MessageType.ASSISTANT }
 }
 
 function copyText(text: string) {
@@ -377,6 +369,10 @@ function copyText(text: string) {
                     border-radius: 10px;
                     /* 确保Markdown内容能正确显示 */
                     overflow: visible;
+
+                    .thinking-box {
+                        margin-bottom: 8px;
+                    }
 
                     /* Markdown渲染器样式 */
                     .markdown-body {

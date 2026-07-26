@@ -1,6 +1,10 @@
 package com.mychat.controller;
 
+import com.mychat.utils.advisor.ObservabilityStreamAdvisor;
+import com.mychat.common.ChatStreamEvent;
+import com.mychat.utils.ChatStreamEventWriter;
 import com.mychat.config.WorkspaceContext;
+import com.mychat.service.ChatAssistantTurnService;
 import com.mychat.service.ChatSessionsService;
 import com.mychat.utils.WorkspaceUtil;
 import lombok.RequiredArgsConstructor;
@@ -9,19 +13,34 @@ import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.memory.ChatMemory;
+import org.springframework.ai.chat.model.ChatResponse;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.util.MimeType;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.core.publisher.SignalType;
+import reactor.core.publisher.Sinks;
+import reactor.core.scheduler.Schedulers;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 
+/**
+ * 普通对话流式端点。
+ * <p>
+ * {@code format} 缺省 / {@code plain}：保持历史 {@code text/html} 行为（ChatBox 兼容）。<br>
+ * {@code format=ndjson}：进阶 3 可观测事件流（第 1 周用 curl 验收；前端第 2 周再接）。
+ */
 @Slf4j
 @RequiredArgsConstructor
 @RestController
@@ -29,13 +48,45 @@ import java.util.Objects;
 public class ChatController {
     private final ChatClient toolChatClient;
     private final ChatSessionsService chatSessionsService;
+    private final ChatAssistantTurnService chatAssistantTurnService;
     private final WorkspaceUtil workspaceUtil;
+    private final ChatStreamEventWriter eventWriter;
 
-    @RequestMapping(value = "/chat", produces = "text/html;charset=utf-8")
+    /**
+     * @param format {@code plain}（默认）或 {@code ndjson}
+     */
+    @RequestMapping(value = "/chat")
     public Flux<String> chat(
             @RequestParam("prompt") String prompt,
             @RequestParam("chatId") String chatId,
-            @RequestParam(value = "files", required = false) List<MultipartFile> files) {
+            @RequestParam(value = "files", required = false) List<MultipartFile> files,
+            @RequestParam(value = "format", required = false) String format,
+            HttpServletResponse response) {
+
+        boolean ndjson = "ndjson".equalsIgnoreCase(format);
+        // Servlet 栈：按 format 动态设置 Content-Type（默认 plain 保持 ChatBox 兼容）
+        if (ndjson) {
+            response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+            response.setContentType("application/x-ndjson;charset=UTF-8");
+        } else {
+            response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+            response.setContentType("text/html;charset=UTF-8");
+        }
+
+        bindWorkspace(chatId);
+
+        Flux<String> body;
+        if (files == null || files.isEmpty()) {
+            body = ndjson ? textChatNdjson(prompt, chatId) : textChatPlain(prompt, chatId);
+        } else {
+            body = ndjson
+                    ? multiModalChatNdjson(prompt, chatId, files)
+                    : multiModalChatPlain(prompt, chatId, files);
+        }
+        return body.doFinally(signalType -> WorkspaceContext.clear());
+    }
+
+    private void bindWorkspace(String chatId) {
         String workDir = chatSessionsService.getWorkDir(chatId);
         if (workDir != null) {
             WorkspaceContext.set(workDir);
@@ -45,16 +96,13 @@ public class ChatController {
             WorkspaceContext.set(defaultRoot);
             log.info("会话 {} 使用默认工作目录: {}", chatId, defaultRoot);
         }
-        if (files == null || files.isEmpty()) {
-            return textChat(prompt, chatId)
-                    .doFinally(signalType -> WorkspaceContext.clear());
-        } else {
-            return multiModalChat(prompt, chatId, files)
-                    .doFinally(signalType -> WorkspaceContext.clear());
-        }
     }
 
-    private Flux<String> textChat(String prompt, String chatId) {
+    // -------------------------------------------------------------------------
+    // plain：与改造前语义一致，供现有 ChatBox 使用
+    // -------------------------------------------------------------------------
+
+    private Flux<String> textChatPlain(String prompt, String chatId) {
         return toolChatClient.prompt()
                 .system(buildWorkspaceSystemPrompt())
                 .user(prompt)
@@ -64,49 +112,13 @@ public class ChatController {
                 .map(this::toThinkingResponse);
     }
 
-    /**
-     * 多模态对话：按文件类型分叉处理。
-     * <ul>
-     *   <li>图片 → 作为 Media 对象附加到请求（模型不支持时 Flux.error 兜底）</li>
-     *   <li>文档（PDF/文本）→ 全文提取后放入 system prompt（仅供 AI 阅读），user prompt 只保留文件列表</li>
-     * </ul>
-     * 这样 user prompt 存入 {@code spring_ai_chat_memory} 后，刷新时返回的是简洁的文件列表而非全文。
-     */
-    private Flux<String> multiModalChat(String prompt, String chatId, List<MultipartFile> files) {
-        List<MultipartFile> images = new ArrayList<>();
-        List<MultipartFile> documents = new ArrayList<>();
-
-        for (MultipartFile file : files) {
-            String contentType = file.getContentType();
-            if (contentType != null && contentType.startsWith("image/")) {
-                images.add(file);
-            } else {
-                documents.add(file);
-            }
-        }
-
-        // 1. 文件列表（给用户消息，与前端格式一致，存入 chat_memory）
-        String fileList = buildFileList(documents);
-        // 2. 文档全文（给 AI 参考，放入 system prompt，不存入 chat_memory）
-        String docContent = extractDocContent(documents);
-
-        // 3. user prompt：只含文件列表 + 用户问题 → 存入 chat_memory 后保持刷新前后一致
-        String userPrompt = fileList.isEmpty()
-                ? prompt
-                : fileList + "\n\n用户的问题：\n" + prompt;
-
-        // 4. system prompt：原有工作目录 + 文档全文（仅 AI 可见）
-        String systemMsg = buildWorkspaceSystemPrompt();
-        if (!docContent.isEmpty()) {
-            systemMsg += "\n\n用户上传了以下文档内容供参考：\n" + docContent;
-        }
-
-        // 5. 构建请求
+    private Flux<String> multiModalChatPlain(String prompt, String chatId, List<MultipartFile> files) {
+        PromptParts parts = buildMultiModalParts(prompt, files);
         var spec = toolChatClient.prompt()
-                .system(systemMsg)
+                .system(parts.systemMsg())
                 .user(u -> {
-                    u.text(userPrompt);
-                    for (MultipartFile img : images) {
+                    u.text(parts.userPrompt());
+                    for (MultipartFile img : parts.images()) {
                         try {
                             u.media(MimeType.valueOf(Objects.requireNonNull(img.getContentType())),
                                     img.getResource());
@@ -117,24 +129,196 @@ public class ChatController {
                 })
                 .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, chatId));
 
-        Flux<String> result = spec.stream().chatResponse()
-                .map(this::toThinkingResponse);
-
-        // 错误兜底：模型不支持图片时返回友好提示
-        return result.onErrorResume(e -> {
-            String msg = e.getMessage() != null ? e.getMessage() : "";
-            if (msg.contains("400") || msg.contains("unsupported") || msg.contains("not support")) {
-                log.warn("模型不支持图片分析: {}", msg);
-                return Flux.just("当前模型不支持图片分析。");
-            }
-            return Flux.error(e);
-        });
+        return spec.stream().chatResponse()
+                .map(this::toThinkingResponse)
+                .onErrorResume(e -> {
+                    if (isImageUnsupported(e)) {
+                        log.warn("模型不支持图片分析: {}", e.getMessage());
+                        return Flux.just("当前模型不支持图片分析。");
+                    }
+                    return Flux.error(e);
+                });
     }
 
-    /**
-     * 生成简洁的文件列表（与前端格式一致，后端接管后保证刷新前后显示统一）
-     * 格式：「上传了以下文件：\n- foo.pdf（2.3MB）」
-     */
+    // -------------------------------------------------------------------------
+    // ndjson：旁路观测 + 结构化事件（不影响 Memory / ToolCallingAdvisor）
+    // -------------------------------------------------------------------------
+
+    private Flux<String> textChatNdjson(String prompt, String chatId) {
+        String turnId = chatId + "-" + UUID.randomUUID();
+        AtomicInteger seq = new AtomicInteger(0);
+        Sinks.Many<ChatStreamEvent> sink = Sinks.many().replay().limit(1024);
+        // 与 Sink 并行累积，流结束后异步归约落库（chat_assistant_turns）
+        List<ChatStreamEvent> accumulated = Collections.synchronizedList(new ArrayList<>());
+        ObservabilityStreamAdvisor obs =
+                new ObservabilityStreamAdvisor(turnId, seq, sink, eventWriter.getObjectMapper(), accumulated);
+
+        Mono<Void> drive = toolChatClient.prompt()
+                .system(buildWorkspaceSystemPrompt())
+                .user(prompt)
+                .advisors(obs)
+                .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, chatId))
+                .stream()
+                .chatResponse()
+                .doOnNext(cr -> emitTextEvents(sink, turnId, seq, cr, accumulated))
+                .doOnError(e -> emitError(sink, turnId, seq, e, accumulated))
+                .doFinally(signal -> completeSink(sink, turnId, seq, signal, chatId, accumulated))
+                .then();
+
+        return mergeNdjson(sink, drive);
+    }
+
+    private Flux<String> multiModalChatNdjson(String prompt, String chatId, List<MultipartFile> files) {
+        String turnId = chatId + "-" + UUID.randomUUID();
+        AtomicInteger seq = new AtomicInteger(0);
+        Sinks.Many<ChatStreamEvent> sink = Sinks.many().replay().limit(1024);
+        List<ChatStreamEvent> accumulated = Collections.synchronizedList(new ArrayList<>());
+        ObservabilityStreamAdvisor obs =
+                new ObservabilityStreamAdvisor(turnId, seq, sink, eventWriter.getObjectMapper(), accumulated);
+
+        PromptParts parts = buildMultiModalParts(prompt, files);
+
+        Mono<Void> drive = toolChatClient.prompt()
+                .system(parts.systemMsg())
+                .user(u -> {
+                    u.text(parts.userPrompt());
+                    for (MultipartFile img : parts.images()) {
+                        try {
+                            u.media(MimeType.valueOf(Objects.requireNonNull(img.getContentType())),
+                                    img.getResource());
+                        } catch (Exception e) {
+                            log.warn("跳过不支持的图片: {}", img.getOriginalFilename());
+                        }
+                    }
+                })
+                .advisors(obs)
+                .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, chatId))
+                .stream()
+                .chatResponse()
+                .doOnNext(cr -> emitTextEvents(sink, turnId, seq, cr, accumulated))
+                .onErrorResume(e -> {
+                    if (isImageUnsupported(e)) {
+                        log.warn("模型不支持图片分析: {}", e.getMessage());
+                        emitTracked(sink, accumulated, ChatStreamEvent.textDelta(
+                                turnId, seq, "当前模型不支持图片分析。"));
+                        return Flux.empty();
+                    }
+                    emitError(sink, turnId, seq, e, accumulated);
+                    return Flux.error(e);
+                })
+                .doFinally(signal -> completeSink(sink, turnId, seq, signal, chatId, accumulated))
+                .then();
+
+        return mergeNdjson(sink, drive);
+    }
+
+    private Flux<String> mergeNdjson(Sinks.Many<ChatStreamEvent> sink, Mono<Void> drive) {
+        return Flux.merge(
+                sink.asFlux().map(eventWriter::toLine),
+                drive.thenMany(Flux.empty())
+        );
+    }
+
+    /** 先写入累积列表再发 Sink，保证落库与 NDJSON 同源 */
+    private void emitTracked(Sinks.Many<ChatStreamEvent> sink,
+                             List<ChatStreamEvent> accumulated,
+                             ChatStreamEvent event) {
+        accumulated.add(event);
+        sink.tryEmitNext(event);
+    }
+
+    private void emitTextEvents(Sinks.Many<ChatStreamEvent> sink,
+                                String turnId,
+                                AtomicInteger seq,
+                                ChatResponse response,
+                                List<ChatStreamEvent> accumulated) {
+        if (response == null || response.getResult() == null) {
+            return;
+        }
+        // 工具调用帧由 ObservabilityStreamAdvisor 处理；此处只发最终/文本与 thinking
+        if (response.hasToolCalls()) {
+            return;
+        }
+        var metadata = response.getResult().getMetadata();
+        String thinking = metadata != null
+                ? (String) metadata.getOrDefault("reasoningContent", null)
+                : null;
+        if (thinking != null && !thinking.isEmpty()) {
+            emitTracked(sink, accumulated, ChatStreamEvent.thinkingDelta(turnId, seq, thinking));
+        }
+        String content = response.getResult().getOutput().getText();
+        if (content != null && !content.isEmpty()) {
+            emitTracked(sink, accumulated, ChatStreamEvent.textDelta(turnId, seq, content));
+        }
+    }
+
+    private void emitError(Sinks.Many<ChatStreamEvent> sink,
+                           String turnId,
+                           AtomicInteger seq,
+                           Throwable e,
+                           List<ChatStreamEvent> accumulated) {
+        String msg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+        emitTracked(sink, accumulated, ChatStreamEvent.error(turnId, seq, msg));
+    }
+
+    private void completeSink(Sinks.Many<ChatStreamEvent> sink,
+                              String turnId,
+                              AtomicInteger seq,
+                              SignalType signal,
+                              String chatId,
+                              List<ChatStreamEvent> accumulated) {
+        if (signal == SignalType.ON_COMPLETE) {
+            emitTracked(sink, accumulated, ChatStreamEvent.done(turnId, seq));
+        }
+        sink.tryEmitComplete();
+
+        // 禁止阻塞序列化线程：异步归约并写入 chat_assistant_turns
+        boolean cancelledOrError = signal == SignalType.CANCEL || signal == SignalType.ON_ERROR;
+        List<ChatStreamEvent> snapshot = List.copyOf(accumulated);
+        Mono.fromRunnable(() -> chatAssistantTurnService.saveTurnFromEvents(
+                        chatId, turnId, snapshot, cancelledOrError))
+                .subscribeOn(Schedulers.boundedElastic())
+                .subscribe(
+                        null,
+                        err -> log.error("异步保存助手回合失败 turnId={}", turnId, err)
+                );
+    }
+
+    // -------------------------------------------------------------------------
+    // 多模态公共拼装
+    // -------------------------------------------------------------------------
+
+    private record PromptParts(String systemMsg, String userPrompt, List<MultipartFile> images) {
+    }
+
+    private PromptParts buildMultiModalParts(String prompt, List<MultipartFile> files) {
+        List<MultipartFile> images = new ArrayList<>();
+        List<MultipartFile> documents = new ArrayList<>();
+        for (MultipartFile file : files) {
+            String contentType = file.getContentType();
+            if (contentType != null && contentType.startsWith("image/")) {
+                images.add(file);
+            } else {
+                documents.add(file);
+            }
+        }
+        String fileList = buildFileList(documents);
+        String docContent = extractDocContent(documents);
+        String userPrompt = fileList.isEmpty()
+                ? prompt
+                : fileList + "\n\n用户的问题：\n" + prompt;
+        String systemMsg = buildWorkspaceSystemPrompt();
+        if (!docContent.isEmpty()) {
+            systemMsg += "\n\n用户上传了以下文档内容供参考：\n" + docContent;
+        }
+        return new PromptParts(systemMsg, userPrompt, images);
+    }
+
+    private boolean isImageUnsupported(Throwable e) {
+        String msg = e.getMessage() != null ? e.getMessage() : "";
+        return msg.contains("400") || msg.contains("unsupported") || msg.contains("not support");
+    }
+
     private String buildFileList(List<MultipartFile> documents) {
         if (documents.isEmpty()) return "";
         StringBuilder sb = new StringBuilder("上传了以下文件：\n");
@@ -146,7 +330,6 @@ public class ChatController {
         return sb.toString().trim();
     }
 
-    /** 提取文档全文内容（放入 system prompt，仅 AI 可见） */
     private String extractDocContent(List<MultipartFile> documents) {
         if (documents.isEmpty()) return "";
 
@@ -175,7 +358,6 @@ public class ChatController {
         return sb.toString();
     }
 
-    /** 使用 PDFBox 提取 PDF 文本 */
     private String extractPdfText(MultipartFile file) throws Exception {
         try (PDDocument doc = PDDocument.load(file.getInputStream())) {
             PDFTextStripper stripper = new PDFTextStripper();
@@ -189,8 +371,8 @@ public class ChatController {
         return String.format("%.1f MB", bytes / (1024.0 * 1024.0));
     }
 
-    /** 统一处理 AI 响应中的 thinking 标签 */
-    private String toThinkingResponse(org.springframework.ai.chat.model.ChatResponse response) {
+    /** plain 路径：统一处理 AI 响应中的 thinking 标签（保持旧协议） */
+    private String toThinkingResponse(ChatResponse response) {
         String content = response.getResult().getOutput().getText();
         var metadata = response.getResult().getMetadata();
         String thinking = (String) metadata.getOrDefault("reasoningContent", null);

@@ -1,17 +1,15 @@
 import { ref, computed, watch } from 'vue'
 import { streamChat, generateChatId } from '@/utils/streamChat'
+import { unwrapToolPreview } from '@/utils/unwrapToolPreview'
 import { useChatStore } from '@/stores/chat'
 import { chatApi } from '@/api/chat'
 import { ElMessage } from 'element-plus'
 import { MessageType } from '@/types/AiModule/enums'
 import type { Message } from '@/types/AiModule/types'
+import type { ChatStreamEvent, MessagePart, ToolMessagePart } from '@/types/AiModule/streamEvents'
 
 /**
- * 聊天消息流式处理 — 发送 / 接收 / 历史加载 / 消息拆分
- *
- * @param scrollToBottom  滚动到底部的函数
- * @param consumeFiles    取出并清空待发送文件的函数
- * @param formatFileSize  文件大小格式化函数（来自 useFileUpload）
+ * 聊天消息流式处理 — 发送 / 接收 / 历史加载 / NDJSON 事件归约
  */
 export function useChatStream(
     scrollToBottom: (force?: boolean) => void,
@@ -23,9 +21,13 @@ export function useChatStream(
     const messages = ref<Message[]>([])
     const inputText = ref('')
     const isStreaming = ref(false)
+    /** 助手正文（text_delta 或 RAG 纯文本） */
     const streamingContent = ref('')
+    /** 思考过程（thinking_delta） */
+    const streamingThinking = ref('')
+    /** 本轮工具时间线 parts */
+    const streamingParts = ref<MessagePart[]>([])
 
-    /** 过滤 system 消息（文档全文），仅展示 USER / ASSISTANT */
     const visibleMessages = computed(() =>
         messages.value.filter(m => m.messageType !== 'system'),
     )
@@ -33,7 +35,6 @@ export function useChatStream(
     let stopStreamingFn: (() => void) | null = null
     let isLocalNewChat = false
 
-    // 监听会话切换 → 加载历史
     watch(
         () => chatStore.currentChatId,
         (newId) => {
@@ -50,12 +51,10 @@ export function useChatStream(
         { immediate: true },
     )
 
-    // 发送消息
     async function sendMessage() {
         const text = inputText.value.trim()
         if (!text || isStreaming.value) return
 
-        // 若有文件，推文件信息消息（仅 UI 展示）
         const filesToSend = consumeFiles()
         if (filesToSend.length > 0) {
             const fileInfo = filesToSend
@@ -70,7 +69,6 @@ export function useChatStream(
         inputText.value = ''
         scrollToBottom(true)
 
-        // 确保会话存在
         let chatId = chatStore.currentChatId
         if (!chatId) {
             chatId = generateChatId()
@@ -81,66 +79,174 @@ export function useChatStream(
         startStreaming(text, chatId, filesToSend)
     }
 
-    // 开始流式响应
+    function resetStreamingState() {
+        streamingContent.value = ''
+        streamingThinking.value = ''
+        streamingParts.value = []
+        stopStreamingFn = null
+        isStreaming.value = false
+    }
+
+    function commitAssistantMessage(extraSuffix = '') {
+        const text = (streamingContent.value + extraSuffix).trim()
+        const thinking = streamingThinking.value.trim() || null
+        const parts = streamingParts.value.length > 0
+            ? streamingParts.value.map(p => ({ ...p }))
+            : undefined
+        if (!text && !thinking && (!parts || parts.length === 0)) {
+            return
+        }
+        messages.value.push({
+            text: text || (parts?.length ? '（仅工具调用，无文本回复）' : ''),
+            thinking,
+            parts,
+            messageType: MessageType.ASSISTANT,
+        })
+    }
+
+    function applyStreamEvent(event: ChatStreamEvent) {
+        switch (event.type) {
+            case 'thinking_delta':
+                if (event.text) {
+                    streamingThinking.value += event.text
+                }
+                break
+            case 'text_delta':
+                if (event.text) {
+                    streamingContent.value += event.text
+                }
+                break
+            case 'tool_call': {
+                if (!event.id) break
+                const existing = streamingParts.value.find(
+                    p => p.type === 'tool' && p.id === event.id,
+                ) as ToolMessagePart | undefined
+                if (existing) {
+                    existing.name = event.name ?? existing.name
+                    existing.args = event.args ?? existing.args
+                    existing.status = 'running'
+                } else {
+                    streamingParts.value.push({
+                        type: 'tool',
+                        id: event.id,
+                        name: event.name ?? 'unknown',
+                        args: event.args,
+                        status: 'running',
+                    })
+                }
+                break
+            }
+            case 'tool_result': {
+                if (!event.id) break
+                const tool = streamingParts.value.find(
+                    p => p.type === 'tool' && p.id === event.id,
+                ) as ToolMessagePart | undefined
+                if (tool) {
+                    tool.status = event.ok === false ? 'error' : 'done'
+                    tool.ok = event.ok
+                    tool.resultPreview = unwrapToolPreview(event.preview)
+                    if (event.name) tool.name = event.name
+                } else {
+                    streamingParts.value.push({
+                        type: 'tool',
+                        id: event.id,
+                        name: event.name ?? 'unknown',
+                        status: event.ok === false ? 'error' : 'done',
+                        ok: event.ok,
+                        resultPreview: unwrapToolPreview(event.preview),
+                    })
+                }
+                break
+            }
+            case 'error':
+                if (event.message) {
+                    ElMessage.warning(event.message)
+                    streamingContent.value +=
+                        (streamingContent.value ? '\n' : '') + `（错误：${event.message}）`
+                }
+                for (const p of streamingParts.value) {
+                    if (p.type === 'tool' && p.status === 'running') {
+                        p.status = 'error'
+                    }
+                }
+                break
+            case 'done':
+                // HTTP 流结束时还会调 onComplete；此处不重复落库
+                break
+            default:
+                break
+        }
+        scrollToBottom()
+    }
+
     function startStreaming(prompt: string, chatId: string, files?: File[]) {
         isStreaming.value = true
         streamingContent.value = ''
+        streamingThinking.value = ''
+        streamingParts.value = []
+
+        const kbId = chatStore.kbId ?? undefined
+        const useNdjson = !kbId
 
         stopStreamingFn = streamChat({
             prompt,
             chatId,
-            kbId: chatStore.kbId ?? undefined,
+            kbId,
             files,
-            onMessage: (chunk) => {
-                streamingContent.value += chunk
-                scrollToBottom()
-            },
+            onMessage: useNdjson
+                ? undefined
+                : (chunk) => {
+                    streamingContent.value += chunk
+                    scrollToBottom()
+                },
+            onEvent: useNdjson ? applyStreamEvent : undefined,
             onComplete: () => {
-                messages.value.push({
-                    text: streamingContent.value,
-                    messageType: MessageType.ASSISTANT,
-                })
-                isStreaming.value = false
-                streamingContent.value = ''
-                stopStreamingFn = null
+                commitAssistantMessage()
+                resetStreamingState()
                 scrollToBottom()
             },
             onError: (error) => {
                 if (error.message?.includes('不支持图片') || error.message?.includes('400')) {
                     ElMessage.warning('当前模型不支持图片分析，已提取文档文本内容')
                 }
-                messages.value.push({
-                    text: `抱歉，请求出错：${error.message}`,
-                    messageType: MessageType.ASSISTANT,
-                })
-                isStreaming.value = false
-                streamingContent.value = ''
-                stopStreamingFn = null
+                if (streamingContent.value.trim() || streamingParts.value.length > 0) {
+                    commitAssistantMessage()
+                } else {
+                    messages.value.push({
+                        text: `抱歉，请求出错：${error.message}`,
+                        messageType: MessageType.ASSISTANT,
+                    })
+                }
+                resetStreamingState()
                 scrollToBottom()
             },
         })
     }
 
-    // 停止流式
     function stopStreaming() {
         if (stopStreamingFn) {
             stopStreamingFn()
             stopStreamingFn = null
         }
-        if (streamingContent.value.trim()) {
-            messages.value.push({
-                text: streamingContent.value + '\n\n*(用户中断了生成)*',
-                messageType: MessageType.ASSISTANT,
-            })
+        for (const p of streamingParts.value) {
+            if (p.type === 'tool' && p.status === 'running') {
+                p.status = 'cancelled'
+            }
         }
-        isStreaming.value = false
-        streamingContent.value = ''
+        if (
+            streamingContent.value.trim()
+            || streamingThinking.value.trim()
+            || streamingParts.value.length > 0
+        ) {
+            commitAssistantMessage('\n\n*(用户中断了生成)*')
+        }
+        resetStreamingState()
         scrollToBottom()
     }
 
-    // 获取历史消息（含文件消息拆分）
     async function getMessages(id: string) {
         try {
+            // 后端第 3 周起返回 ChatMessageVO（含 thinking / parts），字段与 Message 对齐
             const raw = await chatApi.getMessages(id)
             const split: Message[] = []
             for (const msg of raw) {
@@ -151,7 +257,13 @@ export function useChatStream(
                     if (filePart.trim()) split.push({ text: filePart, messageType: MessageType.USER })
                     if (questionPart.trim()) split.push({ text: questionPart, messageType: MessageType.USER })
                 } else {
-                    split.push(msg)
+                    // 原样保留 thinking / parts，供 AgentActivityTimeline 回放
+                    split.push({
+                        text: msg.text ?? '',
+                        messageType: msg.messageType,
+                        thinking: msg.thinking ?? null,
+                        parts: msg.parts,
+                    })
                 }
             }
             messages.value = split
@@ -165,6 +277,8 @@ export function useChatStream(
         inputText,
         isStreaming,
         streamingContent,
+        streamingThinking,
+        streamingParts,
         sendMessage,
         stopStreaming,
     }

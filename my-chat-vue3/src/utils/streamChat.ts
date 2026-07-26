@@ -1,106 +1,124 @@
 /**
  * 流式聊天工具
- * 用于处理与后端AI聊天接口的流式通信
+ * 普通聊天：NDJSON 事件流（?format=ndjson）
+ * 知识库 RAG：仍为纯文本 chunk（后端尚无 ndjson）
  */
+
+import type { ChatStreamEvent } from '@/types/AiModule/streamEvents'
 
 export interface ChatStreamOptions {
   prompt: string
   chatId: string
   kbId?: string
   files?: File[]
-  onMessage: (chunk: string) => void
+  /** RAG / 纯文本路径 */
+  onMessage?: (chunk: string) => void
+  /** 普通聊天 NDJSON 路径 */
+  onEvent?: (event: ChatStreamEvent) => void
   onComplete: () => void
   onError: (error: Error) => void
 }
 
 /**
  * 发送流式聊天请求
- * @param options 聊天选项
  * @returns 取消请求的函数
- * @description: 为什么用原生fetch不用Axios？因为axios对SSE/流式响应支持有限，需要额外配置
- * 但是fetch原生支持流式读取，且听说内存效率更高
  */
 export function streamChat(options: ChatStreamOptions): () => void {
-  const { prompt, chatId, kbId, files, onMessage, onComplete, onError } = options
-  
-  // 创建FormData对象
+  const { prompt, chatId, kbId, files, onMessage, onEvent, onComplete, onError } = options
+
   const formData = new FormData()
   formData.append('prompt', prompt)
   formData.append('chatId', chatId)
-  
-  // 如果有文件，添加到FormData
+
   if (files && files.length > 0) {
     files.forEach(file => {
       formData.append('files', file)
     })
   }
-  
-  // 根据有无 kbId 分流到普通聊天或 RAG 聊天
+
+  const useNdjson = !kbId
   if (kbId) {
     formData.append('kbId', kbId)
   }
-  const url = kbId ? '/rag/ai/ragChat/chat' : '/rag/ai/normalChat/chat'
-  
-  // 创建AbortController用于取消请求
+  // 普通聊天固定请求 NDJSON；RAG 不加 format，保持旧协议
+  const url = kbId
+    ? '/rag/ai/ragChat/chat'
+    : '/rag/ai/normalChat/chat?format=ndjson'
+
   const controller = new AbortController()
-  
-  // 发送请求，因为没用Axios，所以前头要加上/rag前缀。Axios会自动加。
+
   fetch(url, {
     method: 'POST',
     body: formData,
     signal: controller.signal,
-    headers: {
-      // 注意：不要设置Content-Type，浏览器会自动设置multipart/form-data
-    }
   })
     .then(async response => {
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
-      
       if (!response.body) {
         throw new Error('Response body is null')
       }
-      
-      // 使用TextDecoder处理流式响应
+
       const reader = response.body.getReader()
       const decoder = new TextDecoder('utf-8')
-      
+      let lineBuffer = ''
+
       try {
         while (true) {
           const { done, value } = await reader.read()
-          
           if (done) {
+            if (useNdjson && lineBuffer.trim()) {
+              flushNdjsonLine(lineBuffer, onEvent)
+              lineBuffer = ''
+            }
             onComplete()
             break
           }
-          
-          // 解码并处理数据
+
           const chunk = decoder.decode(value, { stream: true })
-          onMessage(chunk)
+          if (useNdjson) {
+            lineBuffer += chunk
+            const lines = lineBuffer.split('\n')
+            // 最后一段可能不完整，留在 buffer
+            lineBuffer = lines.pop() ?? ''
+            for (const line of lines) {
+              flushNdjsonLine(line, onEvent)
+            }
+          } else {
+            onMessage?.(chunk)
+          }
         }
       } catch (error) {
         onError(error instanceof Error ? error : new Error('Stream reading error'))
       }
     })
     .catch(error => {
-      // 如果是取消请求，不触发错误回调
       if (error.name === 'AbortError') {
         return
       }
       onError(error instanceof Error ? error : new Error('Request error'))
     })
-  
-  // 返回取消函数
+
   return () => {
     controller.abort()
   }
 }
 
-/**
- * 生成ChatID
- * @returns ChatID
- */
+function flushNdjsonLine(
+  line: string,
+  onEvent?: (event: ChatStreamEvent) => void,
+) {
+  const trimmed = line.trim()
+  if (!trimmed) return
+  try {
+    const event = JSON.parse(trimmed) as ChatStreamEvent
+    onEvent?.(event)
+  } catch (e) {
+    console.warn('[streamChat] 跳过非法 NDJSON 行:', trimmed.slice(0, 120), e)
+  }
+}
+
 export function generateChatId(): string {
-    return `chat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+  return `chat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 }

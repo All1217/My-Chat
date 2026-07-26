@@ -1,6 +1,5 @@
 {
   "compilerOptions": {
-    "composite": true,
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
     "target": "esnext",
     "module": "esnext",
@@ -11,6 +10,8 @@
     },
     "types": ["vite/client"],
     "skipLibCheck": true,
+    // Vite 只做类型检查，禁止在 src 旁 emit .js / .d.ts（否则会出现 ChatBox.vue.js 等垃圾文件）
+    "noEmit": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true

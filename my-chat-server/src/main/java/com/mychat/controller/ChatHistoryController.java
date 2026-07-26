@@ -2,37 +2,32 @@ package com.mychat.controller;
 
 import com.mychat.common.result.Result;
 import com.mychat.entity.dto.ChatSessionsDTO;
+import com.mychat.entity.vo.ChatMessageVO;
 import com.mychat.entity.vo.ChatSessionVO;
+import com.mychat.service.ChatAssistantTurnService;
 import com.mychat.service.ChatSessionsService;
-import com.mychat.service.SpringAiChatMemoryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.memory.ChatMemory;
-import org.springframework.ai.chat.messages.Message;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
 @RequestMapping("/ai/history")
+@RequiredArgsConstructor
 public class ChatHistoryController {
-    @Autowired
-    private ChatMemory chatMemory;
-    @Autowired
-    private SpringAiChatMemoryService service;
-    @Autowired
-    private ChatSessionsService chatSessionsService;
+
+    private final ChatMemory chatMemory;
+    private final ChatSessionsService chatSessionsService;
+    private final ChatAssistantTurnService chatAssistantTurnService;
 
     /**
-     * 获取指定会话的聊天历史
-     *
-     * @param conversationId 某个会话的ID
-     * @return List<Message>聊天记录
+     * 获取指定会话的聊天历史（含可选工具时间线 parts / thinking）。
      */
     @GetMapping("/getMessages/{conversationId}")
-    public Result<List<Message>> getConversationHistory(@PathVariable String conversationId) {
-        // 通过 ChatMemory 获取聊天历史
-        return Result.ok(chatMemory.get(conversationId));
+    public Result<List<ChatMessageVO>> getConversationHistory(@PathVariable String conversationId) {
+        return Result.ok(chatAssistantTurnService.mergeHistory(
+                conversationId, chatMemory.get(conversationId)));
     }
 
     /**

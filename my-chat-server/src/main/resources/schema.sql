@@ -159,3 +159,29 @@ COMMENT ON COLUMN document_meta.created_at IS '创建时间';
 COMMENT ON COLUMN document_meta.updated_at IS '更新时间（应用层维护）';
 
 CREATE INDEX IF NOT EXISTS idx_document_meta_kb_id ON document_meta (kb_id);
+
+-- 助手回合 UI 轨迹（进阶 3：工具时间线回放）
+-- 逻辑外键 conversation_id → chat_sessions.conversation_id
+-- 不修改 spring_ai_chat_memory
+CREATE TABLE IF NOT EXISTS chat_assistant_turns
+(
+    id                BIGSERIAL PRIMARY KEY,
+    conversation_id   VARCHAR(255) NOT NULL,
+    turn_id           VARCHAR(128) NOT NULL,
+    assistant_ordinal INT          NOT NULL,
+    assistant_text    TEXT,
+    thinking          TEXT,
+    parts             JSONB        NOT NULL DEFAULT '[]'::jsonb,
+    created_at        TIMESTAMP             DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_assistant_turn UNIQUE (conversation_id, turn_id),
+    CONSTRAINT uq_assistant_ordinal UNIQUE (conversation_id, assistant_ordinal)
+);
+
+CREATE INDEX IF NOT EXISTS idx_assistant_turns_conv
+    ON chat_assistant_turns (conversation_id, assistant_ordinal);
+
+COMMENT ON TABLE chat_assistant_turns IS '每轮 ASSISTANT 的 UI parts/thinking，用于刷新后时间线回放';
+COMMENT ON COLUMN chat_assistant_turns.conversation_id IS '逻辑外键，对应 chat_sessions.conversation_id';
+COMMENT ON COLUMN chat_assistant_turns.turn_id IS '与流式 NDJSON 的 turnId 一致（chatId-UUID）';
+COMMENT ON COLUMN chat_assistant_turns.assistant_ordinal IS '该会话内 ASSISTANT 消息序号（0-based），用于与 Memory 对齐';
+COMMENT ON COLUMN chat_assistant_turns.parts IS '归约后的 MessagePart[] JSON，与前端 ToolMessagePart 同构';

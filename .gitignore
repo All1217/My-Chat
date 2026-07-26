@@ -51,6 +51,13 @@ dist
 dist-ssr
 *.local
 
+# 禁止提交 TS/vue-tsc 误 emit 到 src 旁的编译产物（如 ChatBox.vue.js）
+my-chat-vue3/src/**/*.js
+my-chat-vue3/src/**/*.js.map
+my-chat-vue3/src/**/*.d.ts
+my-chat-vue3/src/**/*.vue.js
+my-chat-vue3/src/**/*.vue.d.ts
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

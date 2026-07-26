@@ -9,6 +9,7 @@ import com.mychat.entity.po.SpringAiChatMemory;
 import com.mychat.entity.vo.ChatSessionVO;
 import com.mychat.mapper.ChatSessionsMapper;
 import com.mychat.mapper.SpringAiChatMemoryMapper;
+import com.mychat.service.ChatAssistantTurnService;
 import com.mychat.service.ChatSessionsService;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,7 @@ import static com.mychat.common.result.ResultCodeEnum.NORMAL_PARAM_ERROR;
 public class ChatSessionsServiceImpl extends ServiceImpl<ChatSessionsMapper, ChatSessions> implements ChatSessionsService {
     private final ChatSessionsMapper chatSessionsMapper;
     private final SpringAiChatMemoryMapper springAiChatMemoryMapper;
+    private final ChatAssistantTurnService chatAssistantTurnService;
 
     @Override
     public void addConversation(String conversationId) {
@@ -78,6 +80,8 @@ public class ChatSessionsServiceImpl extends ServiceImpl<ChatSessionsMapper, Cha
         LambdaQueryWrapper<SpringAiChatMemory> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(SpringAiChatMemory::getConversationId, id);
         springAiChatMemoryMapper.delete(wrapper);
+        // 级联清理助手回合 UI 轨迹（逻辑外键 → chat_sessions）
+        chatAssistantTurnService.deleteByConversation(id);
     }
 
     @Override

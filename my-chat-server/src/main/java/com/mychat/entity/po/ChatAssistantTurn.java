@@ -4,8 +4,8 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
 import com.mychat.entity.vo.MessagePartVO;
+import com.mychat.mapper.typehandler.MessagePartsJsonbTypeHandler;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
@@ -44,7 +44,8 @@ public class ChatAssistantTurn {
     @TableField("thinking")
     private String thinking;
 
-    @TableField(value = "parts", typeHandler = JacksonTypeHandler.class)
+    /** 必须用 jsonb TypeHandler，不能用默认 JacksonTypeHandler（varchar） */
+    @TableField(value = "parts", typeHandler = MessagePartsJsonbTypeHandler.class)
     private List<MessagePartVO> parts;
 
     @TableField("created_at")

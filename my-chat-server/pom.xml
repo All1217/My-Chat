@@ -90,7 +90,7 @@
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
             <version>${postgresql.version}</version>
-            <scope>runtime</scope>
+            <!-- 需 compile：MessagePartsJsonbTypeHandler 使用 org.postgresql.util.PGobject -->
         </dependency>
         <dependency>
             <groupId>com.baomidou</groupId>

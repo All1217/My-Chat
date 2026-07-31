@@ -3,7 +3,7 @@ package com.mychat.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.mychat.common.ChatStreamEvent;
 import com.mychat.entity.po.ChatAssistantTurn;
-import com.mychat.entity.vo.ChatMessageVO;
+import com.mychat.vo.ChatMessageVO;
 import org.springframework.ai.chat.messages.Message;
 
 import java.util.List;

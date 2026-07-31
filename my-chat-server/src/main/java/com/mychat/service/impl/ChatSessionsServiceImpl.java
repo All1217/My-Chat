@@ -6,7 +6,7 @@ import com.mychat.common.result.Result;
 import com.mychat.entity.dto.ChatSessionsDTO;
 import com.mychat.entity.po.ChatSessions;
 import com.mychat.entity.po.SpringAiChatMemory;
-import com.mychat.entity.vo.ChatSessionVO;
+import com.mychat.vo.ChatSessionVO;
 import com.mychat.mapper.ChatSessionsMapper;
 import com.mychat.mapper.SpringAiChatMemoryMapper;
 import com.mychat.service.ChatAssistantTurnService;

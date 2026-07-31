@@ -4,7 +4,7 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import com.mychat.common.result.Result;
 import com.mychat.entity.dto.ChatSessionsDTO;
 import com.mychat.entity.po.ChatSessions;
-import com.mychat.entity.vo.ChatSessionVO;
+import com.mychat.vo.ChatSessionVO;
 
 import java.util.List;
 

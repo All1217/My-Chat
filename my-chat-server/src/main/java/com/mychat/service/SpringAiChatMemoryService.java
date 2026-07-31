@@ -2,7 +2,7 @@ package com.mychat.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.mychat.entity.po.SpringAiChatMemory;
-import com.mychat.entity.vo.ChatSessionVO;
+import com.mychat.vo.ChatSessionVO;
 
 import java.util.List;
 

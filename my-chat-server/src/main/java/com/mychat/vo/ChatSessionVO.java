@@ -1,4 +1,4 @@
-package com.mychat.entity.vo;
+package com.mychat.vo;
 
 import com.baomidou.mybatisplus.annotation.TableField;
 import io.swagger.v3.oas.annotations.media.Schema;

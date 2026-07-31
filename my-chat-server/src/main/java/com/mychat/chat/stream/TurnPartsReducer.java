@@ -1,7 +1,7 @@
 package com.mychat.chat.stream;
 
 import com.mychat.common.ChatStreamEvent;
-import com.mychat.entity.vo.MessagePartVO;
+import com.mychat.vo.MessagePartVO;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;

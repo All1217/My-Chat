@@ -2,8 +2,8 @@ package com.mychat.controller;
 
 import com.mychat.common.result.Result;
 import com.mychat.entity.dto.ChatSessionsDTO;
-import com.mychat.entity.vo.ChatMessageVO;
-import com.mychat.entity.vo.ChatSessionVO;
+import com.mychat.vo.ChatMessageVO;
+import com.mychat.vo.ChatSessionVO;
 import com.mychat.service.ChatAssistantTurnService;
 import com.mychat.service.ChatSessionsService;
 import lombok.RequiredArgsConstructor;

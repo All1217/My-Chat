@@ -18,6 +18,9 @@ public interface ChatSessionsService extends IService<ChatSessions> {
     /** 根据会话ID查询工作目录，可能为 null */
     String getWorkDir(String conversationId);
 
+    /** 根据会话ID查询绑定的知识库 ID，可能为 null */
+    String getKbId(String conversationId);
+
     Result updateConversation(ChatSessionsDTO dto);
 
     void deleteChatSessionById(String id);

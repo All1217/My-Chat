@@ -32,6 +32,8 @@ public record ChatStreamEvent(
     public static final String TYPE_TEXT_DELTA = "text_delta";
     public static final String TYPE_TOOL_CALL = "tool_call";
     public static final String TYPE_TOOL_RESULT = "tool_result";
+    /** Routing Workflow 分类结果：name=路由标签，text=分类理由 */
+    public static final String TYPE_ROUTE = "route";
     public static final String TYPE_ERROR = "error";
     public static final String TYPE_DONE = "done";
 
@@ -43,6 +45,17 @@ public record ChatStreamEvent(
     public static ChatStreamEvent textDelta(String turnId, AtomicInteger seq, String text) {
         return new ChatStreamEvent(VERSION, TYPE_TEXT_DELTA, turnId, seq.incrementAndGet(),
                 text, null, null, null, null, null, null, null);
+    }
+
+    /**
+     * 路由决策事件（主聊天 NDJSON 首步）。
+     *
+     * @param route     file / kb / search / general
+     * @param reasoning 分类器简要理由
+     */
+    public static ChatStreamEvent route(String turnId, AtomicInteger seq, String route, String reasoning) {
+        return new ChatStreamEvent(VERSION, TYPE_ROUTE, turnId, seq.incrementAndGet(),
+                reasoning, null, route, null, null, null, null, null);
     }
 
     public static ChatStreamEvent toolCall(String turnId, AtomicInteger seq,

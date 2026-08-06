@@ -1,4 +1,4 @@
-package com.mychat.chat.stream;
+package com.mychat.utils;
 
 import com.mychat.common.ChatStreamEvent;
 import com.mychat.vo.MessagePartVO;
@@ -7,11 +7,13 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * 将本轮 NDJSON {@link ChatStreamEvent} 归约为可落库的 parts / thinking / 正文。
  * <p>
  * 与前端 {@code useChatStream.applyStreamEvent} 语义对齐，但不把 text/thinking 再塞进 parts。
+ * 支持 {@code route} 片段（排在工具之前）。
  */
 public final class TurnPartsReducer {
 
@@ -22,6 +24,7 @@ public final class TurnPartsReducer {
      * @param markRunningAsCancelled 流被取消或出错时，将仍为 running 的工具标为 cancelled
      */
     public static TurnSnapshot reduce(List<ChatStreamEvent> events, boolean markRunningAsCancelled) {
+        List<MessagePartVO> ordered = new ArrayList<>();
         Map<String, MessagePartVO> toolsById = new LinkedHashMap<>();
         StringBuilder text = new StringBuilder();
         StringBuilder thinking = new StringBuilder();
@@ -42,8 +45,9 @@ public final class TurnPartsReducer {
                             thinking.append(e.text());
                         }
                     }
-                    case ChatStreamEvent.TYPE_TOOL_CALL -> applyToolCall(toolsById, e);
-                    case ChatStreamEvent.TYPE_TOOL_RESULT -> applyToolResult(toolsById, e);
+                    case ChatStreamEvent.TYPE_ROUTE -> applyRoute(ordered, e);
+                    case ChatStreamEvent.TYPE_TOOL_CALL -> applyToolCall(ordered, toolsById, e);
+                    case ChatStreamEvent.TYPE_TOOL_RESULT -> applyToolResult(ordered, toolsById, e);
                     default -> {
                         // error / done：不进入 parts
                     }
@@ -61,16 +65,30 @@ public final class TurnPartsReducer {
 
         String thinkingStr = thinking.toString().trim();
         return new TurnSnapshot(
-                new ArrayList<>(toolsById.values()),
+                ordered,
                 thinkingStr.isEmpty() ? null : thinkingStr,
                 text.toString()
         );
     }
 
-    private static void applyToolCall(Map<String, MessagePartVO> toolsById, ChatStreamEvent e) {
+    private static void applyRoute(List<MessagePartVO> ordered, ChatStreamEvent e) {
+        MessagePartVO part = new MessagePartVO();
+        part.setType("route");
+        part.setId("route-" + UUID.randomUUID());
+        part.setName(e.name() != null ? e.name() : "general");
+        part.setStatus("done");
+        part.setResultPreview(e.text());
+        ordered.add(part);
+    }
+
+    private static void applyToolCall(
+            List<MessagePartVO> ordered,
+            Map<String, MessagePartVO> toolsById,
+            ChatStreamEvent e) {
         if (e.id() == null || e.id().isBlank()) {
             return;
         }
+        boolean isNew = !toolsById.containsKey(e.id());
         MessagePartVO part = toolsById.computeIfAbsent(e.id(), id -> {
             MessagePartVO p = new MessagePartVO();
             p.setType("tool");
@@ -87,12 +105,19 @@ public final class TurnPartsReducer {
         if (!"done".equals(part.getStatus()) && !"error".equals(part.getStatus())) {
             part.setStatus("running");
         }
+        if (isNew) {
+            ordered.add(part);
+        }
     }
 
-    private static void applyToolResult(Map<String, MessagePartVO> toolsById, ChatStreamEvent e) {
+    private static void applyToolResult(
+            List<MessagePartVO> ordered,
+            Map<String, MessagePartVO> toolsById,
+            ChatStreamEvent e) {
         if (e.id() == null || e.id().isBlank()) {
             return;
         }
+        boolean isNew = !toolsById.containsKey(e.id());
         MessagePartVO part = toolsById.computeIfAbsent(e.id(), id -> {
             MessagePartVO p = new MessagePartVO();
             p.setType("tool");
@@ -109,6 +134,9 @@ public final class TurnPartsReducer {
         if (e.truncated() != null) {
             part.setTruncated(e.truncated());
         }
+        if (isNew) {
+            ordered.add(part);
+        }
     }
 
     /**
@@ -121,7 +149,6 @@ public final class TurnPartsReducer {
         String s = raw.trim();
         if (s.length() >= 2 && s.charAt(0) == '"' && s.charAt(s.length() - 1) == '"') {
             try {
-                // 简单去一层 JSON 字符串：\"...\" → ...
                 com.fasterxml.jackson.databind.ObjectMapper mapper =
                         new com.fasterxml.jackson.databind.ObjectMapper();
                 Object once = mapper.readValue(s, Object.class);

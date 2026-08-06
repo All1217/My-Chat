@@ -54,6 +54,12 @@ public class ChatSessionsServiceImpl extends ServiceImpl<ChatSessionsMapper, Cha
     }
 
     @Override
+    public String getKbId(String conversationId) {
+        ChatSessions session = chatSessionsMapper.selectById(conversationId);
+        return session != null ? session.getKbId() : null;
+    }
+
+    @Override
     public Result updateConversation(ChatSessionsDTO dto) {
         if (dto == null || dto.getConversationId() == null || dto.getConversationId().isEmpty()) {
             return Result.fail(NORMAL_PARAM_ERROR.getCode(), NORMAL_PARAM_ERROR.getMessage());

@@ -1,8 +1,8 @@
-package com.mychat.agent;
+package com.mychat.service;
 
-import com.mychat.agent.dto.RouteRequest;
-import com.mychat.agent.dto.RouteResultVO;
-import com.mychat.agent.patterns.RoutingWorkflow;
+import com.mychat.entity.dto.RouteRequest;
+import com.mychat.vo.RouteResultVO;
+import com.mychat.common.RoutingWorkflow;
 import com.mychat.config.WorkspaceContext;
 import com.mychat.utils.WorkspaceUtil;
 import lombok.extern.slf4j.Slf4j;
@@ -26,6 +26,7 @@ import java.util.UUID;
  *   <li>分发：本类 {@code switch} 固定路径，不是模型自己决定下一步。</li>
  *   <li>处理：各分支再发起一次（或带工具循环的）ChatClient 调用。</li>
  * </ul>
+ * 调试 API 走同步 {@link #route}；主聊天走 {@link #classify} 后由 Controller 流式分发。
  */
 @Slf4j
 @Service
@@ -54,41 +55,93 @@ public class AgentRoutingService {
     }
 
     /**
-     * 校验入参 → 分类 → 按路由调用对应处理器。
+     * 主聊天 / 调试共用：带会话约束的分类（含 kb 无 kbId 时回退 general）。
+     */
+    public RoutingWorkflow.RoutingResponse classify(String input, String kbId, String workDir) {
+        if (!StringUtils.hasText(input)) {
+            throw new IllegalArgumentException("input 不能为空");
+        }
+        String trimmed = input.trim();
+        RoutingWorkflow.RouteContext ctx = new RoutingWorkflow.RouteContext(kbId, workDir);
+        RoutingWorkflow.RoutingResponse classified = routingWorkflow.determineRoute(trimmed, ctx);
+        return applyConstraints(classified, ctx);
+    }
+
+    /**
+     * 校验入参 → 分类 → 按路由调用对应处理器（同步，供调试 API）。
      *
-     * @throws IllegalArgumentException 参数非法（如 input 为空、kb 路由缺 kbId）
+     * @throws IllegalArgumentException 参数非法（如 input 为空）
      */
     public RouteResultVO route(RouteRequest request) {
         if (request == null || !StringUtils.hasText(request.getInput())) {
             throw new IllegalArgumentException("input 不能为空");
         }
         String input = request.getInput().trim();
+        String kbId = request.getKbId();
+        String workDir = request.getWorkDir();
 
-        RoutingWorkflow.RoutingResponse classified = routingWorkflow.determineRoute(input);
+        RoutingWorkflow.RoutingResponse classified = classify(input, kbId, workDir);
         String route = classified.selection();
         String reasoning = classified.reasoning();
 
         log.info("Routing 分类结果: route={}, reasoning={}", route, reasoning);
 
-        // kb 路由在分发前校验 kbId，避免无意义的 RAG 调用
-        if ("kb".equals(route) && !StringUtils.hasText(request.getKbId())) {
+        if ("kb".equals(route) && !StringUtils.hasText(kbId)) {
+            // classify 已约束；防御性兜底
             throw new IllegalArgumentException("路由为 kb 时必须提供 kbId");
         }
 
         String answer = switch (route) {
-            case "file" -> handleFile(input);
-            case "kb" -> handleKb(input, request.getKbId().trim());
-            case "search" -> handleSearch(input);
+            case "file" -> handleFile(input, workDir);
+            case "kb" -> handleKb(input, kbId.trim());
+            case "search" -> handleSearch(input, workDir);
             default -> handleGeneral(input);
         };
 
         return new RouteResultVO(route, reasoning, answer);
     }
 
-    /** file：走 toolChatClient（FileTools），使用默认工作区根目录 */
-    private String handleFile(String input) {
+    /**
+     * 构建按 kbId 过滤的 {@link QuestionAnswerAdvisor}（主聊天 kb 路由复用）。
+     */
+    public QuestionAnswerAdvisor buildKbAdvisor(String kbId) {
+        return QuestionAnswerAdvisor.builder(vectorStore)
+                .searchRequest(SearchRequest.builder()
+                        .topK(5)
+                        .similarityThreshold(0.5)
+                        .filterExpression("kbId == '" + kbId + "'")
+                        .build())
+                .build();
+    }
+
+    /**
+     * 无 kbId 时禁止 kb；其余标签原样返回。
+     */
+    private RoutingWorkflow.RoutingResponse applyConstraints(
+            RoutingWorkflow.RoutingResponse classified,
+            RoutingWorkflow.RouteContext ctx) {
+        String selection = classified.selection();
+        String reasoning = classified.reasoning() != null ? classified.reasoning() : "";
+
+        if ("kb".equals(selection) && !ctx.hasKb()) {
+            reasoning = (reasoning.isBlank() ? "" : reasoning + " ")
+                    + "[会话未绑定知识库，已从 kb 回退为 general]";
+            selection = "general";
+            log.info("Routing 约束: kb→general（无 kbId）");
+        }
+
+        return new RoutingWorkflow.RoutingResponse(reasoning, selection);
+    }
+
+    /**
+     * file：走 toolChatClient（FileTools），优先会话 workDir，否则默认工作区
+     */
+    private String handleFile(String input, String workDir) {
         String conversationId = "agent-route-file-" + UUID.randomUUID();
-        WorkspaceContext.set(workspaceUtil.getWorkspaceRoot().toString());
+        String root = StringUtils.hasText(workDir)
+                ? workDir.trim()
+                : workspaceUtil.getWorkspaceRoot().toString();
+        WorkspaceContext.set(root);
         try {
             return toolChatClient.prompt()
                     .user(input)
@@ -100,16 +153,12 @@ public class AgentRoutingService {
         }
     }
 
-    /** kb：ragChatClient + 按 kbId 过滤的 QuestionAnswerAdvisor（同步 call） */
+    /**
+     * kb：ragChatClient + 按 kbId 过滤的 QuestionAnswerAdvisor（同步 call）
+     */
     private String handleKb(String input, String kbId) {
         String conversationId = "agent-route-kb-" + UUID.randomUUID();
-        QuestionAnswerAdvisor qaAdvisor = QuestionAnswerAdvisor.builder(vectorStore)
-                .searchRequest(SearchRequest.builder()
-                        .topK(5)
-                        .similarityThreshold(0.5)
-                        .filterExpression("kbId == '" + kbId + "'")
-                        .build())
-                .build();
+        QuestionAnswerAdvisor qaAdvisor = buildKbAdvisor(kbId);
 
         return ragChatClient.prompt()
                 .advisors(qaAdvisor)
@@ -119,10 +168,15 @@ public class AgentRoutingService {
                 .content();
     }
 
-    /** search：复用 toolChatClient，强调优先使用搜索 / 天气等 MCP 工具 */
-    private String handleSearch(String input) {
+    /**
+     * search：复用 toolChatClient，强调优先使用搜索 / 天气等 MCP 工具
+     */
+    private String handleSearch(String input, String workDir) {
         String conversationId = "agent-route-search-" + UUID.randomUUID();
-        WorkspaceContext.set(workspaceUtil.getWorkspaceRoot().toString());
+        String root = StringUtils.hasText(workDir)
+                ? workDir.trim()
+                : workspaceUtil.getWorkspaceRoot().toString();
+        WorkspaceContext.set(root);
         try {
             return toolChatClient.prompt()
                     .system("""
@@ -138,7 +192,9 @@ public class AgentRoutingService {
         }
     }
 
-    /** general：无工具纯对话 */
+    /**
+     * general：无工具纯对话
+     */
     private String handleGeneral(String input) {
         return agentWorkflowChatClient.prompt()
                 .system("你是友好的助手，用简洁中文回答用户的一般问题。")

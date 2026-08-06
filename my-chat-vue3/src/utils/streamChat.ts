@@ -1,7 +1,6 @@
 /**
  * 流式聊天工具
- * 普通聊天：NDJSON 事件流（?format=ndjson）
- * 知识库 RAG：仍为纯文本 chunk（后端尚无 ndjson）
+ * 统一走 normalChat NDJSON（含 Routing）；可选附带 kbId 供分类与 kb 路由。
  */
 
 import type { ChatStreamEvent } from '@/types/AiModule/streamEvents'
@@ -11,9 +10,9 @@ export interface ChatStreamOptions {
   chatId: string
   kbId?: string
   files?: File[]
-  /** RAG / 纯文本路径 */
+  /** 兼容旧 RAG 纯文本（本路径已不再使用） */
   onMessage?: (chunk: string) => void
-  /** 普通聊天 NDJSON 路径 */
+  /** NDJSON 事件 */
   onEvent?: (event: ChatStreamEvent) => void
   onComplete: () => void
   onError: (error: Error) => void
@@ -24,7 +23,7 @@ export interface ChatStreamOptions {
  * @returns 取消请求的函数
  */
 export function streamChat(options: ChatStreamOptions): () => void {
-  const { prompt, chatId, kbId, files, onMessage, onEvent, onComplete, onError } = options
+  const { prompt, chatId, kbId, files, onEvent, onComplete, onError } = options
 
   const formData = new FormData()
   formData.append('prompt', prompt)
@@ -36,14 +35,12 @@ export function streamChat(options: ChatStreamOptions): () => void {
     })
   }
 
-  const useNdjson = !kbId
   if (kbId) {
     formData.append('kbId', kbId)
   }
-  // 普通聊天固定请求 NDJSON；RAG 不加 format，保持旧协议
-  const url = kbId
-    ? '/rag/ai/ragChat/chat'
-    : '/rag/ai/normalChat/chat?format=ndjson'
+
+  // 统一入口：后端 Routing 分发 file/kb/search/general
+  const url = '/rag/ai/normalChat/chat?format=ndjson'
 
   const controller = new AbortController()
 
@@ -68,7 +65,7 @@ export function streamChat(options: ChatStreamOptions): () => void {
         while (true) {
           const { done, value } = await reader.read()
           if (done) {
-            if (useNdjson && lineBuffer.trim()) {
+            if (lineBuffer.trim()) {
               flushNdjsonLine(lineBuffer, onEvent)
               lineBuffer = ''
             }
@@ -77,16 +74,11 @@ export function streamChat(options: ChatStreamOptions): () => void {
           }
 
           const chunk = decoder.decode(value, { stream: true })
-          if (useNdjson) {
-            lineBuffer += chunk
-            const lines = lineBuffer.split('\n')
-            // 最后一段可能不完整，留在 buffer
-            lineBuffer = lines.pop() ?? ''
-            for (const line of lines) {
-              flushNdjsonLine(line, onEvent)
-            }
-          } else {
-            onMessage?.(chunk)
+          lineBuffer += chunk
+          const lines = lineBuffer.split('\n')
+          lineBuffer = lines.pop() ?? ''
+          for (const line of lines) {
+            flushNdjsonLine(line, onEvent)
           }
         }
       } catch (error) {

@@ -1,5 +1,5 @@
 /**
- * 与后端 ChatStreamEvent NDJSON 协议对齐（进阶 3 · 第 2 周）。
+ * 与后端 ChatStreamEvent NDJSON 协议对齐（含 Routing route 事件）。
  */
 
 export type ChatStreamEventType =
@@ -7,6 +7,7 @@ export type ChatStreamEventType =
   | 'text_delta'
   | 'tool_call'
   | 'tool_result'
+  | 'route'
   | 'error'
   | 'done'
 
@@ -15,8 +16,10 @@ export interface ChatStreamEvent {
   type: ChatStreamEventType
   turnId: string
   seq: number
+  /** text_delta / thinking_delta 正文；route 事件为分类理由 */
   text?: string
   id?: string
+  /** tool 名；route 事件为路由标签 file|kb|search|general */
   name?: string
   args?: unknown
   ok?: boolean
@@ -30,6 +33,13 @@ export type MessagePart =
   | { type: 'thinking'; text: string }
   | { type: 'text'; text: string }
   | {
+    type: 'route'
+    id: string
+    /** file | kb | search | general */
+    route: string
+    reasoning?: string
+  }
+  | {
     type: 'tool'
     id: string
     name: string
@@ -40,3 +50,4 @@ export type MessagePart =
   }
 
 export type ToolMessagePart = Extract<MessagePart, { type: 'tool' }>
+export type RouteMessagePart = Extract<MessagePart, { type: 'route' }>

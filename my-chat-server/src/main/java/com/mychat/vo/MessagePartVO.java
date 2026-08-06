@@ -12,13 +12,13 @@ import lombok.Data;
 @Schema(description = "助手消息片段（工具时间线）")
 public class MessagePartVO {
 
-    @Schema(description = "片段类型，回放场景固定为 tool")
+    @Schema(description = "片段类型：tool | route")
     private String type;
 
-    @Schema(description = "工具调用 id，与 tool_call / tool_result 对齐")
+    @Schema(description = "工具调用 id，或 route 片段 id")
     private String id;
 
-    @Schema(description = "工具名，如 ls / cat")
+    @Schema(description = "工具名（ls/cat…）或路由标签（file/kb/search/general）")
     private String name;
 
     @Schema(description = "调用参数")
@@ -27,7 +27,7 @@ public class MessagePartVO {
     @Schema(description = "running | done | error | cancelled")
     private String status;
 
-    @Schema(description = "结果预览（已 unwrap）")
+    @Schema(description = "工具结果预览，或路由分类理由")
     private String resultPreview;
 
     @Schema(description = "工具是否成功")

@@ -1,4 +1,4 @@
-package com.mychat.agent.dto;
+package com.mychat.vo;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

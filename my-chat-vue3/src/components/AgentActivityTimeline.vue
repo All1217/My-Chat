@@ -1,9 +1,18 @@
 <template>
-  <div v-if="toolParts.length" class="agent-timeline">
+  <div v-if="timelineParts.length" class="agent-timeline">
     <el-timeline>
-      <el-timeline-item v-for="part in toolParts" :key="part.id" :type="timelineType(part.status)"
-        :hollow="part.status === 'running'">
-        <div class="tool-row">
+      <el-timeline-item v-for="part in timelineParts" :key="partKey(part)"
+        :type="itemType(part)" :hollow="isRunning(part)">
+        <!-- 路由决策 -->
+        <div v-if="part.type === 'route'" class="route-row">
+          <span class="tool-title">
+            路由 → {{ routeLabel(part.route) }}
+            <el-tag size="small" type="info" effect="plain">已分流</el-tag>
+          </span>
+          <div v-if="part.reasoning" class="route-reason">{{ part.reasoning }}</div>
+        </div>
+        <!-- 工具调用 -->
+        <div v-else-if="part.type === 'tool'" class="tool-row">
           <span class="tool-title">
             <el-icon v-if="part.status === 'running'" class="is-loading" :size="14">
               <Loading />
@@ -34,16 +43,44 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Loading } from '@element-plus/icons-vue'
-import type { MessagePart, ToolMessagePart } from '@/types/AiModule/streamEvents'
+import type { MessagePart, RouteMessagePart, ToolMessagePart } from '@/types/AiModule/streamEvents'
 import { toolDisplayName } from '@/utils/toolDisplayNames'
 
 const props = defineProps<{
   parts?: MessagePart[] | null
 }>()
 
-const toolParts = computed(() =>
-  (props.parts ?? []).filter((p): p is ToolMessagePart => p.type === 'tool'),
+type TimelinePart = ToolMessagePart | RouteMessagePart
+
+const ROUTE_LABELS: Record<string, string> = {
+  file: '文件工具',
+  kb: '知识库',
+  search: '联网搜索',
+  general: '普通对话',
+}
+
+const timelineParts = computed(() =>
+  (props.parts ?? []).filter(
+    (p): p is TimelinePart => p.type === 'tool' || p.type === 'route',
+  ),
 )
+
+function partKey(part: TimelinePart) {
+  return part.type === 'route' ? part.id : part.id
+}
+
+function isRunning(part: TimelinePart) {
+  return part.type === 'tool' && part.status === 'running'
+}
+
+function itemType(part: TimelinePart) {
+  if (part.type === 'route') return 'info'
+  return timelineType(part.status)
+}
+
+function routeLabel(route: string) {
+  return ROUTE_LABELS[route] ?? route
+}
 
 function timelineType(status: ToolMessagePart['status']) {
   switch (status) {
@@ -130,7 +167,8 @@ function formatJson(value: unknown): string {
   }
 }
 
-.tool-row {
+.tool-row,
+.route-row {
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -143,6 +181,12 @@ function formatJson(value: unknown): string {
   font-size: 13px;
   font-weight: 500;
   color: #303133;
+}
+
+.route-reason {
+  font-size: 12px;
+  color: #909399;
+  line-height: 1.45;
 }
 
 .detail-block {

@@ -1,4 +1,4 @@
-package com.mychat.utils.advisor;
+package com.mychat.utils;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;

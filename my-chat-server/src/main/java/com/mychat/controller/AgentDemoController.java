@@ -1,8 +1,8 @@
 package com.mychat.controller;
 
-import com.mychat.agent.AgentRoutingService;
-import com.mychat.agent.dto.RouteRequest;
-import com.mychat.agent.dto.RouteResultVO;
+import com.mychat.service.AgentRoutingService;
+import com.mychat.entity.dto.RouteRequest;
+import com.mychat.vo.RouteResultVO;
 import com.mychat.common.result.Result;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,7 +14,8 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * Agent Workflow 调试 API（旁路，不进入主聊天流）。
  * <p>
- * 阶段 E：Routing — {@code POST /ai/agent/route}
+ * 主聊天已接入同一套 {@link AgentRoutingService#classify}；
+ * 本接口保留同步 {@code POST /ai/agent/route} 便于 curl 验收。
  */
 @Slf4j
 @RestController

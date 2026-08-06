@@ -2,7 +2,7 @@ package com.mychat.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.mychat.chat.stream.TurnPartsReducer;
+import com.mychat.utils.TurnPartsReducer;
 import com.mychat.common.ChatStreamEvent;
 import com.mychat.entity.po.ChatAssistantTurn;
 import com.mychat.vo.ChatMessageVO;

@@ -1,19 +1,22 @@
 package com.mychat.controller;
 
-import com.mychat.utils.advisor.ObservabilityStreamAdvisor;
+import com.mychat.service.AgentRoutingService;
+import com.mychat.common.RoutingWorkflow;
+import com.mychat.utils.ObservabilityStreamAdvisor;
 import com.mychat.common.ChatStreamEvent;
 import com.mychat.utils.ChatStreamEventWriter;
 import com.mychat.config.WorkspaceContext;
 import com.mychat.service.ChatAssistantTurnService;
 import com.mychat.service.ChatSessionsService;
 import com.mychat.utils.WorkspaceUtil;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.util.StringUtils;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.util.MimeType;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -36,24 +39,45 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * 普通对话流式端点。
+ * 主聊天流式端点（含 Routing Workflow 分发）。
  * <p>
- * {@code format} 缺省 / {@code plain}：保持历史 {@code text/html} 行为（ChatBox 兼容）。<br>
- * {@code format=ndjson}：进阶 3 可观测事件流（第 1 周用 curl 验收；前端第 2 周再接）。
+ * {@code format} 缺省 / {@code plain}：保持历史 {@code text/html} 行为。<br>
+ * {@code format=ndjson}：结构化事件流（含 {@code route} + 工具观测）。
+ * <p>
+ * 可选 {@code kbId}：请求参数优先，否则读会话绑定；供分类器约束与 kb 路由使用。
  */
 @Slf4j
-@RequiredArgsConstructor
 @RestController
 @RequestMapping("/ai/normalChat")
 public class ChatController {
     private final ChatClient toolChatClient;
+    private final ChatClient ragChatClient;
+    private final AgentRoutingService agentRoutingService;
     private final ChatSessionsService chatSessionsService;
     private final ChatAssistantTurnService chatAssistantTurnService;
     private final WorkspaceUtil workspaceUtil;
     private final ChatStreamEventWriter eventWriter;
 
+    public ChatController(
+            @Qualifier("toolChatClient") ChatClient toolChatClient,
+            @Qualifier("ragChatClient") ChatClient ragChatClient,
+            AgentRoutingService agentRoutingService,
+            ChatSessionsService chatSessionsService,
+            ChatAssistantTurnService chatAssistantTurnService,
+            WorkspaceUtil workspaceUtil,
+            ChatStreamEventWriter eventWriter) {
+        this.toolChatClient = toolChatClient;
+        this.ragChatClient = ragChatClient;
+        this.agentRoutingService = agentRoutingService;
+        this.chatSessionsService = chatSessionsService;
+        this.chatAssistantTurnService = chatAssistantTurnService;
+        this.workspaceUtil = workspaceUtil;
+        this.eventWriter = eventWriter;
+    }
+
     /**
      * @param format {@code plain}（默认）或 {@code ndjson}
+     * @param kbId   可选；覆盖或补充会话绑定的知识库
      */
     @RequestMapping(value = "/chat")
     public Flux<String> chat(
@@ -61,10 +85,10 @@ public class ChatController {
             @RequestParam("chatId") String chatId,
             @RequestParam(value = "files", required = false) List<MultipartFile> files,
             @RequestParam(value = "format", required = false) String format,
+            @RequestParam(value = "kbId", required = false) String kbId,
             HttpServletResponse response) {
 
         boolean ndjson = "ndjson".equalsIgnoreCase(format);
-        // Servlet 栈：按 format 动态设置 Content-Type（默认 plain 保持 ChatBox 兼容）
         if (ndjson) {
             response.setCharacterEncoding(StandardCharsets.UTF_8.name());
             response.setContentType("application/x-ndjson;charset=UTF-8");
@@ -74,16 +98,28 @@ public class ChatController {
         }
 
         bindWorkspace(chatId);
+        String effectiveKbId = resolveKbId(chatId, kbId);
 
         Flux<String> body;
         if (files == null || files.isEmpty()) {
-            body = ndjson ? textChatNdjson(prompt, chatId) : textChatPlain(prompt, chatId);
+            body = ndjson
+                    ? textChatNdjson(prompt, chatId, effectiveKbId)
+                    : textChatPlain(prompt, chatId, effectiveKbId);
         } else {
+            // 带附件：固定走工具路径（file），仍发 route 事件便于时间线
             body = ndjson
                     ? multiModalChatNdjson(prompt, chatId, files)
                     : multiModalChatPlain(prompt, chatId, files);
         }
         return body.doFinally(signalType -> WorkspaceContext.clear());
+    }
+
+    private String resolveKbId(String chatId, String requestKbId) {
+        if (StringUtils.hasText(requestKbId)) {
+            return requestKbId.trim();
+        }
+        String sessionKb = chatSessionsService.getKbId(chatId);
+        return StringUtils.hasText(sessionKb) ? sessionKb.trim() : null;
     }
 
     private void bindWorkspace(String chatId) {
@@ -99,17 +135,47 @@ public class ChatController {
     }
 
     // -------------------------------------------------------------------------
-    // plain：与改造前语义一致，供现有 ChatBox 使用
+    // plain：与改造前语义一致，仍做 Routing 分发（无 NDJSON 事件）
     // -------------------------------------------------------------------------
 
-    private Flux<String> textChatPlain(String prompt, String chatId) {
-        return toolChatClient.prompt()
-                .system(buildWorkspaceSystemPrompt())
-                .user(prompt)
-                .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, chatId))
-                .stream()
-                .chatResponse()
-                .map(this::toThinkingResponse);
+    private Flux<String> textChatPlain(String prompt, String chatId, String kbId) {
+        RoutingWorkflow.RoutingResponse classified =
+                agentRoutingService.classify(prompt, kbId, WorkspaceContext.get());
+        log.info("plain Routing: route={}, reasoning={}", classified.selection(), classified.reasoning());
+        return streamByRoutePlain(classified.selection(), prompt, chatId, kbId);
+    }
+
+    private Flux<String> streamByRoutePlain(String route, String prompt, String chatId, String kbId) {
+        return switch (route) {
+            case "kb" -> ragChatClient.prompt()
+                    .advisors(agentRoutingService.buildKbAdvisor(kbId))
+                    .user(prompt)
+                    .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, chatId))
+                    .stream()
+                    .chatResponse()
+                    .map(this::toThinkingResponse);
+            case "search" -> toolChatClient.prompt()
+                    .system(SEARCH_SYSTEM_PROMPT)
+                    .user(prompt)
+                    .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, chatId))
+                    .stream()
+                    .chatResponse()
+                    .map(this::toThinkingResponse);
+            case "file" -> toolChatClient.prompt()
+                    .system(buildWorkspaceSystemPrompt())
+                    .user(prompt)
+                    .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, chatId))
+                    .stream()
+                    .chatResponse()
+                    .map(this::toThinkingResponse);
+            default -> ragChatClient.prompt()
+                    .system(GENERAL_SYSTEM_PROMPT)
+                    .user(prompt)
+                    .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, chatId))
+                    .stream()
+                    .chatResponse()
+                    .map(this::toThinkingResponse);
+        };
     }
 
     private Flux<String> multiModalChatPlain(String prompt, String chatId, List<MultipartFile> files) {
@@ -141,31 +207,78 @@ public class ChatController {
     }
 
     // -------------------------------------------------------------------------
-    // ndjson：旁路观测 + 结构化事件（不影响 Memory / ToolCallingAdvisor）
+    // ndjson：Routing 事件 + 旁路观测
     // -------------------------------------------------------------------------
 
-    private Flux<String> textChatNdjson(String prompt, String chatId) {
+    private Flux<String> textChatNdjson(String prompt, String chatId, String kbId) {
         String turnId = chatId + "-" + UUID.randomUUID();
         AtomicInteger seq = new AtomicInteger(0);
         Sinks.Many<ChatStreamEvent> sink = Sinks.many().replay().limit(1024);
-        // 与 Sink 并行累积，流结束后异步归约落库（chat_assistant_turns）
         List<ChatStreamEvent> accumulated = Collections.synchronizedList(new ArrayList<>());
         ObservabilityStreamAdvisor obs =
                 new ObservabilityStreamAdvisor(turnId, seq, sink, eventWriter.getObjectMapper(), accumulated);
 
-        Mono<Void> drive = toolChatClient.prompt()
-                .system(buildWorkspaceSystemPrompt())
-                .user(prompt)
-                .advisors(obs)
-                .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, chatId))
-                .stream()
-                .chatResponse()
-                .doOnNext(cr -> emitTextEvents(sink, turnId, seq, cr, accumulated))
+        // 分类在请求线程同步执行，避免 subscribeOn 丢失 WorkspaceContext 传播起点
+        RoutingWorkflow.RoutingResponse classified =
+                agentRoutingService.classify(prompt, kbId, WorkspaceContext.get());
+        log.info("ndjson Routing: route={}, reasoning={}",
+                classified.selection(), classified.reasoning());
+        emitTracked(sink, accumulated, ChatStreamEvent.route(
+                turnId, seq, classified.selection(), classified.reasoning()));
+
+        Mono<Void> drive = streamByRouteNdjson(
+                classified.selection(), prompt, chatId, kbId, obs, sink, turnId, seq, accumulated)
                 .doOnError(e -> emitError(sink, turnId, seq, e, accumulated))
-                .doFinally(signal -> completeSink(sink, turnId, seq, signal, chatId, accumulated))
-                .then();
+                .doFinally(signal -> completeSink(sink, turnId, seq, signal, chatId, accumulated));
 
         return mergeNdjson(sink, drive);
+    }
+
+    private Mono<Void> streamByRouteNdjson(
+            String route,
+            String prompt,
+            String chatId,
+            String kbId,
+            ObservabilityStreamAdvisor obs,
+            Sinks.Many<ChatStreamEvent> sink,
+            String turnId,
+            AtomicInteger seq,
+            List<ChatStreamEvent> accumulated) {
+
+        Flux<ChatResponse> responses = switch (route) {
+            case "kb" -> ragChatClient.prompt()
+                    .advisors(agentRoutingService.buildKbAdvisor(kbId))
+                    .advisors(obs)
+                    .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, chatId))
+                    .user(prompt)
+                    .stream()
+                    .chatResponse();
+            case "search" -> toolChatClient.prompt()
+                    .system(SEARCH_SYSTEM_PROMPT)
+                    .user(prompt)
+                    .advisors(obs)
+                    .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, chatId))
+                    .stream()
+                    .chatResponse();
+            case "file" -> toolChatClient.prompt()
+                    .system(buildWorkspaceSystemPrompt())
+                    .user(prompt)
+                    .advisors(obs)
+                    .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, chatId))
+                    .stream()
+                    .chatResponse();
+            default -> ragChatClient.prompt()
+                    .system(GENERAL_SYSTEM_PROMPT)
+                    .user(prompt)
+                    .advisors(obs)
+                    .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, chatId))
+                    .stream()
+                    .chatResponse();
+        };
+
+        return responses
+                .doOnNext(cr -> emitTextEvents(sink, turnId, seq, cr, accumulated))
+                .then();
     }
 
     private Flux<String> multiModalChatNdjson(String prompt, String chatId, List<MultipartFile> files) {
@@ -175,6 +288,9 @@ public class ChatController {
         List<ChatStreamEvent> accumulated = Collections.synchronizedList(new ArrayList<>());
         ObservabilityStreamAdvisor obs =
                 new ObservabilityStreamAdvisor(turnId, seq, sink, eventWriter.getObjectMapper(), accumulated);
+
+        emitTracked(sink, accumulated, ChatStreamEvent.route(
+                turnId, seq, "file", "用户上传了附件，固定走 file / 工具路径"));
 
         PromptParts parts = buildMultiModalParts(prompt, files);
 
@@ -219,7 +335,6 @@ public class ChatController {
         );
     }
 
-    /** 先写入累积列表再发 Sink，保证落库与 NDJSON 同源 */
     private void emitTracked(Sinks.Many<ChatStreamEvent> sink,
                              List<ChatStreamEvent> accumulated,
                              ChatStreamEvent event) {
@@ -235,7 +350,6 @@ public class ChatController {
         if (response == null || response.getResult() == null) {
             return;
         }
-        // 工具调用帧由 ObservabilityStreamAdvisor 处理；此处只发最终/文本与 thinking
         if (response.hasToolCalls()) {
             return;
         }
@@ -272,7 +386,6 @@ public class ChatController {
         }
         sink.tryEmitComplete();
 
-        // 禁止阻塞序列化线程：异步归约并写入 chat_assistant_turns
         boolean cancelledOrError = signal == SignalType.CANCEL || signal == SignalType.ON_ERROR;
         List<ChatStreamEvent> snapshot = List.copyOf(accumulated);
         Mono.fromRunnable(() -> chatAssistantTurnService.saveTurnFromEvents(
@@ -287,6 +400,14 @@ public class ChatController {
     // -------------------------------------------------------------------------
     // 多模态公共拼装
     // -------------------------------------------------------------------------
+
+    private static final String GENERAL_SYSTEM_PROMPT =
+            "你是友好的助手，用简洁中文回答用户的一般问题。不要尝试调用外部工具。";
+
+    private static final String SEARCH_SYSTEM_PROMPT = """
+            当前请求已路由到 search。请优先调用可用的远程 MCP 工具
+            （网页搜索、天气查询等）获取信息后再回答；不要编造实时数据。
+            """;
 
     private record PromptParts(String systemMsg, String userPrompt, List<MultipartFile> images) {
     }
@@ -371,7 +492,6 @@ public class ChatController {
         return String.format("%.1f MB", bytes / (1024.0 * 1024.0));
     }
 
-    /** plain 路径：统一处理 AI 响应中的 thinking 标签（保持旧协议） */
     private String toThinkingResponse(ChatResponse response) {
         String content = response.getResult().getOutput().getText();
         var metadata = response.getResult().getMetadata();

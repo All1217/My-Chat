@@ -106,6 +106,16 @@ export function useChatStream(
 
     function applyStreamEvent(event: ChatStreamEvent) {
         switch (event.type) {
+            case 'route': {
+                const route = event.name ?? 'general'
+                streamingParts.value.push({
+                    type: 'route',
+                    id: `route-${event.seq}`,
+                    route,
+                    reasoning: event.text,
+                })
+                break
+            }
             case 'thinking_delta':
                 if (event.text) {
                     streamingThinking.value += event.text
@@ -171,7 +181,6 @@ export function useChatStream(
                 }
                 break
             case 'done':
-                // HTTP 流结束时还会调 onComplete；此处不重复落库
                 break
             default:
                 break
@@ -186,20 +195,13 @@ export function useChatStream(
         streamingParts.value = []
 
         const kbId = chatStore.kbId ?? undefined
-        const useNdjson = !kbId
 
         stopStreamingFn = streamChat({
             prompt,
             chatId,
             kbId,
             files,
-            onMessage: useNdjson
-                ? undefined
-                : (chunk) => {
-                    streamingContent.value += chunk
-                    scrollToBottom()
-                },
-            onEvent: useNdjson ? applyStreamEvent : undefined,
+            onEvent: applyStreamEvent,
             onComplete: () => {
                 commitAssistantMessage()
                 resetStreamingState()
@@ -266,9 +268,33 @@ export function useChatStream(
                     })
                 }
             }
-            messages.value = split
+            messages.value = split.map(normalizeMessageParts)
             scrollToBottom(true)
         } catch { /* 已 toast */ }
+    }
+
+    /** 后端 MessagePartVO（route.name / resultPreview）→ 前端 MessagePart */
+    function normalizeMessageParts(msg: Message): Message {
+        if (!msg.parts?.length) return msg
+        return {
+            ...msg,
+            parts: msg.parts.map((p) => {
+                if (p.type !== 'route') return p
+                const raw = p as unknown as {
+                    id?: string
+                    name?: string
+                    route?: string
+                    reasoning?: string
+                    resultPreview?: string
+                }
+                return {
+                    type: 'route' as const,
+                    id: raw.id ?? `route-${raw.name ?? raw.route ?? 'general'}`,
+                    route: raw.route ?? raw.name ?? 'general',
+                    reasoning: raw.reasoning ?? raw.resultPreview,
+                }
+            }),
+        }
     }
 
     return {

@@ -1,9 +1,12 @@
 package com.mychat.controller;
 
-import com.mychat.service.AgentRoutingService;
+import com.mychat.entity.dto.OrchestrateRequest;
 import com.mychat.entity.dto.RouteRequest;
+import com.mychat.vo.OrchestrateResultVO;
 import com.mychat.vo.RouteResultVO;
 import com.mychat.common.result.Result;
+import com.mychat.service.AgentOrchestratorService;
+import com.mychat.service.AgentRoutingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -14,8 +17,8 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * Agent Workflow 调试 API（旁路，不进入主聊天流）。
  * <p>
- * 主聊天已接入同一套 {@link AgentRoutingService#classify}；
- * 本接口保留同步 {@code POST /ai/agent/route} 便于 curl 验收。
+ * {@code POST /ai/agent/route} — 单次 Routing；
+ * {@code POST /ai/agent/orchestrate} — 回合内 Orchestrator-Workers。
  */
 @Slf4j
 @RestController
@@ -24,6 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AgentDemoController {
 
     private final AgentRoutingService agentRoutingService;
+    private final AgentOrchestratorService agentOrchestratorService;
 
     /**
      * 路由调试：先分类再分发到 file / kb / search / general。
@@ -42,6 +46,26 @@ public class AgentDemoController {
         } catch (Exception e) {
             log.error("Routing 执行失败", e);
             return Result.fail("Routing 执行失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Orchestrator-Workers 调试：多步 next_action → 专用 Worker，返回 steps + finalAnswer。
+     * <p>
+     * 请求示例：
+     * {@code { "input": "根据知识库总结 X，并搜索补充近况", "kbId": "...", "maxSteps": 6 }}
+     */
+    @PostMapping("/orchestrate")
+    public Result<OrchestrateResultVO> orchestrate(@RequestBody OrchestrateRequest request) {
+        try {
+            OrchestrateResultVO vo = agentOrchestratorService.orchestrate(request);
+            return Result.ok(vo);
+        } catch (IllegalArgumentException e) {
+            log.warn("Orchestrate 参数错误: {}", e.getMessage());
+            return Result.fail(400, e.getMessage());
+        } catch (Exception e) {
+            log.error("Orchestrate 执行失败", e);
+            return Result.fail("Orchestrate 执行失败: " + e.getMessage());
         }
     }
 }

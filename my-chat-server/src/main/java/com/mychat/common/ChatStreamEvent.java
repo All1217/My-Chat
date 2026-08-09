@@ -34,6 +34,17 @@ public record ChatStreamEvent(
     public static final String TYPE_TOOL_RESULT = "tool_result";
     /** Routing Workflow 分类结果：name=路由标签，text=分类理由 */
     public static final String TYPE_ROUTE = "route";
+    /**
+     * Orchestrator / 质量环步骤。
+     * <ul>
+     *   <li>{@code id} — step-{index}</li>
+     *   <li>{@code name} — action（retrieve_kb / file / search / general / finish / evaluate_optimize）</li>
+     *   <li>{@code text} — reasoning</li>
+     *   <li>{@code args} — 含 instruction、stepIndex 等</li>
+     *   <li>{@code preview} — observation 截断预览</li>
+     * </ul>
+     */
+    public static final String TYPE_STEP = "step";
     public static final String TYPE_ERROR = "error";
     public static final String TYPE_DONE = "done";
 
@@ -56,6 +67,42 @@ public record ChatStreamEvent(
     public static ChatStreamEvent route(String turnId, AtomicInteger seq, String route, String reasoning) {
         return new ChatStreamEvent(VERSION, TYPE_ROUTE, turnId, seq.incrementAndGet(),
                 reasoning, null, route, null, null, null, null, null);
+    }
+
+    /**
+     * 编排 / 质量环单步事件（复用 name/text/preview/args，避免扩大 record）。
+     *
+     * @param stepIndex          从 1 开始
+     * @param action             next_action 或 evaluate_optimize
+     * @param reasoning          简要理由
+     * @param instruction        子任务指令（可空）
+     * @param observationPreview Worker 观察预览（可空）
+     */
+    public static ChatStreamEvent step(
+            String turnId,
+            AtomicInteger seq,
+            int stepIndex,
+            String action,
+            String reasoning,
+            String instruction,
+            String observationPreview) {
+        String[] trunc = truncatePreview(observationPreview);
+        Map<String, Object> args = Map.of(
+                "stepIndex", stepIndex,
+                "instruction", instruction != null ? instruction : "");
+        return new ChatStreamEvent(
+                VERSION,
+                TYPE_STEP,
+                turnId,
+                seq.incrementAndGet(),
+                reasoning,
+                "step-" + stepIndex,
+                action,
+                args,
+                null,
+                trunc[0],
+                Boolean.parseBoolean(trunc[1]),
+                null);
     }
 
     public static ChatStreamEvent toolCall(String turnId, AtomicInteger seq,

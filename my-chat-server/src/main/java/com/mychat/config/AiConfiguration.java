@@ -1,6 +1,7 @@
 package com.mychat.config;
 
 import com.mychat.tools.FileTools;
+import com.mychat.tools.WebSearchTools;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.SimpleLoggerAdvisor;
@@ -9,6 +10,8 @@ import org.springframework.ai.chat.memory.MessageWindowChatMemory;
 import org.springframework.ai.chat.memory.repository.jdbc.JdbcChatMemoryRepository;
 import org.springframework.ai.mcp.SyncMcpToolCallbackProvider;
 import org.springframework.ai.openai.OpenAiChatModel;
+import org.springframework.ai.tool.execution.DefaultToolExecutionExceptionProcessor;
+import org.springframework.ai.tool.execution.ToolExecutionExceptionProcessor;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -28,29 +31,41 @@ public class AiConfiguration {
     }
 
     /**
-     * 普通对话：本地 FileTools + 远程 MCP 工具。
+     * MCP / 工具失败时把错误作为 tool result 回灌模型，而不是中断整次 {@code ChatClient.call()}。
+     * <p>
+     * 默认 alwaysThrow=true 时，Exa Cloudflare 403 等会直接打断 Orchestrator search Worker；
+     * alwaysThrow=false 后模型可收尾说明「联网暂不可用」，编排循环也能拿到 observation。
+     */
+    @Bean
+    public ToolExecutionExceptionProcessor toolExecutionExceptionProcessor() {
+        return new DefaultToolExecutionExceptionProcessor(false);
+    }
+
+    /**
+     * 普通对话：本地 FileTools + WebSearchTools + 远程 MCP。
      * <p>
      * Spring AI 2.0：MCP 工具不会自动挂到 ChatClient，必须显式注入
      * {@link SyncMcpToolCallbackProvider} 并调用 {@code defaultTools(...)}。
-     * 用 ObjectProvider 软依赖：MCP Client starter 未生效时仍可仅用 FileTools 启动。
+     * {@link WebSearchTools#searchWeb} 绕开 Smithery→mcp.exa.ai 的 Cloudflare 403。
      */
     @Bean
     public ChatClient toolChatClient(OpenAiChatModel model,
                                      ChatMemory chatMemory,
                                      FileTools fileTools,
+                                     WebSearchTools webSearchTools,
                                      ObjectProvider<SyncMcpToolCallbackProvider> mcpTools) {
         ChatClient.Builder builder = ChatClient.builder(model)
                 .defaultSystem("""
                         涉及文件的查看、创建、写入、修改、删除、重命名、复制操作，请积极调用可用工具执行。
-                        若可用远程 MCP 工具（如天气查询 get_weather、网页搜索类 Exa/Smithery 工具），请按需调用。
+                        需要联网搜索时优先调用 searchWeb；天气等再按需使用远程 MCP。
                         """)
                 .defaultAdvisors(
                         new SimpleLoggerAdvisor(),
                         MessageChatMemoryAdvisor.builder(chatMemory).build()
                 )
-                .defaultTools(fileTools);
+                .defaultTools(fileTools, webSearchTools);
 
-        // 有 SyncMcpToolCallbackProvider 时合并远程 MCP 工具（append，不覆盖 FileTools）
+        // 有 SyncMcpToolCallbackProvider 时合并远程 MCP 工具（append，不覆盖本地工具）
         mcpTools.ifAvailable(builder::defaultTools);
 
         return builder.build();

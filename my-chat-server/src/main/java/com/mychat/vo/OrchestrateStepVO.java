@@ -21,9 +21,12 @@ public class OrchestrateStepVO {
     /** 编排器给出的理由 */
     private String reasoning;
 
-    /** 交给 Worker 的子任务；finish 时可为最终答复草稿 */
+    /** 交给 Worker 的子任务；finish 时为编排器给出的最终答复草稿（可能是提纲） */
     private String instruction;
 
-    /** Worker 观察结果（已截断）；finish 步可为空 */
+    /**
+     * Worker 观察（编排历史侧可较长）；finish 步为已决议的用户可见最终答复
+     * （与主气泡 / Memory 一致，可能由 observation 合成兜底产生）。
+     */
     private String observation;
 }

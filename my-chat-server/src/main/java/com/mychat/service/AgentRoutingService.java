@@ -179,10 +179,7 @@ public class AgentRoutingService {
         WorkspaceContext.set(root);
         try {
             return toolChatClient.prompt()
-                    .system("""
-                            当前请求已路由到 search。请优先调用可用的远程 MCP 工具
-                            （网页搜索、天气查询等）获取信息后再回答；不要编造实时数据。
-                            """)
+                    .system(com.mychat.utils.SearchSystemPrompts.SEARCH)
                     .user(input)
                     .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationId))
                     .call()

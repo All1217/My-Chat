@@ -1,0 +1,45 @@
+### 任务内质量环（Evaluator-Optimizer）验收 — 需后端 8100 已启动
+### 说明：写盘 → 读回 → 评价 → 不合格再改；不是离线评测
+
+### 1) 期望达标（含硬门禁 mustContain）
+POST http://localhost:8100/ai/agent/evaluate-optimize
+Content-Type: application/json
+
+{
+  "goal": "在工作区创建 notes/java-oop.md，用中文简明介绍封装、继承、多态",
+  "path": "notes/java-oop.md",
+  "criteria": "必须是 Markdown；须分别包含二级标题 封装、继承、多态；每节至少两句中文说明；不要空文件",
+  "mustContain": ["## 封装", "## 继承", "## 多态"],
+  "maxIterations": 3
+}
+
+### 2) 质量环多轮：标准偏严，观察 rounds >= 2 或最终改进
+POST http://localhost:8100/ai/agent/evaluate-optimize
+Content-Type: application/json
+
+{
+  "goal": "写一份极简 README 到 notes/demo-readme.md",
+  "path": "notes/demo-readme.md",
+  "criteria": "必须含标题、安装步骤、三个功能列表项，且全文不少于 120 个汉字",
+  "mustContain": ["# ", "安装", "- "],
+  "maxIterations": 3
+}
+
+### 3) 上限：maxIterations=1
+POST http://localhost:8100/ai/agent/evaluate-optimize
+Content-Type: application/json
+
+{
+  "goal": "写一个空壳说明到 notes/tiny.md",
+  "path": "notes/tiny.md",
+  "criteria": "必须包含完整 API 文档、十个接口示例与架构图文字描述",
+  "maxIterations": 1
+}
+
+### 4) 回归：Routing 未破坏
+POST http://localhost:8100/ai/agent/route
+Content-Type: application/json
+
+{
+  "input": "列出工作区文件"
+}

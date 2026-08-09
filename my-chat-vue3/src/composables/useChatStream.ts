@@ -6,7 +6,7 @@ import { chatApi } from '@/api/chat'
 import { ElMessage } from 'element-plus'
 import { MessageType } from '@/types/AiModule/enums'
 import type { Message } from '@/types/AiModule/types'
-import type { ChatStreamEvent, MessagePart, ToolMessagePart } from '@/types/AiModule/streamEvents'
+import type { ChatStreamEvent, MessagePart, ToolMessagePart, StepMessagePart } from '@/types/AiModule/streamEvents'
 
 /**
  * 聊天消息流式处理 — 发送 / 接收 / 历史加载 / NDJSON 事件归约
@@ -116,6 +116,22 @@ export function useChatStream(
                 })
                 break
             }
+            case 'step': {
+                const args = (event.args ?? {}) as { stepIndex?: number; instruction?: string }
+                const stepIndex = typeof args.stepIndex === 'number'
+                    ? args.stepIndex
+                    : Number(String(event.id ?? '').replace(/^step-/, '')) || event.seq
+                streamingParts.value.push({
+                    type: 'step',
+                    id: event.id ?? `step-${event.seq}`,
+                    stepIndex,
+                    action: event.name ?? 'unknown',
+                    reasoning: event.text,
+                    instruction: args.instruction,
+                    observation: event.preview,
+                } satisfies StepMessagePart)
+                break
+            }
             case 'thinking_delta':
                 if (event.text) {
                     streamingThinking.value += event.text
@@ -201,6 +217,9 @@ export function useChatStream(
             chatId,
             kbId,
             files,
+            // 主聊天默认 Agent：多步编排 + 写盘质量环（后端同默认；显式传参防旧客户端缺省）
+            agentMode: 'orchestrate',
+            qualityLoop: true,
             onEvent: applyStreamEvent,
             onComplete: () => {
                 commitAssistantMessage()
@@ -273,26 +292,48 @@ export function useChatStream(
         } catch { /* 已 toast */ }
     }
 
-    /** 后端 MessagePartVO（route.name / resultPreview）→ 前端 MessagePart */
+    /** 后端 MessagePartVO（route/step）→ 前端 MessagePart */
     function normalizeMessageParts(msg: Message): Message {
         if (!msg.parts?.length) return msg
         return {
             ...msg,
             parts: msg.parts.map((p) => {
-                if (p.type !== 'route') return p
-                const raw = p as unknown as {
-                    id?: string
-                    name?: string
-                    route?: string
-                    reasoning?: string
-                    resultPreview?: string
+                if (p.type === 'route') {
+                    const raw = p as unknown as {
+                        id?: string
+                        name?: string
+                        route?: string
+                        reasoning?: string
+                        resultPreview?: string
+                    }
+                    return {
+                        type: 'route' as const,
+                        id: raw.id ?? `route-${raw.name ?? raw.route ?? 'general'}`,
+                        route: raw.route ?? raw.name ?? 'general',
+                        reasoning: raw.reasoning ?? raw.resultPreview,
+                    }
                 }
-                return {
-                    type: 'route' as const,
-                    id: raw.id ?? `route-${raw.name ?? raw.route ?? 'general'}`,
-                    route: raw.route ?? raw.name ?? 'general',
-                    reasoning: raw.reasoning ?? raw.resultPreview,
+                if (p.type === 'step') {
+                    const raw = p as unknown as {
+                        id?: string
+                        name?: string
+                        args?: { stepIndex?: number; instruction?: string }
+                        resultPreview?: string
+                    }
+                    const stepIndex = typeof raw.args?.stepIndex === 'number'
+                        ? raw.args.stepIndex
+                        : Number(String(raw.id ?? '').replace(/^step-/, '')) || 0
+                    return {
+                        type: 'step' as const,
+                        id: raw.id ?? `step-${stepIndex}`,
+                        stepIndex,
+                        action: raw.name ?? 'unknown',
+                        reasoning: raw.resultPreview,
+                        instruction: raw.args?.instruction,
+                        observation: undefined,
+                    }
                 }
+                return p
             }),
         }
     }

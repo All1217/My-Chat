@@ -1,6 +1,6 @@
 /**
  * 流式聊天工具
- * 统一走 normalChat NDJSON（含 Routing）；可选附带 kbId 供分类与 kb 路由。
+ * 统一走 normalChat NDJSON；默认多步编排 + 写盘质量环（Agent 主路）。
  */
 
 import type { ChatStreamEvent } from '@/types/AiModule/streamEvents'
@@ -10,6 +10,14 @@ export interface ChatStreamOptions {
   chatId: string
   kbId?: string
   files?: File[]
+  /** route | orchestrate；缺省由调用方/后端按 orchestrate 处理 */
+  agentMode?: 'route' | 'orchestrate'
+  /** 写盘后是否跑任务内质量环；主路默认 true */
+  qualityLoop?: boolean
+  /** Orchestrator 最大步数（可选） */
+  maxSteps?: number
+  /** 质量环评价标准（可选） */
+  criteria?: string
   /** 兼容旧 RAG 纯文本（本路径已不再使用） */
   onMessage?: (chunk: string) => void
   /** NDJSON 事件 */
@@ -23,7 +31,19 @@ export interface ChatStreamOptions {
  * @returns 取消请求的函数
  */
 export function streamChat(options: ChatStreamOptions): () => void {
-  const { prompt, chatId, kbId, files, onEvent, onComplete, onError } = options
+  const {
+    prompt,
+    chatId,
+    kbId,
+    files,
+    agentMode,
+    qualityLoop,
+    maxSteps,
+    criteria,
+    onEvent,
+    onComplete,
+    onError,
+  } = options
 
   const formData = new FormData()
   formData.append('prompt', prompt)
@@ -38,8 +58,17 @@ export function streamChat(options: ChatStreamOptions): () => void {
   if (kbId) {
     formData.append('kbId', kbId)
   }
+  formData.append('agentMode', agentMode ?? 'orchestrate')
+  // 显式传 false 时关闭；缺省 true
+  formData.append('qualityLoop', qualityLoop === false ? 'false' : 'true')
+  if (maxSteps != null && maxSteps > 0) {
+    formData.append('maxSteps', String(maxSteps))
+  }
+  if (criteria) {
+    formData.append('criteria', criteria)
+  }
 
-  // 统一入口：后端 Routing 分发 file/kb/search/general
+  // 统一入口：后端 Routing 或 agentMode=orchestrate
   const url = '/rag/ai/normalChat/chat?format=ndjson'
 
   const controller = new AbortController()
@@ -81,36 +110,30 @@ export function streamChat(options: ChatStreamOptions): () => void {
             flushNdjsonLine(line, onEvent)
           }
         }
-      } catch (error) {
-        onError(error instanceof Error ? error : new Error('Stream reading error'))
+      } finally {
+        reader.releaseLock()
       }
     })
-    .catch(error => {
-      if (error.name === 'AbortError') {
+    .catch(err => {
+      if (err?.name === 'AbortError') {
         return
       }
-      onError(error instanceof Error ? error : new Error('Request error'))
+      onError(err instanceof Error ? err : new Error(String(err)))
     })
 
-  return () => {
-    controller.abort()
-  }
+  return () => controller.abort()
 }
 
-function flushNdjsonLine(
-  line: string,
-  onEvent?: (event: ChatStreamEvent) => void,
-) {
+function flushNdjsonLine(line: string, onEvent?: (event: ChatStreamEvent) => void) {
   const trimmed = line.trim()
-  if (!trimmed) return
+  if (!trimmed || !onEvent) return
   try {
-    const event = JSON.parse(trimmed) as ChatStreamEvent
-    onEvent?.(event)
-  } catch (e) {
-    console.warn('[streamChat] 跳过非法 NDJSON 行:', trimmed.slice(0, 120), e)
+    onEvent(JSON.parse(trimmed) as ChatStreamEvent)
+  } catch {
+    // 忽略非 JSON 行
   }
 }
 
 export function generateChatId(): string {
-  return `chat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+  return `chat_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`
 }

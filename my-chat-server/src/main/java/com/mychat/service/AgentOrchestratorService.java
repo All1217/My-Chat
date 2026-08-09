@@ -4,6 +4,8 @@ import com.mychat.common.ChatStreamEvent;
 import com.mychat.common.OrchestratorWorkflow;
 import com.mychat.config.WorkspaceContext;
 import com.mychat.entity.dto.OrchestrateRequest;
+import com.mychat.utils.SearchSystemPrompts;
+import com.mychat.utils.WorkspacePromptBuilder;
 import com.mychat.utils.WorkspaceUtil;
 import com.mychat.vo.OrchestrateResultVO;
 import com.mychat.vo.OrchestrateStepVO;
@@ -15,16 +17,21 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 /**
- * 回合内 Orchestrator-Workers 编排服务（同步，供调试 API）。
+ * 回合内 Orchestrator-Workers 编排服务。
  * <p>
  * 外层：{@link OrchestratorWorkflow} 逐步产出 next_action；
- * 内层：Java switch 调用专用 ChatClient（与 Routing 同源能力档，不合并 Tools+RAG）。
+ * 内层：Java switch 调用专用 ChatClient（与 Routing 同源能力档，不合并 Tools+RAG，遵守 P0-7）。
+ * <p>
+ * 调试 API 与主聊天共用本服务；主路传入 {@link OrchestrateListener} 推送 NDJSON {@code step}。
+ * <p>
+ * 最终答复写入会话 Memory / 主气泡依赖 {@link #resolveFinalAnswer}：finish 提纲过短时
+ * 会用各步 observation 合成 Markdown，避免干货只留在时间线。
  */
 @Slf4j
 @Service
@@ -34,10 +41,26 @@ public class AgentOrchestratorService {
     public static final int MIN_MAX_STEPS = 1;
     public static final int HARD_MAX_STEPS = 8;
 
-    private static final String SEARCH_SYSTEM_PROMPT = """
-            当前请求已路由到 search。请优先调用可用的远程 MCP 工具
-            （网页搜索、天气查询等）获取信息后再回答；不要编造实时数据。
-            """;
+    /**
+     * 编排器 StepSummary / 合成兜底用的 observation 上限（大于 UI 预览，便于 finish 看见案例代码）。
+     */
+    public static final int HISTORY_OBSERVATION_MAX_CHARS = 16000;
+
+    private static final String SEARCH_SYSTEM_PROMPT = SearchSystemPrompts.SEARCH;
+
+    /** finish.instruction 像「答题提纲」而非用户正文的常见元叙述 */
+    private static final List<String> META_FINAL_MARKERS = List.of(
+            "向用户完整作答",
+            "向用户作答",
+            "完整作答",
+            "首先给出",
+            "接着提供",
+            "最后给出",
+            "然后给出",
+            "结合知识库定义和搜索",
+            "请按以下结构回答",
+            "按如下结构回答"
+    );
 
     private final OrchestratorWorkflow orchestratorWorkflow;
     private final ChatClient toolChatClient;
@@ -45,33 +68,47 @@ public class AgentOrchestratorService {
     private final ChatClient agentWorkflowChatClient;
     private final AgentRoutingService agentRoutingService;
     private final WorkspaceUtil workspaceUtil;
+    private final WorkspacePromptBuilder workspacePromptBuilder;
 
     public AgentOrchestratorService(
             @Qualifier("agentWorkflowChatClient") ChatClient agentWorkflowChatClient,
             @Qualifier("toolChatClient") ChatClient toolChatClient,
             @Qualifier("ragChatClient") ChatClient ragChatClient,
             AgentRoutingService agentRoutingService,
-            WorkspaceUtil workspaceUtil) {
+            WorkspaceUtil workspaceUtil,
+            WorkspacePromptBuilder workspacePromptBuilder) {
         this.agentWorkflowChatClient = agentWorkflowChatClient;
         this.toolChatClient = toolChatClient;
         this.ragChatClient = ragChatClient;
         this.agentRoutingService = agentRoutingService;
         this.workspaceUtil = workspaceUtil;
+        this.workspacePromptBuilder = workspacePromptBuilder;
         this.orchestratorWorkflow = new OrchestratorWorkflow(agentWorkflowChatClient);
+    }
+
+    /**
+     * 同步编排（调试 API）；无逐步回调。
+     */
+    public OrchestrateResultVO orchestrate(OrchestrateRequest request) {
+        return orchestrate(request, null);
     }
 
     /**
      * 执行编排循环直至 finish 或达到 maxSteps。
      *
+     * @param listener 可为 null；非空时每步完成后回调（含 finish）
      * @throws IllegalArgumentException input 为空等参数错误
      */
-    public OrchestrateResultVO orchestrate(OrchestrateRequest request) {
+    public OrchestrateResultVO orchestrate(OrchestrateRequest request, OrchestrateListener listener) {
         if (request == null || !StringUtils.hasText(request.getInput())) {
             throw new IllegalArgumentException("input 不能为空");
         }
         String userGoal = request.getInput().trim();
         String kbId = StringUtils.hasText(request.getKbId()) ? request.getKbId().trim() : null;
         String workDir = StringUtils.hasText(request.getWorkDir()) ? request.getWorkDir().trim() : null;
+        String dialogueHistory = StringUtils.hasText(request.getDialogueHistory())
+                ? request.getDialogueHistory().trim()
+                : null;
         int maxSteps = clampMaxSteps(request.getMaxSteps());
 
         List<OrchestrateStepVO> steps = new ArrayList<>();
@@ -79,7 +116,7 @@ public class AgentOrchestratorService {
 
         for (int i = 1; i <= maxSteps; i++) {
             OrchestratorWorkflow.NextAction decision = orchestratorWorkflow.decideNext(
-                    userGoal, kbId, workDir, history, i, maxSteps);
+                    userGoal, kbId, workDir, history, i, maxSteps, dialogueHistory);
             String action = decision.nextAction();
             String reasoning = decision.reasoning() != null ? decision.reasoning() : "";
             String instruction = decision.instruction() != null ? decision.instruction() : "";
@@ -88,15 +125,20 @@ public class AgentOrchestratorService {
                     i, maxSteps, action, reasoning);
 
             if ("finish".equals(action)) {
-                String finalAnswer = resolveFinalAnswer(instruction, steps);
-                steps.add(new OrchestrateStepVO(i, "finish", reasoning, instruction, null));
+                String finalAnswer = resolveFinalAnswer(userGoal, instruction, steps);
+                // finish.observation = 已决议最终答复，时间线最终步与主气泡一致
+                OrchestrateStepVO finishStep = new OrchestrateStepVO(
+                        i, "finish", reasoning, instruction, finalAnswer);
+                steps.add(finishStep);
+                notifyListener(listener, finishStep);
                 return new OrchestrateResultVO(finalAnswer, "finish", steps);
             }
 
             // 无 kbId 时禁止真正跑 RAG：记一步 invalid 观察，让编排器改选
             if ("retrieve_kb".equals(action) && !StringUtils.hasText(kbId)) {
                 String obs = "[约束] 未提供 kbId，无法执行 retrieve_kb。请改选 general/search/file/finish。";
-                appendStep(steps, history, i, "retrieve_kb", reasoning, instruction, obs);
+                OrchestrateStepVO step = appendStep(steps, history, i, "retrieve_kb", reasoning, instruction, obs);
+                notifyListener(listener, step);
                 continue;
             }
 
@@ -109,16 +151,29 @@ public class AgentOrchestratorService {
                         ? e.getMessage()
                         : e.getClass().getSimpleName());
             }
-            observation = truncateObservation(observation);
-            appendStep(steps, history, i, action, reasoning, instruction, observation);
+            // 编排历史保留更长正文；UI 预览由 ChatStreamEvent.step 再截断
+            observation = truncateForHistory(observation);
+            OrchestrateStepVO step = appendStep(steps, history, i, action, reasoning, instruction, observation);
+            notifyListener(listener, step);
         }
 
-        // 触顶：用最后观察或简短汇总作为答案
-        String finalAnswer = resolveFinalAnswer(null, steps);
+        // 触顶：用最后观察或步骤合成作为答案
+        String finalAnswer = resolveFinalAnswer(userGoal, null, steps);
         if (!StringUtils.hasText(finalAnswer)) {
             finalAnswer = "已达到最大编排步数（" + maxSteps + "），未能产出完整答复。";
         }
         return new OrchestrateResultVO(finalAnswer, "max_steps", steps);
+    }
+
+    private static void notifyListener(OrchestrateListener listener, OrchestrateStepVO step) {
+        if (listener == null || step == null) {
+            return;
+        }
+        try {
+            listener.onStep(step);
+        } catch (Exception e) {
+            log.warn("OrchestrateListener.onStep 失败 step={}: {}", step.getIndex(), e.getMessage());
+        }
     }
 
     private String runWorker(String action, String instruction, String kbId, String workDir) {
@@ -152,7 +207,7 @@ public class AgentOrchestratorService {
         WorkspaceContext.set(root);
         try {
             String content = toolChatClient.prompt()
-                    .system(buildWorkspaceSystemPrompt(root))
+                    .system(workspacePromptBuilder.build(root))
                     .user(instruction)
                     .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationId))
                     .call()
@@ -191,7 +246,7 @@ public class AgentOrchestratorService {
         return content != null ? content : "";
     }
 
-    private static void appendStep(
+    private static OrchestrateStepVO appendStep(
             List<OrchestrateStepVO> steps,
             List<OrchestratorWorkflow.StepSummary> history,
             int index,
@@ -199,29 +254,178 @@ public class AgentOrchestratorService {
             String reasoning,
             String instruction,
             String observation) {
-        steps.add(new OrchestrateStepVO(index, action, reasoning, instruction, observation));
+        OrchestrateStepVO step = new OrchestrateStepVO(index, action, reasoning, instruction, observation);
+        steps.add(step);
         history.add(new OrchestratorWorkflow.StepSummary(index, action, instruction, observation));
+        return step;
     }
 
     /**
-     * finish：优先 instruction；否则取最后一条非空 observation。
+     * 决议面向用户的最终答复：完整 finish 文案优先；提纲/过短则用 observation 合成 Markdown。
      */
-    private static String resolveFinalAnswer(String finishInstruction, List<OrchestrateStepVO> steps) {
+    static String resolveFinalAnswer(String userGoal, String finishInstruction, List<OrchestrateStepVO> steps) {
+        List<OrchestrateStepVO> usable = collectUsableObservationSteps(steps);
+        int obsChars = usable.stream()
+                .mapToInt(s -> s.getObservation() != null ? s.getObservation().length() : 0)
+                .sum();
+
         if (StringUtils.hasText(finishInstruction)) {
-            return finishInstruction.trim();
+            String trimmed = finishInstruction.trim();
+            if (!isWeakFinalAnswer(trimmed, obsChars, usable)) {
+                return trimmed;
+            }
+            log.info("finish.instruction 判定为弱最终答复（len={} obsChars={}），改用 observation 合成",
+                    trimmed.length(), obsChars);
         }
-        for (int i = steps.size() - 1; i >= 0; i--) {
-            String obs = steps.get(i).getObservation();
-            if (StringUtils.hasText(obs) && !obs.startsWith("[约束]") && !obs.startsWith("[Worker 错误]")) {
-                return obs.trim();
+
+        String composed = composeFinalAnswerFromSteps(userGoal, usable);
+        if (StringUtils.hasText(composed)) {
+            return composed;
+        }
+
+        // 仍无有效 observation：退回 finish 原文或空
+        return StringUtils.hasText(finishInstruction) ? finishInstruction.trim() : "";
+    }
+
+    /**
+     * 弱最终答复：元提纲、或明显短于已有 Worker 干货。
+     */
+    static boolean isWeakFinalAnswer(String instruction, int observationChars, List<OrchestrateStepVO> usable) {
+        if (!StringUtils.hasText(instruction)) {
+            return true;
+        }
+        String text = instruction.trim();
+        String lower = text.toLowerCase(Locale.ROOT);
+
+        for (String marker : META_FINAL_MARKERS) {
+            if (text.contains(marker)) {
+                return true;
             }
         }
-        for (int i = steps.size() - 1; i >= 0; i--) {
-            if (StringUtils.hasText(steps.get(i).getObservation())) {
-                return steps.get(i).getObservation().trim();
+        // 英文元叙述（模型偶发）
+        if (lower.contains("tell the user") || lower.contains("provide the user")
+                || lower.contains("respond to the user with")) {
+            return true;
+        }
+
+        if (usable != null && !usable.isEmpty() && observationChars > 800 && text.length() < 200) {
+            return true;
+        }
+        if (usable != null && !usable.isEmpty() && observationChars > text.length() * 3L && text.length() < 400) {
+            return true;
+        }
+
+        // observation 已有大量 Markdown/代码，而 finish 几乎无结构 → 更像提纲
+        boolean obsHasMd = usable != null && usable.stream().anyMatch(s -> looksLikeMarkdownBody(s.getObservation()));
+        if (obsHasMd && !looksLikeMarkdownBody(text) && text.length() < Math.min(observationChars, 600)) {
+            return true;
+        }
+        return false;
+    }
+
+    private static boolean looksLikeMarkdownBody(String s) {
+        if (!StringUtils.hasText(s)) {
+            return false;
+        }
+        return s.contains("\n## ") || s.contains("\n# ") || s.contains("```")
+                || s.contains("\n- ") || s.contains("\n* ") || s.contains("|---");
+    }
+
+    private static List<OrchestrateStepVO> collectUsableObservationSteps(List<OrchestrateStepVO> steps) {
+        List<OrchestrateStepVO> out = new ArrayList<>();
+        if (steps == null) {
+            return out;
+        }
+        for (OrchestrateStepVO s : steps) {
+            if (s == null || "finish".equals(s.getAction())) {
+                continue;
+            }
+            String obs = s.getObservation();
+            if (!StringUtils.hasText(obs)) {
+                continue;
+            }
+            String t = obs.trim();
+            if (t.startsWith("[约束]") || t.startsWith("[Worker 错误]")) {
+                continue;
+            }
+            out.add(s);
+        }
+        return out;
+    }
+
+    /**
+     * 按 Worker 类型分段拼 Markdown，供主气泡 / spring_ai_chat_memory 使用。
+     */
+    static String composeFinalAnswerFromSteps(String userGoal, List<OrchestrateStepVO> usable) {
+        if (usable == null || usable.isEmpty()) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        if (StringUtils.hasText(userGoal)) {
+            sb.append("针对你的问题「").append(trimOneLine(userGoal, 120)).append("」，整理如下：\n\n");
+        }
+
+        boolean any = false;
+        for (OrchestrateStepVO s : usable) {
+            String heading = sectionHeading(s.getAction());
+            String body = stripLeadingReasoningNoise(s.getObservation());
+            if (!StringUtils.hasText(body)) {
+                continue;
+            }
+            any = true;
+            sb.append("## ").append(heading).append("\n\n");
+            sb.append(body.trim()).append("\n\n");
+        }
+        return any ? sb.toString().trim() : "";
+    }
+
+    private static String sectionHeading(String action) {
+        if (action == null) {
+            return "结果";
+        }
+        return switch (action) {
+            case "retrieve_kb" -> "知识库要点";
+            case "search" -> "联网补充";
+            case "file" -> "文件结果";
+            case "general" -> "分析说明";
+            default -> "步骤结果（" + action + "）";
+        };
+    }
+
+    /** 去掉偶发夹在 observation 前的英文思考句，保留正文 */
+    private static String stripLeadingReasoningNoise(String observation) {
+        if (!StringUtils.hasText(observation)) {
+            return "";
+        }
+        String t = observation.trim();
+        // 常见：英文过渡句 + 空行 + Markdown 正文
+        int md = indexOfMarkdownStart(t);
+        if (md > 0 && md < 400) {
+            return t.substring(md).trim();
+        }
+        return t;
+    }
+
+    private static int indexOfMarkdownStart(String t) {
+        int best = -1;
+        for (String marker : List.of("\n# ", "\n## ", "\n```", "\n---\n")) {
+            int i = t.indexOf(marker);
+            if (i >= 0 && (best < 0 || i < best)) {
+                best = i + 1; // skip leading \n
             }
         }
-        return "";
+        if (t.startsWith("# ") || t.startsWith("## ") || t.startsWith("```")) {
+            return 0;
+        }
+        return best;
+    }
+
+    private static String trimOneLine(String s, int max) {
+        String one = s.replace('\n', ' ').replace('\r', ' ').trim();
+        if (one.length() <= max) {
+            return one;
+        }
+        return one.substring(0, max) + "…";
     }
 
     static int clampMaxSteps(Integer requested) {
@@ -231,26 +435,27 @@ public class AgentOrchestratorService {
         return Math.max(MIN_MAX_STEPS, Math.min(HARD_MAX_STEPS, requested));
     }
 
+    /** 编排历史 / 合成用截断 */
+    static String truncateForHistory(String raw) {
+        return truncateTo(raw, HISTORY_OBSERVATION_MAX_CHARS);
+    }
+
+    /**
+     * UI 预览截断（与 {@link ChatStreamEvent#PREVIEW_MAX_CHARS} 对齐）。
+     * 保留包可见性，便于单测与旧调用方。
+     */
     static String truncateObservation(String raw) {
+        return truncateTo(raw, ChatStreamEvent.PREVIEW_MAX_CHARS);
+    }
+
+    private static String truncateTo(String raw, int max) {
         if (raw == null) {
             return "";
         }
-        if (raw.length() <= ChatStreamEvent.PREVIEW_MAX_CHARS) {
+        if (raw.length() <= max) {
             return raw;
         }
-        return raw.substring(0, ChatStreamEvent.PREVIEW_MAX_CHARS) + "\n…[observation 已截断]";
+        return raw.substring(0, max) + "\n…[observation 已截断]";
     }
 
-    private static String buildWorkspaceSystemPrompt(String workDir) {
-        String name = Paths.get(workDir).getFileName() != null
-                ? Paths.get(workDir).getFileName().toString()
-                : workDir;
-        return String.format("""
-                所有涉及文件的查看、创建、写入、修改、删除、重命名、复制操作，务必积极调用可用工具实际执行。
-                不能在回复中假装执行了文件操作。
-                当前工作目录: %1$s
-                路径规则：所有路径都是相对于当前工作目录的**相对路径**。
-                不要把工作目录名 "%2$s" 作为路径前缀。
-                """, workDir, name);
-    }
 }

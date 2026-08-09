@@ -35,18 +35,61 @@
 | 三档 ChatClient | 工具+MCP / 纯 RAG / 无工具编排 | `AiConfiguration` |
 | **Routing 接入主聊天** | 每轮 `classify` → 分发 `file` / `kb` / `search` / `general` | `ChatController` + `AgentRoutingService` |
 | 会话约束 | `kbId` / `workDir` 进分类；无 kb 时禁止 `kb` | `RoutingWorkflow` + `applyConstraints` |
-| NDJSON `route` 事件 | 时间线展示分流；`parts` 落库可回放 | `ChatStreamEvent` / `AgentActivityTimeline` |
-| 前端统一入口 | `/rag/ai/normalChat/chat?format=ndjson`（可选 `kbId`） | `streamChat.ts` |
-| 调试 API 保留 | `POST /ai/agent/route` | `AgentDemoController` |
+| NDJSON `route` / `step` 事件 | 时间线展示分流与编排步骤；`parts` 落库可回放 | `ChatStreamEvent` / `AgentActivityTimeline` |
+| **Orchestrator 接入主聊天** | 主路默认多步编排（可显式 `agentMode=route` 回退） | `ChatController` + `AgentOrchestratorService` |
+| **Evaluator 质量环** | 主路默认开启；可解析 write 路径时执行（可显式 `qualityLoop=false`） | `ChatController` + `AgentEvaluatorOptimizerService` |
+| 工作区浅层摘要 | file 路径 system 注入 depth≤2 骨架 | `WorkspacePromptBuilder` |
+| 前端统一入口 | `/rag/ai/normalChat/chat?format=ndjson`（默认 orchestrate + qualityLoop） | `streamChat.ts` |
+| 调试 API 保留 | `POST /ai/agent/route`、`/orchestrate`、`/evaluate-optimize` | `AgentDemoController` |
 
 ### 2.2 当前行为边界（务必认清）
 
 ```text
-用户一句 → classify（一次）→ 锁定一个 ChatClient →（该 Client 内可多次 Tool）→ 结束
+主路默认：用户一句 → Orchestrator 多步换 Worker（可跨 Client）→ 可解析 write 时 qualityLoop → 结束
+调试回退：agentMode=route → classify（一次）→ 单 Client；qualityLoop=false 关闭质量环
 ```
 
-- **已实现**：回合内固定路由；`file`/`search` 路径上的 Tool-calling 循环。  
-- **未实现**：回合中途换 Client（例如 kb 做到一半再调度 search）；显式 plan/todo 状态机；会话级可暂停任务。
+- **已实现**：主聊天默认 Orchestrator + 写盘质量环；`file` Worker 含浅层摘要；调试 API 旁路保留。  
+- **未实现**：会话级 plan/todo 状态机；可暂停续跑的长任务（见远期 `agent_tasks`）。
+
+#### 2.2.1 已知局限：附件多模态旁路 Orchestrator（后人注意）
+
+> **现状**：[`ChatController`](../../my-chat-server/src/main/java/com/mychat/controller/ChatController.java) 在请求带 `files` 时固定走 `multiModalChatNdjson` / plain 多模态工具路径，**不进入** `orchestrateNdjson`。  
+> 此路径上 `qualityLoop` 仍可在能解析 write 路径时执行；仅外层编排被旁路。
+
+**原因（刻意保留，非偶然遗漏）**：
+
+1. 沿用 Routing 时代「有附件则跳过 classify、固定 file」的产品语义，合并主聊天 Orchestrator 时未强行改口径。  
+2. 当前 Orchestrator Worker 为同步文本 `.call()` + `user(instruction)`，**未**把 `MultipartFile`（尤其图片 `media`）传入 Worker；若硬进编排，视觉/附件上下文会丢失或只能降级为「先抽文本再编排」，与现多模态路径不一致。
+
+**后续若要统一主路**：编排入口需携带已抽取的文档文本；看图场景需让 `file` Worker 支持 multimodal user；再取消「有附件则旁路 Orchestrator」分支。在此之前请勿假设「开了默认 orchestrate = 带图也会多步换 Worker」。
+
+#### 2.2.2 已知局限：联网搜索（Smithery / Exa）外部失败
+
+> **现象**：主聊天默认 Orchestrator 常走 `search` Worker；模型通过 MCP `execute` → `connections.exa.search(...)` 时，可能收到 **Cloudflare 403**（拦截 `mcp.exa.ai`），表现为「联网工具不可用」。  
+> **与合并的关系**：合并前单次 Routing 未必每次都调 search；默认多步编排后 kb→search 更频繁，**同一外部故障更容易暴露**。MCP 客户端装配本身仍正常（`get_toolbox_status` 可显示 exa connected）。
+
+**代码侧缓解**：
+
+1. search system 禁止臆造 `connections.search`；MCP 403 时改用本地工具。  
+2. `ToolExecutionExceptionProcessor(alwaysThrow=false)`：工具失败回灌模型，避免整次 Worker 被打断。  
+3. **本地 `WebSearchTools.searchWeb`**：Exa REST → Bocha → Tavily → DuckDuckGo（短超时）——**不经** `mcp.exa.ai`。
+
+**密钥易错点（已踩坑）**：
+
+| 环境变量 | 用途 | 常见错误 |
+|----------|------|----------|
+| `EXA_API_KEY` | `api.exa.ai` REST | 误填 `SMITHERY_API_KEY` → **HTTP 401 Invalid API key** |
+| `SMITHERY_API_KEY` | MCP `mcp.smithery.run` | 不能用于 Exa REST；且 MCP 分发到 `mcp.exa.ai` 可能 Cloudflare 403 |
+| `BOCHA_API_KEY` / `TAVILY_API_KEY` | 国内/备用搜索 | 可选；DuckDuckGo 在国内常 connect timeout |
+
+**后人排查顺序**：看 `searchWeb` 返回是否含 `401 Invalid API key`（换真正的 Exa Dashboard 密钥并**重启进程**）；或配置 Bocha/Tavily；MCP Cloudflare 403 属上游，不能靠改 Orchestrator 解决。
+
+#### 2.2.3 最终答复进 Memory（勿把干货只留在时间线）
+
+> **现象**：kb→search 等多步编排后，主气泡 / `spring_ai_chat_memory` 只有一句「向用户完整作答…」提纲，定义与案例代码却在时间线 `step` 的 observation 里。  
+> **约定**：`finish.instruction` 必须是**面向用户的完整 Markdown 答复**（默认 Markdown，用户另有格式要求除外），须汇总各步 observation；禁止元指令/提纲。  
+> **兜底**：`AgentOrchestratorService.resolveFinalAnswer` 若判定 finish 文案过弱，按步骤 observation 合成 Markdown 再写入 `text_delta` / Memory；编排历史 observation 预算大于 UI 预览截断。
 
 ### 2.3 关键代码位置（v1.1）
 
@@ -123,12 +166,21 @@ flowchart TB
 
 **本切片不做**：修改 `schema.sql`；客户端本地 FS；主聊天默认强制 Orchestrator。
 
-### 4.2 第二优先级：Evaluator-Optimizer 写盘校验（质量环）
+### 4.2 第二优先级：Evaluator-Optimizer 写盘校验（任务内质量环）
 
-场景：`write` → `cat` / 简单规则检查 → 不合格再改。
+场景：`write` → 读回 / 简单规则检查 → 不合格再改（**任务内质量环**，不是离线 Agent 评测）。
 
-- 与 4.1 共用 `maxSteps`、单步超时、用户取消（前端已有 abort）。  
-- 前端工具时间线已具备，后端补「评价 → 再调用」循环即可。
+- 与 4.1 共用迭代上限、超时、取消思路；调试入口：`POST /ai/agent/evaluate-optimize`。  
+- 前端工具时间线已具备；本切片先走同步调试 API，主聊天接入另开。
+
+**测试提醒（未来务必补测，本次暂忽略）**：
+
+强模型在常规 `criteria` / `mustContain` 下常一次性满足所有要求，难以自然触发结果纠正机制：
+
+1. **多轮 refine**（`rounds.length >= 2`、非空 `feedback` 后覆盖重写）；  
+2. **触顶路径**（`finishedReason=max_iterations`）。
+
+本次验收以「写盘 → 读回 → 评价 → 通过」主路径为准，上述两条 **暂时忽略**，但后续迭代或回归时需专门构造用例（推荐：`mustContain` 隐藏标记串，或调试开关强制首轮失败），**勿仅依赖提示词让模型故意写砸**。
 
 ### 4.3 第三优先级：工作区浅层上下文预注入（低成本体感）
 
@@ -150,12 +202,13 @@ flowchart TB
 
 ### 4.5 近期交付检查清单
 
-- [ ] `OrchestratorWorkflow` + Service，Structured Output `next_action`  
-- [ ] Workers 复用 rag / tool / general；至少一条 kb→search 或 kb→file  
-- [ ] `/ai/agent/orchestrate` 可 curl 验收，步骤可回传  
-- [ ] 步骤事件可进入时间线（调试或主聊天开关）  
-- [ ] 循环上限 / 取消路径验证  
-- [ ] （可选）file 路径 system prompt 注入目录摘要  
+- [x] `OrchestratorWorkflow` + Service，Structured Output `next_action`  
+- [x] Workers 复用 rag / tool / general；至少一条 kb→search 或 kb→file  
+- [x] `/ai/agent/orchestrate` 可 curl 验收，步骤可回传  
+- [x] 步骤事件可进入时间线（主聊天 `agentMode=orchestrate` + NDJSON `step`）  
+- [x] 循环上限 / 取消路径验证（`maxSteps` 钳制；流取消走现有 completeSink）  
+- [x] file 路径 system prompt 注入目录摘要（`WorkspacePromptBuilder`）  
+- [x] Evaluator-Optimizer 主聊天门控（`qualityLoop`）  
 
 ---
 
@@ -225,17 +278,3 @@ flowchart TB
 3. 至少一条跨能力路径验收  
 4. **不改** `schema.sql`  
 5. 通过后再评估是否以开关形式挂入主聊天 NDJSON  
-
----
-
-## 七、与 v1.0 的关系
-
-| 主题 | v1.0 | v1.1 |
-|------|------|------|
-| 学习路径 / 五模式入门 | 主内容 | 仍有效，参见 [v1.0](./P2-10-agents开发规划（v1.0）.md) |
-| Routing | 规划为阶段 E 调试 API | **已产品化进主聊天** |
-| 进阶 Orchestrator / Evaluator | 列为未来进阶 | **拆成近期可做清单** |
-| 对标 Cursor | 分散在 P1 工作区文档 | **单独成章：近期 vs 远期** |
-| 数据库 | 提醒勿过早加表 | 明确：近期切片不改 `schema.sql`；会话级任务为远期/中期 |
-
-新人仍建议先读 v1.0 建立 Workflow vs Agent 直觉，再以本文 v1.1 作为 **当前迭代的执行与边界说明**。

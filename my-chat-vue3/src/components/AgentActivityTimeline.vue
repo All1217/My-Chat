@@ -11,6 +11,26 @@
           </span>
           <div v-if="part.reasoning" class="route-reason">{{ part.reasoning }}</div>
         </div>
+        <!-- Orchestrator / 质量环步骤 -->
+        <div v-else-if="part.type === 'step'" class="step-row">
+          <span class="tool-title">
+            步骤 {{ part.stepIndex }} → {{ actionLabel(part.action) }}
+            <el-tag size="small" type="warning" effect="plain">编排</el-tag>
+          </span>
+          <div v-if="part.reasoning" class="route-reason">{{ part.reasoning }}</div>
+          <el-collapse v-if="hasStepDetail(part)">
+            <el-collapse-item title="查看指令 / 观察" :name="part.id">
+              <div v-if="part.instruction" class="detail-block">
+                <div class="detail-label">指令</div>
+                <pre class="detail-pre">{{ part.instruction }}</pre>
+              </div>
+              <div v-if="part.observation" class="detail-block">
+                <div class="detail-label">观察</div>
+                <pre class="detail-pre">{{ part.observation }}</pre>
+              </div>
+            </el-collapse-item>
+          </el-collapse>
+        </div>
         <!-- 工具调用 -->
         <div v-else-if="part.type === 'tool'" class="tool-row">
           <span class="tool-title">
@@ -43,30 +63,46 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Loading } from '@element-plus/icons-vue'
-import type { MessagePart, RouteMessagePart, ToolMessagePart } from '@/types/AiModule/streamEvents'
+import type {
+  MessagePart,
+  RouteMessagePart,
+  StepMessagePart,
+  ToolMessagePart,
+} from '@/types/AiModule/streamEvents'
 import { toolDisplayName } from '@/utils/toolDisplayNames'
 
 const props = defineProps<{
   parts?: MessagePart[] | null
 }>()
 
-type TimelinePart = ToolMessagePart | RouteMessagePart
+type TimelinePart = ToolMessagePart | RouteMessagePart | StepMessagePart
 
 const ROUTE_LABELS: Record<string, string> = {
   file: '文件工具',
   kb: '知识库',
   search: '联网搜索',
   general: '普通对话',
+  orchestrate: '多步编排',
+}
+
+const ACTION_LABELS: Record<string, string> = {
+  retrieve_kb: '知识库检索',
+  file: '文件工具',
+  search: '联网搜索',
+  general: '普通对话',
+  finish: '完成',
+  evaluate_optimize: '写盘质量环',
 }
 
 const timelineParts = computed(() =>
   (props.parts ?? []).filter(
-    (p): p is TimelinePart => p.type === 'tool' || p.type === 'route',
+    (p): p is TimelinePart =>
+      p.type === 'tool' || p.type === 'route' || p.type === 'step',
   ),
 )
 
 function partKey(part: TimelinePart) {
-  return part.type === 'route' ? part.id : part.id
+  return part.id
 }
 
 function isRunning(part: TimelinePart) {
@@ -75,11 +111,20 @@ function isRunning(part: TimelinePart) {
 
 function itemType(part: TimelinePart) {
   if (part.type === 'route') return 'info'
+  if (part.type === 'step') return 'warning'
   return timelineType(part.status)
 }
 
 function routeLabel(route: string) {
   return ROUTE_LABELS[route] ?? route
+}
+
+function actionLabel(action: string) {
+  return ACTION_LABELS[action] ?? action
+}
+
+function hasStepDetail(part: StepMessagePart) {
+  return !!part.instruction || !!part.observation
 }
 
 function timelineType(status: ToolMessagePart['status']) {
@@ -168,7 +213,8 @@ function formatJson(value: unknown): string {
 }
 
 .tool-row,
-.route-row {
+.route-row,
+.step-row {
   display: flex;
   flex-direction: column;
   gap: 4px;

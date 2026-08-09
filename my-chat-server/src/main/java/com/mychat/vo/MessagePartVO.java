@@ -12,13 +12,13 @@ import lombok.Data;
 @Schema(description = "助手消息片段（工具时间线）")
 public class MessagePartVO {
 
-    @Schema(description = "片段类型：tool | route")
+    @Schema(description = "片段类型：tool | route | step")
     private String type;
 
-    @Schema(description = "工具调用 id，或 route 片段 id")
+    @Schema(description = "工具调用 id、route 片段 id，或 step-{index}")
     private String id;
 
-    @Schema(description = "工具名（ls/cat…）或路由标签（file/kb/search/general）")
+    @Schema(description = "工具名 / 路由标签 / 编排 action")
     private String name;
 
     @Schema(description = "调用参数")

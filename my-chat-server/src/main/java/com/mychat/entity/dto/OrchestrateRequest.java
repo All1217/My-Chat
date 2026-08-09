@@ -21,4 +21,12 @@ public class OrchestrateRequest {
 
     /** 最大编排步数（可选，默认 6） */
     private Integer maxSteps;
+
+    /**
+     * 会话级近期对话摘要（可选）。
+     * <p>
+     * 主聊天 Orchestrator 不经 MessageChatMemoryAdvisor(chatId)，需由调用方从
+     * {@code spring_ai_chat_memory} 格式化后注入，否则编排器看不到多轮上下文。
+     */
+    private String dialogueHistory;
 }

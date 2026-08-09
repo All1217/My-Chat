@@ -13,7 +13,7 @@ import java.util.UUID;
  * 将本轮 NDJSON {@link ChatStreamEvent} 归约为可落库的 parts / thinking / 正文。
  * <p>
  * 与前端 {@code useChatStream.applyStreamEvent} 语义对齐，但不把 text/thinking 再塞进 parts。
- * 支持 {@code route} 片段（排在工具之前）。
+ * 支持 {@code route} / {@code step} 片段（与工具一并进入时间线）。
  */
 public final class TurnPartsReducer {
 
@@ -46,6 +46,7 @@ public final class TurnPartsReducer {
                         }
                     }
                     case ChatStreamEvent.TYPE_ROUTE -> applyRoute(ordered, e);
+                    case ChatStreamEvent.TYPE_STEP -> applyStep(ordered, e);
                     case ChatStreamEvent.TYPE_TOOL_CALL -> applyToolCall(ordered, toolsById, e);
                     case ChatStreamEvent.TYPE_TOOL_RESULT -> applyToolResult(ordered, toolsById, e);
                     default -> {
@@ -78,6 +79,34 @@ public final class TurnPartsReducer {
         part.setName(e.name() != null ? e.name() : "general");
         part.setStatus("done");
         part.setResultPreview(e.text());
+        ordered.add(part);
+    }
+
+    /** Orchestrator / 质量环步骤 → parts.type=step */
+    private static void applyStep(List<MessagePartVO> ordered, ChatStreamEvent e) {
+        MessagePartVO part = new MessagePartVO();
+        part.setType("step");
+        part.setId(e.id() != null ? e.id() : "step-" + UUID.randomUUID());
+        part.setName(e.name() != null ? e.name() : "unknown");
+        part.setStatus("done");
+        part.setArgs(e.args());
+        // 理由放 resultPreview 前缀，便于无 instruction 时仍可读
+        StringBuilder preview = new StringBuilder();
+        if (e.text() != null && !e.text().isBlank()) {
+            preview.append(e.text().trim());
+        }
+        if (e.preview() != null && !e.preview().isBlank()) {
+            if (!preview.isEmpty()) {
+                preview.append("\n---\n");
+            }
+            preview.append(e.preview());
+        }
+        if (!preview.isEmpty()) {
+            part.setResultPreview(preview.toString());
+        }
+        if (e.truncated() != null) {
+            part.setTruncated(e.truncated());
+        }
         ordered.add(part);
     }
 

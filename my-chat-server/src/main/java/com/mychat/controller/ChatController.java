@@ -1,19 +1,33 @@
 package com.mychat.controller;
 
+import com.mychat.service.AgentEvaluatorOptimizerService;
+import com.mychat.service.AgentOrchestratorService;
 import com.mychat.service.AgentRoutingService;
 import com.mychat.common.RoutingWorkflow;
+import com.mychat.entity.dto.EvaluateOptimizeRequest;
+import com.mychat.entity.dto.OrchestrateRequest;
 import com.mychat.utils.ObservabilityStreamAdvisor;
 import com.mychat.common.ChatStreamEvent;
 import com.mychat.utils.ChatStreamEventWriter;
 import com.mychat.config.WorkspaceContext;
 import com.mychat.service.ChatAssistantTurnService;
 import com.mychat.service.ChatSessionsService;
+import com.mychat.utils.SearchSystemPrompts;
+import com.mychat.utils.WorkspacePromptBuilder;
 import com.mychat.utils.WorkspaceUtil;
+import com.mychat.utils.WritePathExtractor;
+import com.mychat.vo.EvaluateOptimizeResultVO;
+import com.mychat.vo.EvaluateOptimizeRoundVO;
+import com.mychat.vo.OrchestrateStepVO;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.memory.ChatMemory;
+import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.messages.MessageType;
+import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.util.StringUtils;
@@ -30,7 +44,6 @@ import reactor.core.publisher.Sinks;
 import reactor.core.scheduler.Schedulers;
 
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -39,45 +52,69 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * 主聊天流式端点（含 Routing Workflow 分发）。
+ * 主聊天流式端点（默认 Orchestrator + 写盘质量环）。
  * <p>
  * {@code format} 缺省 / {@code plain}：保持历史 {@code text/html} 行为。<br>
- * {@code format=ndjson}：结构化事件流（含 {@code route} + 工具观测）。
+ * {@code format=ndjson}：结构化事件流（{@code route} / {@code step} + 工具观测）。
  * <p>
- * 可选 {@code kbId}：请求参数优先，否则读会话绑定；供分类器约束与 kb 路由使用。
+ * 主路默认 {@code agentMode=orchestrate} + {@code qualityLoop=true}。<br>
+ * 调试可显式传 {@code agentMode=route} 或 {@code qualityLoop=false} 回退。<br>
+ * 可选 {@code kbId}：请求参数优先，否则读会话绑定。
  */
 @Slf4j
 @RestController
 @RequestMapping("/ai/normalChat")
 public class ChatController {
+
+    private static final String AGENT_MODE_ROUTE = "route";
+    private static final String AGENT_MODE_ORCHESTRATE = "orchestrate";
+    private static final String DEFAULT_QUALITY_CRITERIA =
+            "文件存在、非空，且内容符合用户目标。";
+
     private final ChatClient toolChatClient;
     private final ChatClient ragChatClient;
     private final AgentRoutingService agentRoutingService;
+    private final AgentOrchestratorService agentOrchestratorService;
+    private final AgentEvaluatorOptimizerService agentEvaluatorOptimizerService;
     private final ChatSessionsService chatSessionsService;
     private final ChatAssistantTurnService chatAssistantTurnService;
+    private final ChatMemory chatMemory;
     private final WorkspaceUtil workspaceUtil;
+    private final WorkspacePromptBuilder workspacePromptBuilder;
     private final ChatStreamEventWriter eventWriter;
 
     public ChatController(
             @Qualifier("toolChatClient") ChatClient toolChatClient,
             @Qualifier("ragChatClient") ChatClient ragChatClient,
             AgentRoutingService agentRoutingService,
+            AgentOrchestratorService agentOrchestratorService,
+            AgentEvaluatorOptimizerService agentEvaluatorOptimizerService,
             ChatSessionsService chatSessionsService,
             ChatAssistantTurnService chatAssistantTurnService,
+            ChatMemory chatMemory,
             WorkspaceUtil workspaceUtil,
+            WorkspacePromptBuilder workspacePromptBuilder,
             ChatStreamEventWriter eventWriter) {
         this.toolChatClient = toolChatClient;
         this.ragChatClient = ragChatClient;
         this.agentRoutingService = agentRoutingService;
+        this.agentOrchestratorService = agentOrchestratorService;
+        this.agentEvaluatorOptimizerService = agentEvaluatorOptimizerService;
         this.chatSessionsService = chatSessionsService;
         this.chatAssistantTurnService = chatAssistantTurnService;
+        this.chatMemory = chatMemory;
         this.workspaceUtil = workspaceUtil;
+        this.workspacePromptBuilder = workspacePromptBuilder;
         this.eventWriter = eventWriter;
     }
 
     /**
-     * @param format {@code plain}（默认）或 {@code ndjson}
-     * @param kbId   可选；覆盖或补充会话绑定的知识库
+     * @param format       {@code plain}（默认）或 {@code ndjson}
+     * @param kbId         可选；覆盖或补充会话绑定的知识库
+     * @param agentMode    {@code route}|{@code orchestrate}；缺省 orchestrate
+     * @param qualityLoop  是否在写盘后跑任务内质量环；缺省 true（显式 false 可关）
+     * @param maxSteps     Orchestrator 最大步数（可选）
+     * @param criteria     质量环评价标准（可选）
      */
     @RequestMapping(value = "/chat")
     public Flux<String> chat(
@@ -86,6 +123,10 @@ public class ChatController {
             @RequestParam(value = "files", required = false) List<MultipartFile> files,
             @RequestParam(value = "format", required = false) String format,
             @RequestParam(value = "kbId", required = false) String kbId,
+            @RequestParam(value = "agentMode", required = false) String agentMode,
+            @RequestParam(value = "qualityLoop", required = false) Boolean qualityLoop,
+            @RequestParam(value = "maxSteps", required = false) Integer maxSteps,
+            @RequestParam(value = "criteria", required = false) String criteria,
             HttpServletResponse response) {
 
         boolean ndjson = "ndjson".equalsIgnoreCase(format);
@@ -99,19 +140,36 @@ public class ChatController {
 
         bindWorkspace(chatId);
         String effectiveKbId = resolveKbId(chatId, kbId);
+        // 默认多步编排；仅显式 agentMode=route 回退单次 Routing
+        String mode = normalizeAgentMode(agentMode);
+        // 默认开启质量环；仅显式 qualityLoop=false 关闭
+        boolean ql = !Boolean.FALSE.equals(qualityLoop);
 
         Flux<String> body;
         if (files == null || files.isEmpty()) {
-            body = ndjson
-                    ? textChatNdjson(prompt, chatId, effectiveKbId)
-                    : textChatPlain(prompt, chatId, effectiveKbId);
+            if (ndjson && AGENT_MODE_ORCHESTRATE.equals(mode)) {
+                // 多步编排仅走 ndjson（产品入口）；plain 仍保持单次 Routing
+                body = orchestrateNdjson(prompt, chatId, effectiveKbId, ql, maxSteps, criteria);
+            } else {
+                body = ndjson
+                        ? textChatNdjson(prompt, chatId, effectiveKbId, ql, criteria)
+                        : textChatPlain(prompt, chatId, effectiveKbId);
+            }
         } else {
-            // 带附件：固定走工具路径（file），仍发 route 事件便于时间线
+            // 带附件：固定走工具路径（file），不进 Orchestrator
             body = ndjson
-                    ? multiModalChatNdjson(prompt, chatId, files)
+                    ? multiModalChatNdjson(prompt, chatId, files, ql, criteria)
                     : multiModalChatPlain(prompt, chatId, files);
         }
         return body.doFinally(signalType -> WorkspaceContext.clear());
+    }
+
+    /** 缺省 / 未知值 → orchestrate；仅显式 {@code route} 关闭多步编排。 */
+    private static String normalizeAgentMode(String agentMode) {
+        if (AGENT_MODE_ROUTE.equalsIgnoreCase(agentMode)) {
+            return AGENT_MODE_ROUTE;
+        }
+        return AGENT_MODE_ORCHESTRATE;
     }
 
     private String resolveKbId(String chatId, String requestKbId) {
@@ -210,7 +268,12 @@ public class ChatController {
     // ndjson：Routing 事件 + 旁路观测
     // -------------------------------------------------------------------------
 
-    private Flux<String> textChatNdjson(String prompt, String chatId, String kbId) {
+    private Flux<String> textChatNdjson(
+            String prompt,
+            String chatId,
+            String kbId,
+            boolean qualityLoop,
+            String criteria) {
         String turnId = chatId + "-" + UUID.randomUUID();
         AtomicInteger seq = new AtomicInteger(0);
         Sinks.Many<ChatStreamEvent> sink = Sinks.many().replay().limit(1024);
@@ -226,12 +289,240 @@ public class ChatController {
         emitTracked(sink, accumulated, ChatStreamEvent.route(
                 turnId, seq, classified.selection(), classified.reasoning()));
 
+        String workDir = WorkspaceContext.get();
         Mono<Void> drive = streamByRouteNdjson(
                 classified.selection(), prompt, chatId, kbId, obs, sink, turnId, seq, accumulated)
+                .then(Mono.defer(() -> runQualityLoopIfNeeded(
+                        qualityLoop, criteria, prompt, workDir, null, accumulated,
+                        sink, turnId, seq)))
                 .doOnError(e -> emitError(sink, turnId, seq, e, accumulated))
                 .doFinally(signal -> completeSink(sink, turnId, seq, signal, chatId, accumulated));
 
         return mergeNdjson(sink, drive);
+    }
+
+    /**
+     * 主路 Orchestrator：route=orchestrate → 逐步 step → 最终 text_delta（可选质量环）。
+     */
+    private Flux<String> orchestrateNdjson(
+            String prompt,
+            String chatId,
+            String kbId,
+            boolean qualityLoop,
+            Integer maxSteps,
+            String criteria) {
+        String turnId = chatId + "-" + UUID.randomUUID();
+        AtomicInteger seq = new AtomicInteger(0);
+        Sinks.Many<ChatStreamEvent> sink = Sinks.many().replay().limit(1024);
+        List<ChatStreamEvent> accumulated = Collections.synchronizedList(new ArrayList<>());
+
+        emitTracked(sink, accumulated, ChatStreamEvent.route(
+                turnId, seq, AGENT_MODE_ORCHESTRATE,
+                "主聊天默认多步编排（Orchestrator-Workers），跨能力 Worker 接力"));
+
+        String workDir = WorkspaceContext.get();
+        // 编排路径不挂 MessageChatMemoryAdvisor(chatId)：决策前注入会话 Memory，供追问/指代消解
+        String dialogueHistory = formatDialogueHistoryForOrchestrator(chatMemory.get(chatId));
+        OrchestrateRequest request = new OrchestrateRequest();
+        request.setInput(prompt);
+        request.setKbId(kbId);
+        request.setWorkDir(workDir);
+        request.setMaxSteps(maxSteps);
+        request.setDialogueHistory(dialogueHistory);
+
+        Mono<Void> drive = Mono.fromCallable(() -> agentOrchestratorService.orchestrate(
+                        request,
+                        step -> emitOrchestrateStep(sink, accumulated, turnId, seq, step)))
+                .subscribeOn(Schedulers.boundedElastic())
+                .doOnSuccess(result -> {
+                    if (result != null && StringUtils.hasText(result.getFinalAnswer())) {
+                        emitTracked(sink, accumulated, ChatStreamEvent.textDelta(
+                                turnId, seq, result.getFinalAnswer()));
+                    }
+                })
+                .flatMap(result -> runQualityLoopIfNeeded(
+                        qualityLoop, criteria, prompt, workDir,
+                        result != null ? result.getSteps() : null,
+                        accumulated, sink, turnId, seq))
+                .doOnError(e -> emitError(sink, turnId, seq, e, accumulated))
+                .doFinally(signal -> {
+                    // Orchestrator Worker 使用 orch-* 临时 conversationId，不会写入会话 chatId。
+                    // 回合结束时显式落库 USER+ASSISTANT，否则刷新后 getMessages(chatId) 为空。
+                    if (signal == SignalType.ON_COMPLETE) {
+                        persistOrchestrateExchange(chatId, prompt, accumulated);
+                    }
+                    completeSink(sink, turnId, seq, signal, chatId, accumulated);
+                })
+                .then();
+
+        return mergeNdjson(sink, drive);
+    }
+
+    /**
+     * 将会话 Memory 格式化为编排器可读的「近期对话」文本（截断防爆上下文）。
+     */
+    private static String formatDialogueHistoryForOrchestrator(List<Message> memory) {
+        if (memory == null || memory.isEmpty()) {
+            return null;
+        }
+        final int maxMessages = 12;
+        final int maxChars = 6000;
+        int from = Math.max(0, memory.size() - maxMessages);
+        StringBuilder sb = new StringBuilder();
+        for (int i = from; i < memory.size(); i++) {
+            Message m = memory.get(i);
+            if (m == null) {
+                continue;
+            }
+            MessageType type = m.getMessageType();
+            if (type != MessageType.USER && type != MessageType.ASSISTANT) {
+                continue;
+            }
+            String role = type == MessageType.USER ? "用户" : "助手";
+            String text = m.getText() != null ? m.getText().trim() : "";
+            if (text.isEmpty()) {
+                continue;
+            }
+            if (text.length() > 800) {
+                text = text.substring(0, 800) + "…";
+            }
+            sb.append(role).append("：").append(text).append('\n');
+            if (sb.length() >= maxChars) {
+                sb.setLength(maxChars);
+                sb.append("\n…（更早内容已省略）");
+                break;
+            }
+        }
+        return sb.isEmpty() ? null : sb.toString().trim();
+    }
+
+    /**
+     * 将本轮用户提问与助手最终正文写入会话级 ChatMemory（spring_ai_chat_memory.conversation_id = chatId）。
+     * <p>
+     * 与 Routing 路径不同：编排不经 MessageChatMemoryAdvisor(chatId)，必须手动 add。
+     */
+    private void persistOrchestrateExchange(String chatId, String userPrompt, List<ChatStreamEvent> events) {
+        if (!StringUtils.hasText(chatId) || !StringUtils.hasText(userPrompt) || events == null) {
+            return;
+        }
+        StringBuilder assistant = new StringBuilder();
+        for (ChatStreamEvent e : events) {
+            if (e != null
+                    && ChatStreamEvent.TYPE_TEXT_DELTA.equals(e.type())
+                    && StringUtils.hasText(e.text())) {
+                assistant.append(e.text());
+            }
+        }
+        if (assistant.isEmpty()) {
+            return;
+        }
+        try {
+            chatMemory.add(chatId, List.of(
+                    new UserMessage(userPrompt),
+                    new AssistantMessage(assistant.toString())));
+        } catch (Exception e) {
+            log.error("编排回合写入会话 Memory 失败 chatId={}: {}", chatId, e.getMessage(), e);
+        }
+    }
+
+    private void emitOrchestrateStep(
+            Sinks.Many<ChatStreamEvent> sink,
+            List<ChatStreamEvent> accumulated,
+            String turnId,
+            AtomicInteger seq,
+            OrchestrateStepVO step) {
+        if (step == null) {
+            return;
+        }
+        emitTracked(sink, accumulated, ChatStreamEvent.step(
+                turnId,
+                seq,
+                step.getIndex(),
+                step.getAction(),
+                step.getReasoning(),
+                step.getInstruction(),
+                step.getObservation()));
+    }
+
+    /**
+     * qualityLoop 门控：能解析出 write 相对路径才跑 Evaluator-Optimizer；否则跳过。
+     */
+    private Mono<Void> runQualityLoopIfNeeded(
+            boolean qualityLoop,
+            String criteria,
+            String userGoal,
+            String workDir,
+            List<OrchestrateStepVO> orchSteps,
+            List<ChatStreamEvent> accumulated,
+            Sinks.Many<ChatStreamEvent> sink,
+            String turnId,
+            AtomicInteger seq) {
+        if (!qualityLoop) {
+            return Mono.empty();
+        }
+        return Mono.fromRunnable(() -> {
+                    String path = WritePathExtractor.fromToolEvents(accumulated);
+                    if (!StringUtils.hasText(path) && orchSteps != null) {
+                        path = WritePathExtractor.fromOrchestrateSteps(orchSteps);
+                    }
+                    if (!StringUtils.hasText(path)) {
+                        path = WritePathExtractor.hintFromText(userGoal);
+                    }
+                    if (!StringUtils.hasText(path)) {
+                        log.warn("qualityLoop=true 但未解析到 write 路径，已跳过质量环 turnId={}", turnId);
+                        return;
+                    }
+
+                    EvaluateOptimizeRequest eoReq = new EvaluateOptimizeRequest();
+                    eoReq.setGoal(userGoal);
+                    eoReq.setPath(path);
+                    eoReq.setCriteria(StringUtils.hasText(criteria) ? criteria.trim() : DEFAULT_QUALITY_CRITERIA);
+                    eoReq.setWorkDir(StringUtils.hasText(workDir)
+                            ? workDir
+                            : workspaceUtil.getWorkspaceRoot().toString());
+
+                    log.info("主聊天质量环启动 path={} turnId={}", path, turnId);
+                    EvaluateOptimizeResultVO eoResult = agentEvaluatorOptimizerService.evaluateOptimize(eoReq);
+                    emitQualityLoopSteps(sink, accumulated, turnId, seq, eoResult);
+                    if (eoResult != null) {
+                        String summary = "\n\n（写盘质量环："
+                                + (eoResult.isPassed() ? "已通过" : "未完全通过")
+                                + "，原因=" + eoResult.getFinishedReason()
+                                + "，path=" + eoResult.getPath() + "）";
+                        emitTracked(sink, accumulated, ChatStreamEvent.textDelta(turnId, seq, summary));
+                    }
+                })
+                .subscribeOn(Schedulers.boundedElastic())
+                .onErrorResume(e -> {
+                    log.warn("质量环执行失败 turnId={}: {}", turnId, e.getMessage());
+                    emitTracked(sink, accumulated, ChatStreamEvent.step(
+                            turnId, seq, 0, "evaluate_optimize",
+                            "质量环异常", e.getMessage() != null ? e.getMessage() : "error", null));
+                    return Mono.empty();
+                })
+                .then();
+    }
+
+    private void emitQualityLoopSteps(
+            Sinks.Many<ChatStreamEvent> sink,
+            List<ChatStreamEvent> accumulated,
+            String turnId,
+            AtomicInteger seq,
+            EvaluateOptimizeResultVO eoResult) {
+        if (eoResult == null || eoResult.getRounds() == null) {
+            return;
+        }
+        int i = 1;
+        for (EvaluateOptimizeRoundVO round : eoResult.getRounds()) {
+            String reasoning = round.getReasoning() != null ? round.getReasoning() : "";
+            String feedback = round.getFeedback() != null ? round.getFeedback() : "";
+            String obs = "evaluationPass=" + round.isEvaluationPass()
+                    + ", ruleCheckPassed=" + round.isRuleCheckPassed()
+                    + (StringUtils.hasText(feedback) ? "\n" + feedback : "");
+            emitTracked(sink, accumulated, ChatStreamEvent.step(
+                    turnId, seq, i++, "evaluate_optimize", reasoning,
+                    "iteration=" + round.getIteration(), obs));
+        }
     }
 
     private Mono<Void> streamByRouteNdjson(
@@ -281,7 +572,12 @@ public class ChatController {
                 .then();
     }
 
-    private Flux<String> multiModalChatNdjson(String prompt, String chatId, List<MultipartFile> files) {
+    private Flux<String> multiModalChatNdjson(
+            String prompt,
+            String chatId,
+            List<MultipartFile> files,
+            boolean qualityLoop,
+            String criteria) {
         String turnId = chatId + "-" + UUID.randomUUID();
         AtomicInteger seq = new AtomicInteger(0);
         Sinks.Many<ChatStreamEvent> sink = Sinks.many().replay().limit(1024);
@@ -293,6 +589,7 @@ public class ChatController {
                 turnId, seq, "file", "用户上传了附件，固定走 file / 工具路径"));
 
         PromptParts parts = buildMultiModalParts(prompt, files);
+        String workDir = WorkspaceContext.get();
 
         Mono<Void> drive = toolChatClient.prompt()
                 .system(parts.systemMsg())
@@ -322,6 +619,9 @@ public class ChatController {
                     emitError(sink, turnId, seq, e, accumulated);
                     return Flux.error(e);
                 })
+                .then(Mono.defer(() -> runQualityLoopIfNeeded(
+                        qualityLoop, criteria, prompt, workDir, null, accumulated,
+                        sink, turnId, seq)))
                 .doFinally(signal -> completeSink(sink, turnId, seq, signal, chatId, accumulated))
                 .then();
 
@@ -404,10 +704,8 @@ public class ChatController {
     private static final String GENERAL_SYSTEM_PROMPT =
             "你是友好的助手，用简洁中文回答用户的一般问题。不要尝试调用外部工具。";
 
-    private static final String SEARCH_SYSTEM_PROMPT = """
-            当前请求已路由到 search。请优先调用可用的远程 MCP 工具
-            （网页搜索、天气查询等）获取信息后再回答；不要编造实时数据。
-            """;
+    /** 与 Orchestrator search Worker 共用，见 {@link SearchSystemPrompts} */
+    private static final String SEARCH_SYSTEM_PROMPT = SearchSystemPrompts.SEARCH;
 
     private record PromptParts(String systemMsg, String userPrompt, List<MultipartFile> images) {
     }
@@ -506,19 +804,8 @@ public class ChatController {
         return sb.toString();
     }
 
+    /** 路径规则 + 浅层目录摘要（委托 {@link WorkspacePromptBuilder}） */
     private String buildWorkspaceSystemPrompt() {
-        String workDir = WorkspaceContext.get();
-        String name = Paths.get(workDir).getFileName().toString();
-        return String.format("""
-                所有涉及文件的查看、创建、写入、修改、删除、重命名、复制操作，务必积极调用可用工具实际执行。
-                不能在回复中假装执行了文件操作。
-                当前工作目录: %1$s
-                路径规则：所有路径都是相对于当前工作目录的**相对路径**。
-                不要把工作目录名 "%2$s" 作为路径前缀。
-                ✅ 正确: path="src/components/App.vue"
-                ✅ 正确: path="README.md"
-                ❌ 错误: path="%2$s/src/components/App.vue"
-                ❌ 错误: path="%2$s/README.md"
-                """, workDir, name);
+        return workspacePromptBuilder.build();
     }
 }

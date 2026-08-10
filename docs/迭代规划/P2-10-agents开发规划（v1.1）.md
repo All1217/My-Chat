@@ -52,17 +52,14 @@
 - **已实现**：主聊天默认 Orchestrator + 写盘质量环；`file` Worker 含浅层摘要；调试 API 旁路保留。  
 - **未实现**：会话级 plan/todo 状态机；可暂停续跑的长任务（见远期 `agent_tasks`）。
 
-#### 2.2.1 已知局限：附件多模态旁路 Orchestrator（后人注意）
+#### 2.2.1 聊天附件与 Agent（文本进编排；图片暂不支持）
 
-> **现状**：[`ChatController`](../../my-chat-server/src/main/java/com/mychat/controller/ChatController.java) 在请求带 `files` 时固定走 `multiModalChatNdjson` / plain 多模态工具路径，**不进入** `orchestrateNdjson`。  
-> 此路径上 `qualityLoop` 仍可在能解析 write 路径时执行；仅外层编排被旁路。
+> **现状（已调整）**：聊天上传仅支持 **txt / md / pdf**。服务端抽文本后拼入本轮用户目标，与无附件相同进入 **Orchestrator**（或显式 `agentMode=route` 的 Routing），**不再**因有 `files` 旁路到独立多模态路径。  
+> **图片**：前后端双拒（前端 `accept`/校验拦截；后端遇 `image/*` 返回 400），看图能力后续另开迭代（需 file Worker 支持 multimodal `media`）。
 
-**原因（刻意保留，非偶然遗漏）**：
+**Memory / 气泡**：附件**正文仅注入本轮** Agent 输入（Orchestrator `input` 或 Routing 本轮 `system` 附录）；`spring_ai_chat_memory` 与刷新后气泡只保留**文件名列表 + 用户原问**，避免把 PDF/长文铺进历史。
 
-1. 沿用 Routing 时代「有附件则跳过 classify、固定 file」的产品语义，合并主聊天 Orchestrator 时未强行改口径。  
-2. 当前 Orchestrator Worker 为同步文本 `.call()` + `user(instruction)`，**未**把 `MultipartFile`（尤其图片 `media`）传入 Worker；若硬进编排，视觉/附件上下文会丢失或只能降级为「先抽文本再编排」，与现多模态路径不一致。
-
-**后续若要统一主路**：编排入口需携带已抽取的文档文本；看图场景需让 `file` Worker 支持 multimodal user；再取消「有附件则旁路 Orchestrator」分支。在此之前请勿假设「开了默认 orchestrate = 带图也会多步换 Worker」。
+**注意**：聊天附件是提示上下文，不会自动 `write` 进工作区；PDF 扫描件无文字层时抽取结果可能为空（不做 OCR）。多轮追问若不重新上传，模型可能不再看见附件正文（与 Memory 不存全文一致）。
 
 #### 2.2.2 已知局限：联网搜索（Smithery / Exa）外部失败
 

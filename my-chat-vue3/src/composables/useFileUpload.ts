@@ -27,12 +27,16 @@ export function useFileUpload() {
                 ElMessage.warning(`最多上传 ${MAX_FILE_COUNT} 个文件`)
                 break
             }
+            // 暂不支持图片：仅 txt/md/pdf（抽文本后进 Agent）
+            if (file.type.startsWith('image/')) {
+                ElMessage.warning(`暂不支持图片上传: ${file.name}`)
+                continue
+            }
             const ext = '.' + file.name.split('.').pop()?.toLowerCase()
-            if (!file.type.startsWith('image/')
-                && !file.type.startsWith('text/')
+            if (!file.type.startsWith('text/')
                 && file.type !== 'application/pdf'
                 && !['.txt', '.md', '.pdf'].includes(ext)) {
-                ElMessage.warning(`不支持的文件类型: ${file.name}`)
+                ElMessage.warning(`不支持的文件类型（仅 txt/md/pdf）: ${file.name}`)
                 continue
             }
             if (file.size > MAX_FILE_SIZE) {
@@ -47,7 +51,6 @@ export function useFileUpload() {
     }
 
     function fileIcon(file: File): string {
-        if (file.type.startsWith('image/')) return '🖼️'
         if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) return '📄'
         return '📝'
     }

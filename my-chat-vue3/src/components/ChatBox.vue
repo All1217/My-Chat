@@ -79,7 +79,7 @@
                 :disabled="isStreaming"></textarea>
 
             <!-- 隐藏的文件选择 input -->
-            <input ref="fileInputRef" type="file" multiple style="display:none" accept="image/*,.pdf,.txt,.md"
+            <input ref="fileInputRef" type="file" multiple style="display:none" accept=".pdf,.txt,.md,text/plain,text/markdown,application/pdf"
                 @change="handleFileSelect" />
 
             <button class="chat-box-btn send-btn" @click="sendMessage" :disabled="isStreaming || !inputText.trim()">

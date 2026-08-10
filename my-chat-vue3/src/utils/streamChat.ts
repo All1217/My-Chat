@@ -14,8 +14,6 @@ export interface ChatStreamOptions {
   agentMode?: 'route' | 'orchestrate'
   /** 写盘后是否跑任务内质量环；主路默认 true */
   qualityLoop?: boolean
-  /** Orchestrator 最大步数（可选） */
-  maxSteps?: number
   /** 质量环评价标准（可选） */
   criteria?: string
   /** 兼容旧 RAG 纯文本（本路径已不再使用） */
@@ -38,7 +36,6 @@ export function streamChat(options: ChatStreamOptions): () => void {
     files,
     agentMode,
     qualityLoop,
-    maxSteps,
     criteria,
     onEvent,
     onComplete,
@@ -61,9 +58,7 @@ export function streamChat(options: ChatStreamOptions): () => void {
   formData.append('agentMode', agentMode ?? 'orchestrate')
   // 显式传 false 时关闭；缺省 true
   formData.append('qualityLoop', qualityLoop === false ? 'false' : 'true')
-  if (maxSteps != null && maxSteps > 0) {
-    formData.append('maxSteps', String(maxSteps))
-  }
+  // Orchestrator 步数由后端 DEFAULT_MAX_STEPS 决定，不对前端暴露 maxSteps
   if (criteria) {
     formData.append('criteria', criteria)
   }

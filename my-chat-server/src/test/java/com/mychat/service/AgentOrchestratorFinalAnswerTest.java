@@ -62,4 +62,19 @@ class AgentOrchestratorFinalAnswerTest {
         String answer = AgentOrchestratorService.resolveFinalAnswer("问三大特性", strong, steps);
         assertTrue(answer.startsWith("## Java 三大特性"));
     }
+
+    @Test
+    void streamFinalPromptContainsGoalDraftAndMaterials() {
+        List<OrchestrateStepVO> steps = List.of(
+                new OrchestrateStepVO(1, "file", "r", "列出目录", "根目录含 src/ 与 README.md")
+        );
+        String prompt = AgentOrchestratorService.buildFinalAnswerStreamUserPrompt(
+                "查看项目结构", "## 草稿\n- src", steps);
+        assertTrue(prompt.contains("用户目标："));
+        assertTrue(prompt.contains("查看项目结构"));
+        assertTrue(prompt.contains("文件结果"));
+        assertTrue(prompt.contains("README.md"));
+        assertTrue(prompt.contains("答复草稿："));
+        assertTrue(prompt.contains("请直接输出最终答复："));
+    }
 }

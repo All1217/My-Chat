@@ -16,6 +16,7 @@ import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import reactor.core.publisher.Flux;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,6 +33,9 @@ import java.util.UUID;
  * <p>
  * 最终答复写入会话 Memory / 主气泡依赖 {@link #resolveFinalAnswer}：finish 提纲过短时
  * 会用各步 observation 合成 Markdown，避免干货只留在时间线。
+ * <p>
+ * 主聊天 NDJSON 在编排结束后再经 {@link #streamFinalAnswer} 做 <b>token 级</b> {@code text_delta}；
+ * 调试同步 API 仍直接使用 {@code finalAnswer} 字段。
  */
 @Slf4j
 @Service
@@ -45,6 +49,18 @@ public class AgentOrchestratorService {
      * 编排器 StepSummary / 合成兜底用的 observation 上限（大于 UI 预览，便于 finish 看见案例代码）。
      */
     public static final int HISTORY_OBSERVATION_MAX_CHARS = 16000;
+
+    /** 流式最终答复 prompt 中材料区总预算，防止上下文爆炸 */
+    public static final int STREAM_FINAL_MATERIALS_MAX_CHARS = 12000;
+
+    private static final String FINAL_STREAM_SYSTEM = """
+            你是面向用户的助手。根据「用户目标」「参考材料」和「答复草稿」，直接输出最终答复正文。
+            要求：
+            1. 默认 Markdown（标题、列表、代码块）；用户另有格式要求时除外。
+            2. 把材料中的关键内容写进答复；不要只给「向用户作答 / 首先给出…」这类提纲或元指令。
+            3. 草稿若已完整，可润色后输出；若草稿偏弱，必须基于材料写完整答复。
+            4. 只输出用户可见正文，不要前言、不要解释你在流式输出。
+            """;
 
     private static final String SEARCH_SYSTEM_PROMPT = SearchSystemPrompts.SEARCH;
 
@@ -258,6 +274,95 @@ public class AgentOrchestratorService {
         steps.add(step);
         history.add(new OrchestratorWorkflow.StepSummary(index, action, instruction, observation));
         return step;
+    }
+
+    /**
+     * 主聊天：在编排结束后流式生成最终答复（每项为文本增量，供 NDJSON {@code text_delta}）。
+     * <p>
+     * 内部先用 {@link #resolveFinalAnswer} 得到草稿（含弱答案 observation 合成），再 stream 润色输出。
+     */
+    public Flux<String> streamFinalAnswer(String userGoal, OrchestrateResultVO result) {
+        String draft = "";
+        List<OrchestrateStepVO> steps = List.of();
+        if (result != null) {
+            if (StringUtils.hasText(result.getFinalAnswer())) {
+                draft = result.getFinalAnswer().trim();
+            }
+            if (result.getSteps() != null) {
+                steps = result.getSteps();
+            }
+        }
+        // 若 sync 路径未填 finalAnswer，再决议一次草稿
+        if (!StringUtils.hasText(draft)) {
+            String finishInst = extractFinishInstruction(steps);
+            draft = resolveFinalAnswer(userGoal, finishInst, steps);
+        }
+        String userPrompt = buildFinalAnswerStreamUserPrompt(userGoal, draft, steps);
+        log.debug("streamFinalAnswer promptChars={} draftChars={}",
+                userPrompt.length(), draft != null ? draft.length() : 0);
+        return agentWorkflowChatClient.prompt()
+                .system(FINAL_STREAM_SYSTEM)
+                .user(userPrompt)
+                .stream()
+                .content()
+                .filter(StringUtils::hasText);
+    }
+
+    /**
+     * 构建流式最终答复的 user 消息（含材料截断）。包可见便于单测。
+     */
+    static String buildFinalAnswerStreamUserPrompt(
+            String userGoal, String draft, List<OrchestrateStepVO> steps) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("用户目标：\n")
+                .append(StringUtils.hasText(userGoal) ? userGoal.trim() : "（未提供）")
+                .append("\n\n");
+        sb.append("参考材料（各 Worker observation，可能截断）：\n");
+        sb.append(formatMaterialsForStreamPrompt(steps));
+        sb.append("\n\n答复草稿：\n");
+        sb.append(StringUtils.hasText(draft) ? draft.trim() : "（无草稿，请仅根据材料作答）");
+        sb.append("\n\n请直接输出最终答复：");
+        return sb.toString();
+    }
+
+    private static String formatMaterialsForStreamPrompt(List<OrchestrateStepVO> steps) {
+        List<OrchestrateStepVO> usable = collectUsableObservationSteps(steps);
+        if (usable.isEmpty()) {
+            return "（无可用材料）\n";
+        }
+        StringBuilder sb = new StringBuilder();
+        int remaining = STREAM_FINAL_MATERIALS_MAX_CHARS;
+        for (OrchestrateStepVO s : usable) {
+            if (remaining <= 0) {
+                sb.append("…（后续材料已省略）\n");
+                break;
+            }
+            String body = stripLeadingReasoningNoise(s.getObservation());
+            if (!StringUtils.hasText(body)) {
+                continue;
+            }
+            String header = "### " + sectionHeading(s.getAction()) + "（step " + s.getIndex() + "）\n";
+            int budget = Math.min(remaining, Math.max(500, remaining / Math.max(1, usable.size())));
+            if (body.length() > budget) {
+                body = body.substring(0, budget) + "\n…[已截断]";
+            }
+            sb.append(header).append(body.trim()).append("\n\n");
+            remaining -= header.length() + body.length();
+        }
+        return sb.isEmpty() ? "（无可用材料）\n" : sb.toString();
+    }
+
+    private static String extractFinishInstruction(List<OrchestrateStepVO> steps) {
+        if (steps == null) {
+            return "";
+        }
+        for (int i = steps.size() - 1; i >= 0; i--) {
+            OrchestrateStepVO s = steps.get(i);
+            if (s != null && "finish".equals(s.getAction()) && StringUtils.hasText(s.getInstruction())) {
+                return s.getInstruction().trim();
+            }
+        }
+        return "";
     }
 
     /**

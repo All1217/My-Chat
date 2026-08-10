@@ -36,17 +36,17 @@
 | **Routing 接入主聊天** | 每轮 `classify` → 分发 `file` / `kb` / `search` / `general` | `ChatController` + `AgentRoutingService` |
 | 会话约束 | `kbId` / `workDir` 进分类；无 kb 时禁止 `kb` | `RoutingWorkflow` + `applyConstraints` |
 | NDJSON `route` / `step` 事件 | 时间线展示分流与编排步骤；`parts` 落库可回放 | `ChatStreamEvent` / `AgentActivityTimeline` |
-| **Orchestrator 接入主聊天** | 主路默认多步编排（可显式 `agentMode=route` 回退） | `ChatController` + `AgentOrchestratorService` |
+| **Orchestrator 接入主聊天** | 主聊天**仅**多步编排（已移除 `agentMode=route`） | `ChatController` + `AgentOrchestratorService` |
 | **Evaluator 质量环** | 主路默认开启；可解析 write 路径时执行（可显式 `qualityLoop=false`） | `ChatController` + `AgentEvaluatorOptimizerService` |
 | 工作区浅层摘要 | file 路径 system 注入 depth≤2 骨架 | `WorkspacePromptBuilder` |
 | 前端统一入口 | `/rag/ai/normalChat/chat?format=ndjson`（默认 orchestrate + qualityLoop） | `streamChat.ts` |
-| 调试 API 保留 | `POST /ai/agent/route`、`/orchestrate`、`/evaluate-optimize` | `AgentDemoController` |
+| 调试 API 保留 | `POST /ai/agent/route`（**NDJSON 流式**）、`/orchestrate`、`/evaluate-optimize`（后两者同步 JSON） | `controller/demo/AgentDemoController` |
 
 ### 2.2 当前行为边界（务必认清）
 
 ```text
-主路默认：用户一句 → Orchestrator 多步换 Worker（可跨 Client）→ 可解析 write 时 qualityLoop → 结束
-调试回退：agentMode=route → classify（一次）→ 单 Client；qualityLoop=false 关闭质量环
+主路：用户一句 → Orchestrator 多步换 Worker（可跨 Client）→ 可解析 write 时 qualityLoop → 结束
+调试：单次 Routing 仅 `POST /ai/agent/route`（NDJSON）；主聊天 `qualityLoop=false` 可关质量环
 ```
 
 - **已实现**：主聊天默认 Orchestrator + 写盘质量环；`file` Worker 含浅层摘要；调试 API 旁路保留。  
@@ -54,7 +54,7 @@
 
 #### 2.2.1 聊天附件与 Agent（文本进编排；图片暂不支持）
 
-> **现状（已调整）**：聊天上传仅支持 **txt / md / pdf**。服务端抽文本后拼入本轮用户目标，与无附件相同进入 **Orchestrator**（或显式 `agentMode=route` 的 Routing），**不再**因有 `files` 旁路到独立多模态路径。  
+> **现状（已调整）**：聊天上传仅支持 **txt / md / pdf**。服务端抽文本后拼入本轮用户目标，与无附件相同进入 **Orchestrator**，**不再**因有 `files` 旁路到独立多模态路径；主聊天已无 Routing 回退。  
 > **图片**：前后端双拒（前端 `accept`/校验拦截；后端遇 `image/*` 返回 400），看图能力后续另开迭代（需 file Worker 支持 multimodal `media`）。
 
 **Memory / 气泡**：附件**正文仅注入本轮** Agent 输入（Orchestrator `input` 或 Routing 本轮 `system` 附录）；`spring_ai_chat_memory` 与刷新后气泡只保留**文件名列表 + 用户原问**，避免把 PDF/长文铺进历史。
@@ -97,7 +97,7 @@
 | 分类与同步调试编排 | `my-chat-server/.../service/AgentRoutingService.java` |
 | 分类器 Structured Output | `my-chat-server/.../common/RoutingWorkflow.java` |
 | 流式事件协议 | `my-chat-server/.../common/ChatStreamEvent.java` |
-| 调试入口 | `my-chat-server/.../controller/AgentDemoController.java` |
+| 调试入口 | `my-chat-server/.../controller/demo/AgentDemoController.java`（`/route`=NDJSON） |
 | 前端流式 / 时间线 | `my-chat-vue3/src/utils/streamChat.ts`、`AgentActivityTimeline.vue` |
 
 ---

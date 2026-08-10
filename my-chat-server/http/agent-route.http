@@ -1,0 +1,41 @@
+### 单次 Routing — NDJSON 流式（需后端 8100 已启动）
+### 响应 Content-Type: application/x-ndjson；逐行 JSON：route / tool_* / text_delta / thinking_delta / done
+### 旧同步 Result<RouteResultVO> 已废弃
+
+### file：列工作区
+POST http://localhost:8100/ai/agent/route
+Content-Type: application/json
+Accept: application/x-ndjson
+
+{
+  "input": "列出工作区根目录下的文件与文件夹",
+  "workDir": "E:/Program files/projects/personal-blog"
+}
+
+### search：联网（需 searchWeb / MCP 可用）
+POST http://localhost:8100/ai/agent/route
+Content-Type: application/json
+Accept: application/x-ndjson
+
+{
+  "input": "联网搜索纳斯达克今日大致行情，用三条要点总结"
+}
+
+### general：无工具闲聊
+POST http://localhost:8100/ai/agent/route
+Content-Type: application/json
+Accept: application/x-ndjson
+
+{
+  "input": "用一句话介绍什么是 Routing Workflow"
+}
+
+### 可选 chatId（仅本轮 Memory advisor；默认不落 chat_assistant_turns）
+POST http://localhost:8100/ai/agent/route
+Content-Type: application/json
+Accept: application/x-ndjson
+
+{
+  "input": "刚才我说了什么？如果没有历史就说明没有。",
+  "chatId": "demo-route-manual-1"
+}

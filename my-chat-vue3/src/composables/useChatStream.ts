@@ -217,8 +217,7 @@ export function useChatStream(
             chatId,
             kbId,
             files,
-            // 主聊天默认 Agent：多步编排 + 写盘质量环（后端同默认；显式传参防旧客户端缺省）
-            agentMode: 'orchestrate',
+            // 主聊天仅 Orchestrator + 写盘质量环
             qualityLoop: true,
             onEvent: applyStreamEvent,
             onComplete: () => {

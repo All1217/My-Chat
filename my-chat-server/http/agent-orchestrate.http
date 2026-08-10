@@ -28,10 +28,5 @@ Content-Type: application/json
   "maxSteps": 2
 }
 
-### 回归：单次 Routing
-POST http://localhost:8100/ai/agent/route
-Content-Type: application/json
-
-{
-  "input": "列出工作区文件"
-}
+### 回归：单次 Routing（已迁至 NDJSON，见 agent-route.http）
+# POST http://localhost:8100/ai/agent/route  → application/x-ndjson

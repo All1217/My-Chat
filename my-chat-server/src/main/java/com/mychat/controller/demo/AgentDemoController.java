@@ -1,28 +1,35 @@
-package com.mychat.controller;
+package com.mychat.controller.demo;
 
 import com.mychat.entity.dto.EvaluateOptimizeRequest;
 import com.mychat.entity.dto.OrchestrateRequest;
 import com.mychat.entity.dto.RouteRequest;
 import com.mychat.vo.EvaluateOptimizeResultVO;
 import com.mychat.vo.OrchestrateResultVO;
-import com.mychat.vo.RouteResultVO;
 import com.mychat.common.result.Result;
 import com.mychat.service.AgentEvaluatorOptimizerService;
 import com.mychat.service.AgentOrchestratorService;
-import com.mychat.service.AgentRoutingService;
+import com.mychat.service.AgentRouteDemoStreamService;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
+import reactor.core.publisher.Flux;
+
+import java.nio.charset.StandardCharsets;
 
 /**
- * Agent Workflow 调试 API（旁路，不进入主聊天流）。
+ * Agent Workflow 调试 API（旁路，不进入主聊天产品路径）。
  * <p>
- * {@code POST /ai/agent/route} — 单次 Routing；
- * {@code POST /ai/agent/orchestrate} — 回合内 Orchestrator-Workers；
- * {@code POST /ai/agent/evaluate-optimize} — 任务内质量环（Evaluator-Optimizer）。
+ * {@code POST /ai/agent/route} — 单次 Routing，<b>NDJSON 流式</b>（与主聊天
+ * {@code agentMode=route} 事件同构：route / tool_* / text_delta / thinking_delta / done）；
+ * {@code POST /ai/agent/orchestrate} — 回合内 Orchestrator-Workers（同步 JSON）；
+ * {@code POST /ai/agent/evaluate-optimize} — 任务内质量环（同步 JSON）。
  */
 @Slf4j
 @RestController
@@ -30,27 +37,26 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class AgentDemoController {
 
-    private final AgentRoutingService agentRoutingService;
+    private final AgentRouteDemoStreamService agentRouteDemoStreamService;
     private final AgentOrchestratorService agentOrchestratorService;
     private final AgentEvaluatorOptimizerService agentEvaluatorOptimizerService;
 
     /**
-     * 路由调试：先分类再分发到 file / kb / search / general。
+     * 路由调试（覆盖原同步 {@code Result&lt;RouteResultVO&gt;}）：分类后流式分发到
+     * file / kb / search / general。
      * <p>
-     * 请求示例：{@code { "input": "列出工作区文件" }}；
-     * kb 路由需额外 {@code kbId}。
+     * 请求示例：{@code { "input": "列出工作区文件", "workDir": "..." }}；
+     * kb 路由需额外 {@code kbId}。响应 {@code application/x-ndjson}。
      */
-    @PostMapping("/route")
-    public Result<RouteResultVO> route(@RequestBody RouteRequest request) {
+    @PostMapping(value = "/route", produces = "application/x-ndjson;charset=UTF-8")
+    public Flux<String> route(@RequestBody RouteRequest request, HttpServletResponse response) {
+        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        response.setContentType("application/x-ndjson;charset=UTF-8");
         try {
-            RouteResultVO vo = agentRoutingService.route(request);
-            return Result.ok(vo);
+            return agentRouteDemoStreamService.stream(request);
         } catch (IllegalArgumentException e) {
-            log.warn("Routing 参数错误: {}", e.getMessage());
-            return Result.fail(400, e.getMessage());
-        } catch (Exception e) {
-            log.error("Routing 执行失败", e);
-            return Result.fail("Routing 执行失败: " + e.getMessage());
+            log.warn("Routing Demo 参数错误: {}", e.getMessage());
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
         }
     }
 
@@ -60,7 +66,7 @@ public class AgentDemoController {
      * 请求示例：
      * {@code { "input": "根据知识库总结 X，并搜索补充近况", "kbId": "...", "maxSteps": 6 }}
      */
-    @PostMapping("/orchestrate")
+    @PostMapping(value = "/orchestrate", produces = MediaType.APPLICATION_JSON_VALUE)
     public Result<OrchestrateResultVO> orchestrate(@RequestBody OrchestrateRequest request) {
         try {
             OrchestrateResultVO vo = agentOrchestratorService.orchestrate(request);
@@ -81,7 +87,7 @@ public class AgentDemoController {
      * 请求示例：
      * {@code { "goal": "...", "path": "notes/x.md", "criteria": "...", "mustContain": ["## A"], "maxIterations": 3 }}
      */
-    @PostMapping("/evaluate-optimize")
+    @PostMapping(value = "/evaluate-optimize", produces = MediaType.APPLICATION_JSON_VALUE)
     public Result<EvaluateOptimizeResultVO> evaluateOptimize(@RequestBody EvaluateOptimizeRequest request) {
         try {
             EvaluateOptimizeResultVO vo = agentEvaluatorOptimizerService.evaluateOptimize(request);

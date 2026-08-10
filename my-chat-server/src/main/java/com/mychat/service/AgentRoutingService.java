@@ -68,7 +68,10 @@ public class AgentRoutingService {
     }
 
     /**
-     * 校验入参 → 分类 → 按路由调用对应处理器（同步，供调试 API）。
+     * 校验入参 → 分类 → 按路由同步调用对应处理器。
+     * <p>
+     * Demo {@code POST /ai/agent/route} 已改为 NDJSON（见 {@link AgentRouteDemoStreamService}）；
+     * 本方法仍可供内部/单测同步调用。
      *
      * @throws IllegalArgumentException 参数非法（如 input 为空）
      */

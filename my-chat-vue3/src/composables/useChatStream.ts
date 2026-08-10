@@ -273,8 +273,14 @@ export function useChatStream(
             for (const msg of raw) {
                 if (msg.messageType === MessageType.USER && msg.text.includes('\n\n用户的问题：\n')) {
                     const idx = msg.text.indexOf('\n\n用户的问题：\n')
-                    const filePart = msg.text.substring(0, idx)
+                    let filePart = msg.text.substring(0, idx)
                     const questionPart = msg.text.substring(idx + '\n\n用户的问题：\n'.length)
+                    // 旧脏数据曾把「上传文档正文」写进 Memory：刷新后只保留文件名列表
+                    const bodyMarker = '以下为上传文档正文'
+                    const bodyIdx = filePart.indexOf(bodyMarker)
+                    if (bodyIdx >= 0) {
+                        filePart = filePart.substring(0, bodyIdx).trimEnd()
+                    }
                     if (filePart.trim()) split.push({ text: filePart, messageType: MessageType.USER })
                     if (questionPart.trim()) split.push({ text: questionPart, messageType: MessageType.USER })
                 } else {

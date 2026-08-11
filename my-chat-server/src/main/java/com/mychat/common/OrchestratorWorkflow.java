@@ -13,20 +13,27 @@ import java.util.Set;
  * <p>
  * 与 {@link RoutingWorkflow} 的区别：Routing 只分类一次；本类可在回合内多轮决策，
  * 从而支持 kb → search / kb → file 等跨能力接力。
+ * <p>
+ * {@code complexity=single} 时，调用方可在跑完一个 Worker 后自动 finish（单步快路径），
+ * 以逼近 Routing「分类 + 单 Worker」的延迟/成本。
  */
 public class OrchestratorWorkflow {
 
     public static final Set<String> ALLOWED_ACTIONS = Set.of(
             "retrieve_kb", "file", "search", "general", "finish");
 
+    public static final Set<String> ALLOWED_COMPLEXITIES = Set.of("single", "multi");
+
     /**
      * 编排器 Structured Output。
      *
-     * @param reasoning  为何选该动作
-     * @param nextAction 动作标签，须为 {@link #ALLOWED_ACTIONS} 之一
+     * @param reasoning   为何选该动作
+     * @param nextAction  动作标签，须为 {@link #ALLOWED_ACTIONS} 之一
      * @param instruction 给 Worker 的子任务；{@code finish} 时必须是面向用户的完整最终答复
+     * @param complexity  {@code single}＝本 Worker 完成后即可答复；{@code multi}＝还需后续步骤；缺失按 multi
      */
-    public record NextAction(String reasoning, String nextAction, String instruction) {
+    public record NextAction(
+            String reasoning, String nextAction, String instruction, String complexity) {
     }
 
     /**
@@ -83,13 +90,17 @@ public class OrchestratorWorkflow {
                 规则：
                 - 复杂任务拆成多步；非 finish 时 instruction 只描述当前 Worker 要做的事。
                 - 若用户追问「刚才/上一条/之前说了什么」等，必须依据「近期对话」回答，禁止声称没有历史。
-                - 给 Worker 的 instruction 必要时应带上指代消解后的完整上下文。
+                - **非 finish 的 instruction（强制指代消解）**：必须写成可独立执行的细节（具体 path、文件名、上轮结论要点、检索关键词等）；禁止只写「刚才那个文件 / 同上 / 按上次说的做」等未消解指代。Worker 虽会收到近期对话摘要，仍以你消解后的 instruction 为准。
                 - 若「本回合已完成步骤」的 observation 已足够回答用户，选 finish。
                 - **finish 的 instruction（强制）**：
                   1. 必须是可直接展示给用户的完整答复正文，不是「向用户完整作答 / 首先给出 / 接着提供」等提纲或元指令。
                   2. 默认使用 Markdown（标题、列表、代码块）；仅当用户明确要求纯文本/JSON 等时才改格式。
                   3. 必须把各步 observation 中的关键内容（知识库定义、案例代码、搜索结论、文件结果）写入答复；用户默认不会展开时间线。
                   4. 若某步 observation 含「已截断」提示，仍基于可见内容尽量完整作答，并可注明可能有省略。
+                - **complexity（强制）**：
+                  1. 明显只需一个能力档（纯闲聊、单次读/写一文件、单次检索、单次 kb 问答）→ complexity=single，并选对应 Worker。
+                  2. 需跨能力接力（如 kb+search、多文件多步）→ complexity=multi。
+                  3. nextAction=finish 时 complexity 可填 multi（系统会忽略）。
                 - 当前是第 {stepIndex} 步，最多 {maxSteps} 步；临近上限时优先 finish。
                 - 未绑定知识库时禁止选 retrieve_kb。
 
@@ -109,7 +120,8 @@ public class OrchestratorWorkflow {
                 \\{
                   "reasoning": "简要理由",
                   "nextAction": "retrieve_kb|file|search|general|finish",
-                  "instruction": "Worker 子任务；或 finish 时的完整用户可见答复"
+                  "instruction": "Worker 子任务；或 finish 时的完整用户可见答复",
+                  "complexity": "single|multi"
                 \\}
                 """;
 
@@ -127,6 +139,7 @@ public class OrchestratorWorkflow {
         String action = normalizeAction(raw != null ? raw.nextAction() : null);
         String reasoning = raw != null && raw.reasoning() != null ? raw.reasoning() : "";
         String instruction = raw != null && raw.instruction() != null ? raw.instruction() : "";
+        String complexity = normalizeComplexity(raw != null ? raw.complexity() : null);
 
         if (!ALLOWED_ACTIONS.contains(action)) {
             reasoning = (reasoning.isBlank() ? "" : reasoning + " ")
@@ -137,7 +150,18 @@ public class OrchestratorWorkflow {
             }
         }
 
-        return new NextAction(reasoning, action, instruction);
+        return new NextAction(reasoning, action, instruction, complexity);
+    }
+
+    /**
+     * 规范化 complexity；缺失/未知 → multi（安全默认，保持多步编排）。
+     */
+    public static String normalizeComplexity(String complexity) {
+        if (complexity == null || complexity.isBlank()) {
+            return "multi";
+        }
+        String c = complexity.trim().toLowerCase(Locale.ROOT);
+        return ALLOWED_COMPLEXITIES.contains(c) ? c : "multi";
     }
 
     private static String buildSessionHints(String kbId, String workDir) {

@@ -180,7 +180,7 @@ public class ChatController {
                 "主聊天默认多步编排（Orchestrator-Workers），跨能力 Worker 接力"));
 
         String workDir = WorkspaceContext.get();
-        // 编排路径不挂 MessageChatMemoryAdvisor(chatId)：决策前注入会话 Memory，供追问/指代消解
+        // 编排路径不挂 MessageChatMemoryAdvisor(chatId)：读=注入 dialogueHistory；写=回合结束 persist
         String dialogueHistory = formatDialogueHistoryForOrchestrator(chatMemory.get(chatId));
         OrchestrateRequest request = new OrchestrateRequest();
         request.setInput(agentInput);
@@ -195,15 +195,15 @@ public class ChatController {
                         step -> emitOrchestrateStep(sink, accumulated, turnId, seq, step)))
                 .subscribeOn(Schedulers.boundedElastic())
                 .flatMap(result -> streamOrchestrateFinalAnswer(
-                                result, originalPrompt, sink, turnId, seq, accumulated)
+                                result, originalPrompt, dialogueHistory, sink, turnId, seq, accumulated)
                         .then(Mono.defer(() -> runQualityLoopIfNeeded(
                                 qualityLoop, criteria, originalPrompt, workDir,
                                 result != null ? result.getSteps() : null,
                                 accumulated, sink, turnId, seq))))
                 .doOnError(e -> emitError(sink, turnId, seq, e, accumulated))
                 .doFinally(signal -> {
-                    // Orchestrator Worker 使用 orch-* 临时 conversationId，不会写入会话 chatId。
-                    // 回合结束时显式落库短 USER+ASSISTANT（不含附件正文）。
+                    // 读路径：dialogueHistory 注入决策/Worker/最终流式；Worker 用 orch-*，不写 chatId。
+                    // 写路径：回合结束显式落库短 USER+ASSISTANT（不含附件正文）。
                     if (signal == SignalType.ON_COMPLETE) {
                         persistOrchestrateExchange(chatId, memoryUserText, accumulated);
                     }
@@ -221,6 +221,7 @@ public class ChatController {
     private Mono<Void> streamOrchestrateFinalAnswer(
             OrchestrateResultVO result,
             String userGoal,
+            String dialogueHistory,
             Sinks.Many<ChatStreamEvent> sink,
             String turnId,
             AtomicInteger seq,
@@ -229,7 +230,7 @@ public class ChatController {
             return Mono.empty();
         }
         StringBuilder streamed = new StringBuilder();
-        return agentOrchestratorService.streamFinalAnswer(userGoal, result)
+        return agentOrchestratorService.streamFinalAnswer(userGoal, result, dialogueHistory)
                 .doOnNext(delta -> {
                     streamed.append(delta);
                     emitTracked(sink, accumulated, ChatStreamEvent.textDelta(turnId, seq, delta));
@@ -292,9 +293,11 @@ public class ChatController {
         }
         StringBuilder assistant = new StringBuilder();
         for (ChatStreamEvent e : events) {
+            // 与流式路径一致：保留空格/换行 delta，勿用 hasText 丢掉 Markdown 结构空白
             if (e != null
                     && ChatStreamEvent.TYPE_TEXT_DELTA.equals(e.type())
-                    && StringUtils.hasText(e.text())) {
+                    && e.text() != null
+                    && !e.text().isEmpty()) {
                 assistant.append(e.text());
             }
         }

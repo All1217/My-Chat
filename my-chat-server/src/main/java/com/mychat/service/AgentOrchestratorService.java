@@ -29,6 +29,10 @@ import java.util.UUID;
  * 外层：{@link OrchestratorWorkflow} 逐步产出 next_action；
  * 内层：Java switch 调用专用 ChatClient（与 Routing 同源能力档，不合并 Tools+RAG，遵守 P0-7）。
  * <p>
+ * 会话 Memory：<b>读</b>＝把 {@code dialogueHistory} 注入决策器、各 Worker、流式最终答复 prompt；
+ * Worker 仍用 {@code orch-*} 临时 conversationId，<b>不</b>挂 {@code MessageChatMemoryAdvisor} 写会话 chatId。
+ * <b>写</b>＝主聊天回合结束由 {@code ChatController#persistOrchestrateExchange} 手动落库。
+ * <p>
  * 调试 API 与主聊天共用本服务；主路传入 {@link OrchestrateListener} 推送 NDJSON {@code step}。
  * <p>
  * 最终答复写入会话 Memory / 主气泡依赖 {@link #resolveFinalAnswer}：finish 提纲过短时
@@ -49,6 +53,9 @@ public class AgentOrchestratorService {
      * 编排器 StepSummary / 合成兜底用的 observation 上限（大于 UI 预览，便于 finish 看见案例代码）。
      */
     public static final int HISTORY_OBSERVATION_MAX_CHARS = 16000;
+
+    /** Worker 侧只读会话摘要预算（短于决策器侧，避免挤占工具上下文） */
+    public static final int WORKER_DIALOGUE_HISTORY_MAX_CHARS = 3000;
 
     /** 流式最终答复 prompt 中材料区总预算，防止上下文爆炸 */
     public static final int STREAM_FINAL_MATERIALS_MAX_CHARS = 12000;
@@ -136,9 +143,11 @@ public class AgentOrchestratorService {
             String action = decision.nextAction();
             String reasoning = decision.reasoning() != null ? decision.reasoning() : "";
             String instruction = decision.instruction() != null ? decision.instruction() : "";
+            // finish 时忽略 complexity；Worker 步用 single 触发自动 finish（省第二次 decideNext）
+            String complexity = OrchestratorWorkflow.normalizeComplexity(decision.complexity());
 
-            log.info("Orchestrator step={}/{} action={} reasoning={}",
-                    i, maxSteps, action, reasoning);
+            log.info("Orchestrator step={}/{} action={} complexity={} reasoning={}",
+                    i, maxSteps, action, complexity, reasoning);
 
             if ("finish".equals(action)) {
                 String finalAnswer = resolveFinalAnswer(userGoal, instruction, steps);
@@ -160,7 +169,7 @@ public class AgentOrchestratorService {
 
             String observation;
             try {
-                observation = runWorker(action, instruction, kbId, workDir);
+                observation = runWorker(action, instruction, kbId, workDir, dialogueHistory);
             } catch (Exception e) {
                 log.warn("Orchestrator Worker 失败 action={}: {}", action, e.getMessage());
                 observation = "[Worker 错误] " + (e.getMessage() != null
@@ -171,6 +180,21 @@ public class AgentOrchestratorService {
             observation = truncateForHistory(observation);
             OrchestrateStepVO step = appendStep(steps, history, i, action, reasoning, instruction, observation);
             notifyListener(listener, step);
+
+            // 单步快路径：明显单能力任务跑完一个成功 Worker 后直接 finish，不再二次 decide
+            if (shouldAutoFinishAfterWorker(complexity, observation)) {
+                String finalAnswer = resolveFinalAnswer(userGoal, null, steps);
+                if (!StringUtils.hasText(finalAnswer)) {
+                    finalAnswer = observation;
+                }
+                String finishReason = "single-shot: complexity=single，Worker 观察已足够作答";
+                OrchestrateStepVO finishStep = new OrchestrateStepVO(
+                        i + 1, "finish", finishReason, "", finalAnswer);
+                steps.add(finishStep);
+                notifyListener(listener, finishStep);
+                log.info("Orchestrator single-shot auto-finish after step={} action={}", i, action);
+                return new OrchestrateResultVO(finalAnswer, "finish", steps);
+            }
         }
 
         // 触顶：用最后观察或步骤合成作为答案
@@ -192,8 +216,23 @@ public class AgentOrchestratorService {
         }
     }
 
-    private String runWorker(String action, String instruction, String kbId, String workDir) {
-        String task = StringUtils.hasText(instruction) ? instruction : "";
+    /**
+     * 单步快路径门控：complexity=single 且 observation 非约束/错误时，跳过后续 decideNext。
+     */
+    static boolean shouldAutoFinishAfterWorker(String complexity, String observation) {
+        if (!"single".equals(OrchestratorWorkflow.normalizeComplexity(complexity))) {
+            return false;
+        }
+        if (!StringUtils.hasText(observation)) {
+            return false;
+        }
+        String t = observation.trim();
+        return !t.startsWith("[约束]") && !t.startsWith("[Worker 错误]");
+    }
+
+    private String runWorker(
+            String action, String instruction, String kbId, String workDir, String dialogueHistory) {
+        String task = buildWorkerUserMessage(dialogueHistory, instruction);
         return switch (action) {
             case "retrieve_kb" -> workerKb(task, kbId);
             case "file" -> workerFile(task, workDir);
@@ -203,19 +242,47 @@ public class AgentOrchestratorService {
         };
     }
 
-    private String workerKb(String instruction, String kbId) {
+    /**
+     * Worker user 消息：只读会话摘要 + 本步任务。包可见便于单测。
+     * <p>
+     * 不写入会话 Memory；仅消解「刚才/那个文件」等指代。
+     */
+    static String buildWorkerUserMessage(String dialogueHistory, String instruction) {
+        String hist = truncateDialogueForWorker(dialogueHistory);
+        String task = StringUtils.hasText(instruction) ? instruction.trim() : "";
+        return """
+                【会话近期对话｜只读参考，用于消解「刚才/那个文件」等指代；不要复述整段历史】
+                %s
+
+                【本步任务】
+                %s
+                """.formatted(hist, task);
+    }
+
+    static String truncateDialogueForWorker(String dialogueHistory) {
+        if (!StringUtils.hasText(dialogueHistory)) {
+            return "（无）";
+        }
+        String t = dialogueHistory.trim();
+        if (t.length() <= WORKER_DIALOGUE_HISTORY_MAX_CHARS) {
+            return t;
+        }
+        return t.substring(0, WORKER_DIALOGUE_HISTORY_MAX_CHARS) + "\n…[会话摘要已截断]";
+    }
+
+    private String workerKb(String userMessage, String kbId) {
         String conversationId = "orch-kb-" + UUID.randomUUID();
         QuestionAnswerAdvisor qaAdvisor = agentRoutingService.buildKbAdvisor(kbId);
         String content = ragChatClient.prompt()
                 .advisors(qaAdvisor)
                 .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationId))
-                .user(instruction)
+                .user(userMessage)
                 .call()
                 .content();
         return content != null ? content : "";
     }
 
-    private String workerFile(String instruction, String workDir) {
+    private String workerFile(String userMessage, String workDir) {
         String conversationId = "orch-file-" + UUID.randomUUID();
         String root = StringUtils.hasText(workDir)
                 ? workDir
@@ -224,7 +291,7 @@ public class AgentOrchestratorService {
         try {
             String content = toolChatClient.prompt()
                     .system(workspacePromptBuilder.build(root))
-                    .user(instruction)
+                    .user(userMessage)
                     .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationId))
                     .call()
                     .content();
@@ -234,7 +301,7 @@ public class AgentOrchestratorService {
         }
     }
 
-    private String workerSearch(String instruction, String workDir) {
+    private String workerSearch(String userMessage, String workDir) {
         String conversationId = "orch-search-" + UUID.randomUUID();
         String root = StringUtils.hasText(workDir)
                 ? workDir
@@ -243,7 +310,7 @@ public class AgentOrchestratorService {
         try {
             String content = toolChatClient.prompt()
                     .system(SEARCH_SYSTEM_PROMPT)
-                    .user(instruction)
+                    .user(userMessage)
                     .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationId))
                     .call()
                     .content();
@@ -253,10 +320,10 @@ public class AgentOrchestratorService {
         }
     }
 
-    private String workerGeneral(String instruction) {
+    private String workerGeneral(String userMessage) {
         String content = agentWorkflowChatClient.prompt()
                 .system("你是友好的助手，用简洁中文完成编排器交给你的子任务。不要尝试调用外部工具。")
-                .user(instruction)
+                .user(userMessage)
                 .call()
                 .content();
         return content != null ? content : "";
@@ -280,8 +347,11 @@ public class AgentOrchestratorService {
      * 主聊天：在编排结束后流式生成最终答复（每项为文本增量，供 NDJSON {@code text_delta}）。
      * <p>
      * 内部先用 {@link #resolveFinalAnswer} 得到草稿（含弱答案 observation 合成），再 stream 润色输出。
+     *
+     * @param dialogueHistory 会话近期对话（只读注入；可空）
      */
-    public Flux<String> streamFinalAnswer(String userGoal, OrchestrateResultVO result) {
+    public Flux<String> streamFinalAnswer(
+            String userGoal, OrchestrateResultVO result, String dialogueHistory) {
         String draft = "";
         List<OrchestrateStepVO> steps = List.of();
         if (result != null) {
@@ -297,7 +367,7 @@ public class AgentOrchestratorService {
             String finishInst = extractFinishInstruction(steps);
             draft = resolveFinalAnswer(userGoal, finishInst, steps);
         }
-        String userPrompt = buildFinalAnswerStreamUserPrompt(userGoal, draft, steps);
+        String userPrompt = buildFinalAnswerStreamUserPrompt(userGoal, draft, steps, dialogueHistory);
         log.debug("streamFinalAnswer promptChars={} draftChars={}",
                 userPrompt.length(), draft != null ? draft.length() : 0);
         return agentWorkflowChatClient.prompt()
@@ -305,18 +375,22 @@ public class AgentOrchestratorService {
                 .user(userPrompt)
                 .stream()
                 .content()
-                .filter(StringUtils::hasText);
+                // 只丢 null/空串；保留空格与换行 token，否则 Markdown「## 标题」会变成「##标题」
+                .filter(s -> s != null && !s.isEmpty());
     }
 
     /**
-     * 构建流式最终答复的 user 消息（含材料截断）。包可见便于单测。
+     * 构建流式最终答复的 user 消息（含材料截断、可选会话摘要）。包可见便于单测。
      */
     static String buildFinalAnswerStreamUserPrompt(
-            String userGoal, String draft, List<OrchestrateStepVO> steps) {
+            String userGoal, String draft, List<OrchestrateStepVO> steps, String dialogueHistory) {
         StringBuilder sb = new StringBuilder();
         sb.append("用户目标：\n")
                 .append(StringUtils.hasText(userGoal) ? userGoal.trim() : "（未提供）")
                 .append("\n\n");
+        sb.append("近期对话（只读参考，用于消解追问指代；不要复述整段历史）：\n");
+        sb.append(truncateDialogueForWorker(dialogueHistory));
+        sb.append("\n\n");
         sb.append("参考材料（各 Worker observation，可能截断）：\n");
         sb.append(formatMaterialsForStreamPrompt(steps));
         sb.append("\n\n答复草稿：\n");

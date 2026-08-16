@@ -54,10 +54,14 @@ public class AgentOrchestratorService {
      */
     public static final int HISTORY_OBSERVATION_MAX_CHARS = 16000;
 
-    /** Worker 侧只读会话摘要预算（短于决策器侧，避免挤占工具上下文） */
+    /**
+     * Worker 侧只读会话摘要预算（短于决策器侧，避免挤占工具上下文）
+     */
     public static final int WORKER_DIALOGUE_HISTORY_MAX_CHARS = 3000;
 
-    /** 流式最终答复 prompt 中材料区总预算，防止上下文爆炸 */
+    /**
+     * 流式最终答复 prompt 中材料区总预算，防止上下文爆炸
+     */
     public static final int STREAM_FINAL_MATERIALS_MAX_CHARS = 12000;
 
     private static final String FINAL_STREAM_SYSTEM = """
@@ -71,7 +75,9 @@ public class AgentOrchestratorService {
 
     private static final String SEARCH_SYSTEM_PROMPT = SearchSystemPrompts.SEARCH;
 
-    /** finish.instruction 像「答题提纲」而非用户正文的常见元叙述 */
+    /**
+     * finish.instruction 像「答题提纲」而非用户正文的常见元叙述
+     */
     private static final List<String> META_FINAL_MARKERS = List.of(
             "向用户完整作答",
             "向用户作答",
@@ -253,7 +259,7 @@ public class AgentOrchestratorService {
         return """
                 【会话近期对话｜只读参考，用于消解「刚才/那个文件」等指代；不要复述整段历史】
                 %s
-
+                
                 【本步任务】
                 %s
                 """.formatted(hist, task);
@@ -571,7 +577,9 @@ public class AgentOrchestratorService {
         };
     }
 
-    /** 去掉偶发夹在 observation 前的英文思考句，保留正文 */
+    /**
+     * 去掉偶发夹在 observation 前的英文思考句，保留正文
+     */
     private static String stripLeadingReasoningNoise(String observation) {
         if (!StringUtils.hasText(observation)) {
             return "";
@@ -614,7 +622,9 @@ public class AgentOrchestratorService {
         return Math.max(MIN_MAX_STEPS, Math.min(HARD_MAX_STEPS, requested));
     }
 
-    /** 编排历史 / 合成用截断 */
+    /**
+     * 编排历史 / 合成用截断
+     */
     static String truncateForHistory(String raw) {
         return truncateTo(raw, HISTORY_OBSERVATION_MAX_CHARS);
     }

@@ -105,7 +105,6 @@ public class ChatOrchestrateStreamService {
         request.setInput(agentInput);
         request.setKbId(kbId);
         request.setWorkDir(workDir);
-        // 不 setMaxSteps：服务端 DEFAULT_MAX_STEPS=6（钳制 [1,8]）
         request.setDialogueHistory(dialogueHistory);
 
         Mono<Void> drive = Mono.fromCallable(() -> agentOrchestratorService.orchestrate(
@@ -113,7 +112,7 @@ public class ChatOrchestrateStreamService {
                         step -> emitOrchestrateStep(sink, accumulated, turnId, seq, step)))
                 .subscribeOn(Schedulers.boundedElastic())
                 .flatMap(result -> streamOrchestrateFinalAnswer(
-                                result, originalPrompt, dialogueHistory, sink, turnId, seq, accumulated)
+                        result, originalPrompt, dialogueHistory, sink, turnId, seq, accumulated)
                         .then(Mono.defer(() -> runQualityLoopIfNeeded(
                                 qualityLoop, criteria, originalPrompt, workDir,
                                 result != null ? result.getSteps() : null,

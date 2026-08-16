@@ -119,6 +119,25 @@ public class DocumentService {
                 .collect(Collectors.joining("\n"));
     }
 
+    /**
+     * 聊天附件抽纯文本（不切段、不入向量库）。复用知识库解析路径。
+     *
+     * @param inputStream 文件流（由调用方关闭 MultipartFile 生命周期）
+     * @param filename    原文件名（用于按扩展名选择解析器）
+     * @return 纯文本；空文件返回空串
+     */
+    public String extractPlainText(InputStream inputStream, String filename) throws Exception {
+        if (inputStream == null) {
+            return "";
+        }
+        String name = filename != null ? filename : "";
+        String ext = name.contains(".")
+                ? name.substring(name.lastIndexOf('.') + 1).toLowerCase()
+                : "";
+        String content = parseByExtension(inputStream, ext);
+        return content != null ? content : "";
+    }
+
     private String getCellValue(Cell cell) {
         return switch (cell.getCellType()) {
             case STRING -> cell.getStringCellValue();

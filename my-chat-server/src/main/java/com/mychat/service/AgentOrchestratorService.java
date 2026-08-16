@@ -31,7 +31,7 @@ import java.util.UUID;
  * <p>
  * 会话 Memory：<b>读</b>＝把 {@code dialogueHistory} 注入决策器、各 Worker、流式最终答复 prompt；
  * Worker 仍用 {@code orch-*} 临时 conversationId，<b>不</b>挂 {@code MessageChatMemoryAdvisor} 写会话 chatId。
- * <b>写</b>＝主聊天回合结束由 {@code ChatController#persistOrchestrateExchange} 手动落库。
+ * <b>写</b>＝主聊天回合结束由 {@code ChatOrchestrateStreamService} 手动 persist。
  * <p>
  * 调试 API 与主聊天共用本服务；主路传入 {@link OrchestrateListener} 推送 NDJSON {@code step}。
  * <p>

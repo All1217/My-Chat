@@ -5,6 +5,7 @@ import com.mychat.common.RoutingWorkflow;
 import com.mychat.config.WorkspaceContext;
 import com.mychat.entity.dto.RouteRequest;
 import com.mychat.utils.ChatStreamEventWriter;
+import com.mychat.utils.NdjsonStreamSupport;
 import com.mychat.utils.ObservabilityStreamAdvisor;
 import com.mychat.utils.ReasoningContentExtractor;
 import com.mychat.utils.SearchSystemPrompts;
@@ -32,8 +33,8 @@ import java.util.concurrent.atomic.AtomicReference;
 /**
  * Demo 旁路：单次 Routing 的 NDJSON 流式管道。
  * <p>
- * 逻辑对齐主聊天 {@code ChatController#textChatNdjson} / {@code streamByRouteNdjson}，
- * <b>不</b>改主聊天；默认不落 {@code chat_assistant_turns}（调试旁路）。
+ * NDJSON sink 辅助与主聊天共用 {@link NdjsonStreamSupport}；
+ * 默认不落 {@code chat_assistant_turns}（调试旁路）。
  * <p>
  * {@code qualityLoop=true} 时仅打日志跳过（Demo 轻量，质量环仍走主聊天或
  * {@code /ai/agent/evaluate-optimize}）。
@@ -98,7 +99,7 @@ public class AgentRouteDemoStreamService {
                 agentRoutingService.classify(input, kbId, workDir);
         log.info("Demo ndjson Routing: route={}, reasoning={}, chatId={}",
                 classified.selection(), classified.reasoning(), chatId);
-        emitTracked(sink, accumulated, ChatStreamEvent.route(
+        NdjsonStreamSupport.emitTracked(sink, accumulated, ChatStreamEvent.route(
                 turnId, seq, classified.selection(), classified.reasoning()));
 
         AtomicReference<String> lastReasoning = new AtomicReference<>();
@@ -110,18 +111,19 @@ public class AgentRouteDemoStreamService {
                                 turnId);
                     }
                 })
-                .doOnError(e -> emitError(sink, turnId, seq, e, accumulated))
+                .doOnError(e -> NdjsonStreamSupport.emitError(sink, turnId, seq, e, accumulated))
                 .doFinally(signal -> {
                     // 旁路：不落 chat_assistant_turns；仅发 done / 结束 sink
                     if (signal == SignalType.ON_COMPLETE) {
-                        emitTracked(sink, accumulated, ChatStreamEvent.done(turnId, seq));
+                        NdjsonStreamSupport.emitTracked(sink, accumulated, ChatStreamEvent.done(turnId, seq));
                     }
                     sink.tryEmitComplete();
                 })
                 .then();
 
         // WorkspaceContext 在整段 NDJSON 消费结束后再清（与主聊天 doFinally 时机一致）
-        return mergeNdjson(sink, drive).doFinally(s -> WorkspaceContext.clear());
+        return NdjsonStreamSupport.mergeNdjson(sink, drive, eventWriter)
+                .doFinally(s -> WorkspaceContext.clear());
     }
 
     private Mono<Void> streamByRoute(
@@ -183,20 +185,6 @@ public class AgentRouteDemoStreamService {
                 .then();
     }
 
-    private Flux<String> mergeNdjson(Sinks.Many<ChatStreamEvent> sink, Mono<Void> drive) {
-        return Flux.merge(
-                sink.asFlux().map(eventWriter::toLine),
-                drive.thenMany(Flux.empty())
-        );
-    }
-
-    private void emitTracked(Sinks.Many<ChatStreamEvent> sink,
-                             List<ChatStreamEvent> accumulated,
-                             ChatStreamEvent event) {
-        accumulated.add(event);
-        sink.tryEmitNext(event);
-    }
-
     /**
      * 与主聊天 route 目标语义对齐：工具帧也可抽 thinking，不发 text_delta。
      */
@@ -212,23 +200,16 @@ public class AgentRouteDemoStreamService {
         String thinkingDelta = ReasoningContentExtractor.nextDelta(
                 lastReasoning, ReasoningContentExtractor.extract(response));
         if (thinkingDelta != null) {
-            emitTracked(sink, accumulated, ChatStreamEvent.thinkingDelta(turnId, seq, thinkingDelta));
+            NdjsonStreamSupport.emitTracked(sink, accumulated,
+                    ChatStreamEvent.thinkingDelta(turnId, seq, thinkingDelta));
         }
         if (response.hasToolCalls()) {
             return;
         }
         String content = response.getResult().getOutput().getText();
         if (content != null && !content.isEmpty()) {
-            emitTracked(sink, accumulated, ChatStreamEvent.textDelta(turnId, seq, content));
+            NdjsonStreamSupport.emitTracked(sink, accumulated,
+                    ChatStreamEvent.textDelta(turnId, seq, content));
         }
-    }
-
-    private void emitError(Sinks.Many<ChatStreamEvent> sink,
-                           String turnId,
-                           AtomicInteger seq,
-                           Throwable e,
-                           List<ChatStreamEvent> accumulated) {
-        String msg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
-        emitTracked(sink, accumulated, ChatStreamEvent.error(turnId, seq, msg));
     }
 }

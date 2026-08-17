@@ -1,0 +1,63 @@
+sequenceDiagram
+    participant FE as Frontend
+    participant Ctrl as ChatController
+    participant Sessions as ChatSessionsService
+    participant Stream as ChatOrchestrateStreamService
+    participant Mem as ChatMemory
+    participant Orch as AgentOrchestratorService
+    participant WF as OrchestratorWorkflow
+    participant Worker as Worker_ChatClients
+    participant EO as AgentEvaluatorOptimizerService
+    participant Turns as ChatAssistantTurnService
+
+    FE->>Ctrl: POST /ai/normalChat/chat
+    Ctrl->>Ctrl: validate format=ndjson
+    Ctrl->>Sessions: getWorkDir / getKbId
+    Ctrl->>Ctrl: WorkspaceContext.set
+    Ctrl->>Stream: enrichPromptWithUploadedDocuments
+    Ctrl->>Stream: buildMemoryUserText
+    Ctrl->>Stream: streamOrchestrate
+
+    Stream->>Stream: create sink + accumulated
+    Stream-->>FE: NDJSON route=orchestrate
+    Stream->>Mem: get(chatId)
+    Stream->>Stream: formatDialogueHistory
+
+    Stream->>Orch: orchestrate(request, onStep)
+
+    loop until finish / single-shot / maxSteps
+        Orch->>WF: decideNext
+        WF-->>Orch: NextAction
+        alt action is finish
+            Orch->>Stream: onStep finish
+            Stream-->>FE: NDJSON step
+        else Worker action
+            Orch->>Worker: runWorker
+            Worker-->>Orch: observation
+            Orch->>Stream: onStep worker
+            Stream-->>FE: NDJSON step
+            opt complexity=single and ok
+                Orch->>Stream: onStep autoFinish
+                Stream-->>FE: NDJSON step
+            end
+        end
+    end
+    Orch-->>Stream: OrchestrateResultVO
+
+    Stream->>Orch: streamFinalAnswer
+    loop token deltas
+        Orch-->>Stream: text delta
+        Stream-->>FE: NDJSON text_delta
+    end
+
+    opt qualityLoop and write path found
+        Stream->>EO: evaluateOptimize
+        EO-->>Stream: result
+        Stream-->>FE: NDJSON evaluate_optimize
+    end
+
+    Stream->>Mem: persistOrchestrateExchange
+    Stream->>Turns: saveTurnFromEvents
+    Stream-->>FE: NDJSON done
+    Stream-->>Ctrl: Flux complete
+    Ctrl->>Ctrl: WorkspaceContext.clear

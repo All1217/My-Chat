@@ -90,9 +90,11 @@ public class ChatOrchestrateStreamService {
             String criteria) {
         String turnId = chatId + "-" + UUID.randomUUID();
         AtomicInteger seq = new AtomicInteger(0);
+        // sink=边生成边推给前端的「直播通道」
         Sinks.Many<ChatStreamEvent> sink = Sinks.many().replay().limit(1024);
+        // accumulated=本回合事件清单，结束后用来落库/回放
         List<ChatStreamEvent> accumulated = Collections.synchronizedList(new ArrayList<>());
-
+        // 更新事件堆栈
         NdjsonStreamSupport.emitTracked(sink, accumulated, ChatStreamEvent.route(
                 turnId, seq, AGENT_MODE_ORCHESTRATE,
                 "主聊天默认多步编排（Orchestrator-Workers），跨能力 Worker 接力"));

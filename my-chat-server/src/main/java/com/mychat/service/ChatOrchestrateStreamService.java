@@ -109,16 +109,21 @@ public class ChatOrchestrateStreamService {
         request.setWorkDir(workDir);
         request.setDialogueHistory(dialogueHistory);
 
-        Mono<Void> drive = Mono.fromCallable(() -> agentOrchestratorService.orchestrate(
-                        request,
-                        step -> emitOrchestrateStep(sink, accumulated, turnId, seq, step)))
-                .subscribeOn(Schedulers.boundedElastic())
-                .flatMap(result -> streamOrchestrateFinalAnswer(
-                        result, originalPrompt, dialogueHistory, sink, turnId, seq, accumulated)
-                        .then(Mono.defer(() -> runQualityLoopIfNeeded(
-                                qualityLoop, criteria, originalPrompt, workDir,
-                                result != null ? result.getSteps() : null,
-                                accumulated, sink, turnId, seq))))
+        Mono<Void> drive = Mono.fromCallable(
+                        // 传入一个 Callable ，预约待执行的编排任务
+                        () -> agentOrchestratorService.orchestrate(
+                                request, step -> emitOrchestrateStep(sink, accumulated, turnId, seq, step))
+                )
+                .subscribeOn(Schedulers.boundedElastic()) // 使用什么线程池执行任务
+                // 规定编排任务执行完后下一步干什么：可能是最终答复 + 回答质量判定
+                .flatMap(
+                        result -> streamOrchestrateFinalAnswer(result, originalPrompt, dialogueHistory, sink, turnId, seq, accumulated)
+                                .then(Mono.defer(() -> runQualityLoopIfNeeded(
+                                        qualityLoop, criteria, originalPrompt, workDir,
+                                        result != null ? result.getSteps() : null,
+                                        accumulated, sink, turnId, seq)
+                                ))
+                )
                 .doOnError(e -> NdjsonStreamSupport.emitError(sink, turnId, seq, e, accumulated))
                 .doFinally(signal -> {
                     // 读路径：dialogueHistory 注入决策/Worker/最终流式；Worker 用 orch-*，不写 chatId。

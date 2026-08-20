@@ -99,7 +99,7 @@ class AgentOrchestratorFinalAnswerTest {
         String msg = AgentOrchestratorService.buildWorkerUserMessage(
                 "USER: 写入 notes/todo.md\nASSISTANT: 已完成",
                 "在该文件末尾追加 done");
-        assertTrue(msg.contains("【会话近期对话"));
+        assertTrue(msg.contains("【会话上下文"));
         assertTrue(msg.contains("notes/todo.md"));
         assertTrue(msg.contains("【本步任务】"));
         assertTrue(msg.contains("在该文件末尾追加 done"));
@@ -118,6 +118,22 @@ class AgentOrchestratorFinalAnswerTest {
         String msg = AgentOrchestratorService.buildWorkerUserMessage(longHist, "task");
         assertTrue(msg.contains("…[会话摘要已截断]"));
         assertTrue(msg.length() < longHist.length() + 200);
+    }
+
+    @Test
+    void truncateDialoguePrefersSummaryBlock() {
+        String summary = "【会话摘要｜较早轮次压缩，可能有损】\n"
+                + "用户约定 path=src/App.vue；结论：已改路由。\n\n";
+        String recent = "【近期对话原文】\n"
+                + "用户：" + "y".repeat(AgentOrchestratorService.WORKER_DIALOGUE_HISTORY_MAX_CHARS)
+                + "\n助手：ok\n";
+        String full = summary + recent;
+        String truncated = AgentOrchestratorService.truncateDialogueForWorker(full);
+        assertTrue(truncated.contains("path=src/App.vue"));
+        assertTrue(truncated.contains("【会话摘要"));
+        assertTrue(truncated.contains("…[近期原文已截断]")
+                || truncated.length() <= AgentOrchestratorService.WORKER_DIALOGUE_HISTORY_MAX_CHARS + 40);
+        assertTrue(truncated.indexOf("【会话摘要") < truncated.indexOf("【近期对话原文】"));
     }
 
     @Test

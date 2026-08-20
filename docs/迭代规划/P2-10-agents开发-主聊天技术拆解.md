@@ -8,6 +8,16 @@
 
 要点：`sink` 边推 NDJSON 给前端；`accumulated` 回合结束写 Memory 与 `chat_assistant_turns`；编排本身是同步循环，最终答复再 token 流式。
 
+# Orchestrate 长对话上下文（滚动摘要 + 近期原文）
+
+主聊天编排**不**给 Worker 挂 `MessageChatMemoryAdvisor(chatId)`（避免与 `orch-*` 临时会话双写）。读路径由 `OrchestrateDialogueContextService` 拼上下文注入 decideNext / Worker / 最终流式：
+
+1. **近期原文窗口**：最近约 10 条 USER/ASSISTANT（单条约 800 字、合计约 4000 字）。
+2. **滚动摘要**：旧消息攒够约 6 条时，用无工具 Client 压成中文摘要写入 `chat_session_summary`（按 `covered_until_sequence_id` 增量覆盖）；再与近期原文一起注入。
+3. **写路径不变**：回合末仍手动 persist 短 USER + 最终 ASSISTANT；摘要只在读路径惰性更新。
+
+实测：Memory ≤10 条时摘要表可为空（全在窗口内）；超过窗口后会 `INSERT` 并出现非空「会话摘要」段。摘要调用会拖长该轮首包延迟，属有损压缩。
+
 # 特殊技术栈
 
 `Project Reactor`：[Project Reactor](https://projectreactor.io/)

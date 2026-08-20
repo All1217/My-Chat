@@ -185,3 +185,17 @@ COMMENT ON COLUMN chat_assistant_turns.conversation_id IS '逻辑外键，对应
 COMMENT ON COLUMN chat_assistant_turns.turn_id IS '与流式 NDJSON 的 turnId 一致（chatId-UUID）';
 COMMENT ON COLUMN chat_assistant_turns.assistant_ordinal IS '该会话内 ASSISTANT 消息序号（0-based），用于与 Memory 对齐';
 COMMENT ON COLUMN chat_assistant_turns.parts IS '归约后的 MessagePart[] JSON，与前端 ToolMessagePart 同构';
+
+-- 编排读路径：长对话滚动摘要（与 spring_ai_chat_memory 配合；不替代 Memory 明细）
+CREATE TABLE IF NOT EXISTS chat_session_summary
+(
+    conversation_id            VARCHAR(255) PRIMARY KEY,
+    summary_text               TEXT         NOT NULL,
+    covered_until_sequence_id  BIGINT       NOT NULL DEFAULT 0,
+    updated_at                 TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+COMMENT ON TABLE chat_session_summary IS 'Orchestrate 会话级滚动摘要：压缩较早轮次，配合近期 Memory 原文注入';
+COMMENT ON COLUMN chat_session_summary.conversation_id IS '会话 ID，对应 chat_sessions.conversation_id / Memory conversation_id';
+COMMENT ON COLUMN chat_session_summary.summary_text IS '较早轮次压缩后的中文摘要';
+COMMENT ON COLUMN chat_session_summary.covered_until_sequence_id IS '摘要已覆盖到的 spring_ai_chat_memory.sequence_id 上界';
+COMMENT ON COLUMN chat_session_summary.updated_at IS '摘要最后更新时间';

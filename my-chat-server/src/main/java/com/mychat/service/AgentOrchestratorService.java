@@ -29,7 +29,7 @@ import java.util.UUID;
  * 外层：{@link OrchestratorWorkflow} 逐步产出 next_action；
  * 内层：Java switch 调用专用 ChatClient（与 Routing 同源能力档，不合并 Tools+RAG，遵守 P0-7）。
  * <p>
- * 会话 Memory：<b>读</b>＝把 {@code dialogueHistory} 注入决策器、各 Worker、流式最终答复 prompt；
+ * 会话 Memory：<b>读</b>＝{@link OrchestrateDialogueContextService} 注入摘要+近期原文；
  * Worker 仍用 {@code orch-*} 临时 conversationId，<b>不</b>挂 {@code MessageChatMemoryAdvisor} 写会话 chatId。
  * <b>写</b>＝主聊天回合结束由 {@code ChatOrchestrateStreamService} 手动 persist。
  * <p>
@@ -257,7 +257,7 @@ public class AgentOrchestratorService {
         String hist = truncateDialogueForWorker(dialogueHistory);
         String task = StringUtils.hasText(instruction) ? instruction.trim() : "";
         return """
-                【会话近期对话｜只读参考，用于消解「刚才/那个文件」等指代；不要复述整段历史】
+                【会话上下文｜只读参考，用于消解「刚才/那个文件」等指代；不要复述整段历史】
                 %s
                 
                 【本步任务】
@@ -265,6 +265,9 @@ public class AgentOrchestratorService {
                 """.formatted(hist, task);
     }
 
+    /**
+     * Worker / 最终流式侧截断：优先保留「会话摘要」段，再截「近期原文」。
+     */
     static String truncateDialogueForWorker(String dialogueHistory) {
         if (!StringUtils.hasText(dialogueHistory)) {
             return "（无）";
@@ -272,6 +275,20 @@ public class AgentOrchestratorService {
         String t = dialogueHistory.trim();
         if (t.length() <= WORKER_DIALOGUE_HISTORY_MAX_CHARS) {
             return t;
+        }
+        final String recentMarker = "【近期对话原文】";
+        int recentIdx = t.indexOf(recentMarker);
+        if (recentIdx > 0 && t.contains("【会话摘要")) {
+            String head = t.substring(0, recentIdx);
+            String recent = t.substring(recentIdx);
+            int budgetForRecent = WORKER_DIALOGUE_HISTORY_MAX_CHARS - head.length() - 24;
+            if (budgetForRecent < 120) {
+                return t.substring(0, WORKER_DIALOGUE_HISTORY_MAX_CHARS) + "\n…[会话上下文已截断]";
+            }
+            if (recent.length() > budgetForRecent) {
+                recent = recent.substring(0, budgetForRecent) + "\n…[近期原文已截断]";
+            }
+            return head + recent;
         }
         return t.substring(0, WORKER_DIALOGUE_HISTORY_MAX_CHARS) + "\n…[会话摘要已截断]";
     }
@@ -394,7 +411,7 @@ public class AgentOrchestratorService {
         sb.append("用户目标：\n")
                 .append(StringUtils.hasText(userGoal) ? userGoal.trim() : "（未提供）")
                 .append("\n\n");
-        sb.append("近期对话（只读参考，用于消解追问指代；不要复述整段历史）：\n");
+        sb.append("会话上下文（只读参考，含摘要+近期原文；不要复述整段历史）：\n");
         sb.append(truncateDialogueForWorker(dialogueHistory));
         sb.append("\n\n");
         sb.append("参考材料（各 Worker observation，可能截断）：\n");

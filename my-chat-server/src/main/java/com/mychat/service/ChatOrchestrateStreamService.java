@@ -15,8 +15,6 @@ import com.mychat.vo.OrchestrateStepVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.messages.AssistantMessage;
-import org.springframework.ai.chat.messages.Message;
-import org.springframework.ai.chat.messages.MessageType;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -36,7 +34,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * 主聊天 Orchestrate NDJSON 管道（自 ChatController 下沉）。
  * <p>
- * 读路径：决策前注入 {@code dialogueHistory}；Worker / 最终流式也注入摘要。<br>
+ * 读路径：{@link OrchestrateDialogueContextService} 注入「滚动摘要 + 近期原文」；
+ * Worker / 最终流式共用该文本。<br>
  * 写路径：仅回合 {@code ON_COMPLETE} 时 {@link #persistOrchestrateExchange}；
  * Worker 继续 {@code orch-*}，不挂 MessageChatMemoryAdvisor 写会话 chatId。
  */
@@ -55,6 +54,7 @@ public class ChatOrchestrateStreamService {
     private final WorkspaceUtil workspaceUtil;
     private final ChatStreamEventWriter eventWriter;
     private final DocumentService documentService;
+    private final OrchestrateDialogueContextService dialogueContextService;
 
     public ChatOrchestrateStreamService(
             AgentOrchestratorService agentOrchestratorService,
@@ -63,7 +63,8 @@ public class ChatOrchestrateStreamService {
             ChatMemory chatMemory,
             WorkspaceUtil workspaceUtil,
             ChatStreamEventWriter eventWriter,
-            DocumentService documentService) {
+            DocumentService documentService,
+            OrchestrateDialogueContextService dialogueContextService) {
         this.agentOrchestratorService = agentOrchestratorService;
         this.agentEvaluatorOptimizerService = agentEvaluatorOptimizerService;
         this.chatAssistantTurnService = chatAssistantTurnService;
@@ -71,6 +72,7 @@ public class ChatOrchestrateStreamService {
         this.workspaceUtil = workspaceUtil;
         this.eventWriter = eventWriter;
         this.documentService = documentService;
+        this.dialogueContextService = dialogueContextService;
     }
 
     /**
@@ -100,9 +102,8 @@ public class ChatOrchestrateStreamService {
                 "主聊天默认多步编排（Orchestrator-Workers），跨能力 Worker 接力"));
 
         String workDir = WorkspaceContext.get();
-        // 多轮agent丧失了官方的自动注入历史对话机制，需要手动注入
-        // 因此手动从数据库取出历史对话，拼接进提示词
-        String dialogueHistory = formatDialogueHistoryForOrchestrator(chatMemory.get(chatId));
+        // 读路径：滚动摘要 + 近期原文（惰性更新摘要表）；不经 MessageChatMemoryAdvisor
+        String dialogueHistory = dialogueContextService.buildForOrchestrate(chatId);
         OrchestrateRequest request = new OrchestrateRequest();
         request.setInput(agentInput);
         request.setKbId(kbId);
@@ -220,41 +221,6 @@ public class ChatOrchestrateStreamService {
                                 turnId, seq, result.getFinalAnswer()));
                     }
                 }));
-    }
-
-    static String formatDialogueHistoryForOrchestrator(List<Message> memory) {
-        if (memory == null || memory.isEmpty()) {
-            return null;
-        }
-        final int maxMessages = 12;
-        final int maxChars = 6000;
-        int from = Math.max(0, memory.size() - maxMessages);
-        StringBuilder sb = new StringBuilder();
-        for (int i = from; i < memory.size(); i++) {
-            Message m = memory.get(i);
-            if (m == null) {
-                continue;
-            }
-            MessageType type = m.getMessageType();
-            if (type != MessageType.USER && type != MessageType.ASSISTANT) {
-                continue;
-            }
-            String role = type == MessageType.USER ? "用户" : "助手";
-            String text = m.getText() != null ? m.getText().trim() : "";
-            if (text.isEmpty()) {
-                continue;
-            }
-            if (text.length() > 800) {
-                text = text.substring(0, 800) + "…";
-            }
-            sb.append(role).append("：").append(text).append('\n');
-            if (sb.length() >= maxChars) {
-                sb.setLength(maxChars);
-                sb.append("\n…（更早内容已省略）");
-                break;
-            }
-        }
-        return sb.isEmpty() ? null : sb.toString().trim();
     }
 
     private void persistOrchestrateExchange(String chatId, String userPrompt, List<ChatStreamEvent> events) {

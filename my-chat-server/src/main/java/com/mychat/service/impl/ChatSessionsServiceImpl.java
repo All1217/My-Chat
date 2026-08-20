@@ -10,6 +10,7 @@ import com.mychat.vo.ChatSessionVO;
 import com.mychat.mapper.ChatSessionsMapper;
 import com.mychat.mapper.SpringAiChatMemoryMapper;
 import com.mychat.service.ChatAssistantTurnService;
+import com.mychat.service.ChatSessionSummaryService;
 import com.mychat.service.ChatSessionsService;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -26,6 +27,7 @@ public class ChatSessionsServiceImpl extends ServiceImpl<ChatSessionsMapper, Cha
     private final ChatSessionsMapper chatSessionsMapper;
     private final SpringAiChatMemoryMapper springAiChatMemoryMapper;
     private final ChatAssistantTurnService chatAssistantTurnService;
+    private final ChatSessionSummaryService chatSessionSummaryService;
 
     @Override
     public void addConversation(String conversationId) {
@@ -88,6 +90,8 @@ public class ChatSessionsServiceImpl extends ServiceImpl<ChatSessionsMapper, Cha
         springAiChatMemoryMapper.delete(wrapper);
         // 级联清理助手回合 UI 轨迹（逻辑外键 → chat_sessions）
         chatAssistantTurnService.deleteByConversation(id);
+        // 级联清理编排读路径滚动摘要
+        chatSessionSummaryService.removeById(id);
     }
 
     @Override

@@ -21,6 +21,8 @@ export default defineConfig({
       '/rag': {
         target: 'http://localhost:8100',
         changeOrigin: true,
+        timeout: 24 * 60 * 60 * 1000,
+        proxyTimeout: 24 * 60 * 60 * 1000,
         rewrite: (path) => path.replace(/^\/rag/, '')
       }
     }

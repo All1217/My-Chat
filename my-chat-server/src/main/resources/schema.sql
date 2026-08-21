@@ -199,3 +199,28 @@ COMMENT ON COLUMN chat_session_summary.conversation_id IS '会话 ID，对应 ch
 COMMENT ON COLUMN chat_session_summary.summary_text IS '较早轮次压缩后的中文摘要';
 COMMENT ON COLUMN chat_session_summary.covered_until_sequence_id IS '摘要已覆盖到的 spring_ai_chat_memory.sequence_id 上界';
 COMMENT ON COLUMN chat_session_summary.updated_at IS '摘要最后更新时间';
+
+-- 通用异步任务（通知中心事实源；业务只 submit，完成后 SSE 推前端）
+CREATE TABLE IF NOT EXISTS async_job
+(
+    id            VARCHAR(64) PRIMARY KEY,
+    job_type      VARCHAR(64)  NOT NULL,
+    status        VARCHAR(20)  NOT NULL DEFAULT 'PENDING',
+    title         VARCHAR(200) NOT NULL,
+    ref_id        VARCHAR(64),
+    payload       TEXT,
+    error_message TEXT,
+    created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    finished_at   TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_async_job_status ON async_job (status);
+CREATE INDEX IF NOT EXISTS idx_async_job_created ON async_job (created_at DESC);
+COMMENT ON TABLE async_job IS '通用后台任务：PENDING→RUNNING→SUCCEEDED/FAILED；前端经 SSE 订阅终态';
+COMMENT ON COLUMN async_job.job_type IS '任务类型，由业务 Handler 注册，如 kb_ingest';
+COMMENT ON COLUMN async_job.status IS 'PENDING / RUNNING / SUCCEEDED / FAILED';
+COMMENT ON COLUMN async_job.title IS '通知标题（用户可见）';
+COMMENT ON COLUMN async_job.ref_id IS '业务主键，如 document_meta.id；演示任务可空';
+COMMENT ON COLUMN async_job.payload IS 'JSON 字符串，handler 入参';
+COMMENT ON COLUMN async_job.error_message IS '失败原因（截断）';
+COMMENT ON COLUMN async_job.finished_at IS '进入终态的时间';

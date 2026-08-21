@@ -4,6 +4,20 @@
     <router-view />
   </div>
 </template>
+<script setup lang="ts">
+import { onMounted, onUnmounted } from 'vue'
+import { useNotifyStore } from '@/stores/notify'
+
+const notifyStore = useNotifyStore()
+
+onMounted(() => {
+  notifyStore.connect()
+})
+
+onUnmounted(() => {
+  notifyStore.disconnect()
+})
+</script>
 <style lang="css" scoped>
 #app{
   max-height: 100vh;

@@ -18,6 +18,8 @@
 
 实测：Memory ≤10 条时摘要表可为空（全在窗口内）；超过窗口后会 `INSERT` 并出现非空「会话摘要」段。摘要调用会拖长该轮首包延迟，属有损压缩。
 
+该链路嵌入主线程，没有异步，会影响性能。
+
 # 特殊技术栈
 
 `Project Reactor`：[Project Reactor](https://projectreactor.io/)

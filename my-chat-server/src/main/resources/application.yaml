@@ -15,6 +15,10 @@ spring:
     multipart:
       max-file-size: 200MB
       max-request-size: 200MB
+  mvc:
+    async:
+      # SSE 长连接；默认几十秒会掐断 /ai/jobs/events
+      request-timeout: 24h
   application:
     name: my-chat
   threads:
@@ -73,6 +77,9 @@ logging:
 app:
   workspace:
     root: ./src/main/resources/workspace
+  jobs:
+    # 启动时把超过此时长仍为 PENDING/RUNNING 的任务标 FAILED
+    stale-minutes: 10
   # 本地 searchWeb：Exa REST → Bocha → Tavily → DuckDuckGo
   # EXA_API_KEY 必须来自 https://dashboard.exa.ai/api-keys ，不要填 SMITHERY_API_KEY
   search:

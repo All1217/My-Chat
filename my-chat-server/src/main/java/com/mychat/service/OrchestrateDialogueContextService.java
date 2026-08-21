@@ -71,7 +71,7 @@ public class OrchestrateDialogueContextService {
         int split = all.size() - recentCount;
         List<SpringAiChatMemory> older = split > 0 ? all.subList(0, split) : List.of();
         List<SpringAiChatMemory> recent = all.subList(split, all.size());
-
+        // 获取摘要
         ChatSessionSummary existing = chatSessionSummaryService.getById(conversationId);
         long coveredUntil = existing != null && existing.getCoveredUntilSequenceId() != null
                 ? existing.getCoveredUntilSequenceId()
@@ -155,6 +155,7 @@ public class OrchestrateDialogueContextService {
         return sb.toString().trim();
     }
 
+    // 全量查询历史对话
     private List<SpringAiChatMemory> loadUserAssistantRows(String conversationId) {
         LambdaQueryWrapper<SpringAiChatMemory> q = new LambdaQueryWrapper<>();
         q.eq(SpringAiChatMemory::getConversationId, conversationId)

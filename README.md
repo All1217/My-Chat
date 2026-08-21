@@ -92,12 +92,11 @@ my-chat-server/                 # 后端项目
     ├── Application.java        # 启动类
     ├── common/result/          # Result 统一返回格式
     ├── config/                 # AI 配置、MVC、WorkspaceContext
-    ├── controller/             # REST 控制器（5 个）
-    │   ├── ChatController         # /ai/normalChat/chat
+    ├── controller/             # REST 控制器
+    │   ├── ChatController         # /ai/normalChat/chat（含知识库：可选 kbId）
     │   ├── ChatHistoryController  # /ai/history/*
     │   ├── FileController         # /ai/file/*
-    │   ├── KnowledgeBaseController# /ai/knowledge-base/*
-    │   └── RagChatController      # /ai/ragChat/chat
+    │   └── KnowledgeBaseController# /ai/knowledge-base/*
     ├── entity/                 # 实体类
     ├── mapper/                 # MyBatis-Plus Mapper
     ├── service/                # 业务逻辑
@@ -182,7 +181,7 @@ npm run dev
 
 | 控制器 | 端点 | 说明 |
 |--------|------|------|
-| ChatController | `POST /ai/normalChat/chat` | 流式对话（FormData: prompt + chatId + files） |
+| ChatController | `POST /ai/normalChat/chat` | 流式对话（FormData: prompt + chatId + files + 可选 kbId；`format=ndjson`） |
 | ChatHistoryController | `GET/POST/DELETE /ai/history/*` | 会话 CRUD |
 | FileController | `GET /ai/file/workspace/tree` | 工作区目录树 |
 | FileController | `GET /ai/file/workspace/tree/lazy` | 懒加载子节点 |
@@ -199,7 +198,6 @@ npm run dev
 | FileController | `GET /ai/file/workspace/suggest` | 目录联想搜索 |
 | FileController | `GET /ai/file/workspace/validate` | 校验工作目录合法性 |
 | KnowledgeBaseController | `GET/POST/DELETE /ai/knowledge-base/*` | 知识库 CRUD |
-| RagChatController | `POST /ai/ragChat/chat` | RAG 流式问答（需 kbId） |
 
 ---
 

@@ -2,6 +2,7 @@ package com.mychat.entity.po;
 
 import com.baomidou.mybatisplus.annotation.*;
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
@@ -11,6 +12,10 @@ import java.time.LocalDateTime;
 @TableName(value = "document_meta")
 @Data
 public class DocumentMeta {
+
+    public static final String STATUS_PROCESSING = "PROCESSING";
+    public static final String STATUS_READY = "READY";
+    public static final String STATUS_FAILED = "FAILED";
     @Schema(description = "唯一标识")
     @TableId(type = IdType.INPUT)
     private String id;
@@ -38,6 +43,15 @@ public class DocumentMeta {
     @Schema(description = "状态: PROCESSING / READY / FAILED")
     @TableField(value = "status")
     private String status;
+
+    @Schema(description = "原始文件落盘路径")
+    @JsonIgnore
+    @TableField(value = "storage_path")
+    private String storagePath;
+
+    @Schema(description = "入库失败原因")
+    @TableField(value = "error_message")
+    private String errorMessage;
 
     @Schema(description = "创建时间")
     @TableField(value = "created_at", fill = FieldFill.INSERT)

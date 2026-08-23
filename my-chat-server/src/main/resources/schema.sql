@@ -137,15 +137,17 @@ COMMENT ON COLUMN knowledge_base.updated_at IS '更新时间（应用层维护�
 -- document_meta（文档元数据）
 CREATE TABLE IF NOT EXISTS document_meta
 (
-    id          VARCHAR(64) PRIMARY KEY,
-    kb_id       VARCHAR(64)  NOT NULL REFERENCES knowledge_base (id) ON DELETE CASCADE,
-    filename    VARCHAR(500) NOT NULL,
-    file_size   BIGINT,
-    file_type   VARCHAR(50),
-    chunk_count INT         DEFAULT 0,
-    status      VARCHAR(20) DEFAULT 'PROCESSING',
-    created_at  TIMESTAMP   DEFAULT CURRENT_TIMESTAMP,
-    updated_at  TIMESTAMP   DEFAULT CURRENT_TIMESTAMP
+    id            VARCHAR(64) PRIMARY KEY,
+    kb_id         VARCHAR(64)  NOT NULL REFERENCES knowledge_base (id) ON DELETE CASCADE,
+    filename      VARCHAR(500) NOT NULL,
+    file_size     BIGINT,
+    file_type     VARCHAR(50),
+    chunk_count   INT         DEFAULT 0,
+    status        VARCHAR(20) DEFAULT 'PROCESSING',
+    storage_path  VARCHAR(1000),
+    error_message TEXT,
+    created_at    TIMESTAMP   DEFAULT CURRENT_TIMESTAMP,
+    updated_at    TIMESTAMP   DEFAULT CURRENT_TIMESTAMP
 );
 COMMENT ON TABLE document_meta IS '文档元数据及处理状态';
 COMMENT ON COLUMN document_meta.id IS '文档唯一ID';
@@ -154,9 +156,15 @@ COMMENT ON COLUMN document_meta.filename IS '原始文件名';
 COMMENT ON COLUMN document_meta.file_size IS '文件大小（单位：字节）';
 COMMENT ON COLUMN document_meta.file_type IS '文件类型（如 PDF/TXT/DOCX）';
 COMMENT ON COLUMN document_meta.chunk_count IS '该文档的切片总数';
-COMMENT ON COLUMN document_meta.status IS '处理状态（PROCESSING/SUCCESS/FAILED）';
+COMMENT ON COLUMN document_meta.status IS '处理状态（PROCESSING / READY / FAILED）';
+COMMENT ON COLUMN document_meta.storage_path IS '原始文件落盘路径，删文档时一并删';
+COMMENT ON COLUMN document_meta.error_message IS '入库失败原因（用户可见）';
 COMMENT ON COLUMN document_meta.created_at IS '创建时间';
 COMMENT ON COLUMN document_meta.updated_at IS '更新时间（应用层维护）';
+
+-- 已有库 CREATE IF NOT EXISTS 不会加列，启动脚本补齐
+ALTER TABLE document_meta ADD COLUMN IF NOT EXISTS storage_path VARCHAR(1000);
+ALTER TABLE document_meta ADD COLUMN IF NOT EXISTS error_message TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_document_meta_kb_id ON document_meta (kb_id);
 

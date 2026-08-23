@@ -22,11 +22,10 @@
         <span class="current-kb-title" v-if="currentKb">{{ currentKb.name }}</span>
         <span v-else class="current-kb-title">请选择一个知识库</span>
         <div class="top-actions">
-          <el-button type="primary" :icon="Upload" :disabled="!currentKb" :loading="uploading"
-            @click="handleUploadClick">
+          <el-button type="primary" :icon="Upload" :disabled="!currentKb"
+            @click="showUploadDialog = true">
             上传文档
           </el-button>
-          <input ref="fileInputRef" type="file" style="display: none" @change="handleFileChange" />
           <el-button type="success" :icon="ChatDotRound" :disabled="!currentKb" @click="goChat">
             开始问答
           </el-button>
@@ -49,9 +48,12 @@
             </template>
           </el-table-column>
           <el-table-column prop="chunkCount" label="分片数" width="80" />
-          <el-table-column prop="status" label="状态" width="100">
+          <el-table-column prop="status" label="状态" width="120">
             <template #default="{ row }">
-              <el-tag :type="statusType(row.status)" size="small">{{ row.status }}</el-tag>
+              <el-tooltip v-if="row.status === 'FAILED' && row.errorMessage" :content="row.errorMessage" placement="top">
+                <el-tag type="danger" size="small">{{ row.status }}</el-tag>
+              </el-tooltip>
+              <el-tag v-else :type="statusType(row.status)" size="small">{{ row.status }}</el-tag>
             </template>
           </el-table-column>
           <el-table-column prop="createdAt" label="上传时间" width="180" />
@@ -64,6 +66,25 @@
         <div v-else class="empty-hint">选择知识库后查看文档列表</div>
       </div>
     </main>
+
+    <el-dialog v-model="showUploadDialog" title="上传文档" width="520px" @closed="fileList = []">
+      <el-upload
+        drag
+        multiple
+        :auto-upload="false"
+        accept=".pdf,.docx,.xlsx,.html,.htm,.txt,.md"
+        v-model:file-list="fileList"
+      >
+        <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
+        <div class="el-upload__text">拖拽文件到此处，或<em>点击选择</em>（最多 20 个）</div>
+      </el-upload>
+      <template #footer>
+        <el-button @click="showUploadDialog = false">取消</el-button>
+        <el-button type="primary" :loading="submitting" :disabled="fileList.length === 0" @click="submitUpload">
+          开始入库
+        </el-button>
+      </template>
+    </el-dialog>
 
     <el-dialog v-model="showCreateDialog" title="新建知识库" width="400px">
       <el-form :model="createForm" label-width="80px">
@@ -83,19 +104,23 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Upload, Delete, House, ArrowLeft, ChatDotRound } from '@element-plus/icons-vue'
+import type { UploadUserFile } from 'element-plus'
+import { Plus, Upload, UploadFilled, Delete, House, ArrowLeft, ChatDotRound } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { knowledgeApi } from '@/api/knowledge'
+import { useNotifyStore } from '@/stores/notify'
 import type { KnowledgeBase, DocumentMeta } from '@/types/knowledgeStore/types'
 
 const router = useRouter()
+const notifyStore = useNotifyStore()
 
-const fileInputRef = ref<HTMLInputElement>()
-const uploading = ref(false)
+const submitting = ref(false)
 const creating = ref(false)
 const showCreateDialog = ref(false)
+const showUploadDialog = ref(false)
+const fileList = ref<UploadUserFile[]>([])
 const activeKbId = ref('')
 const kbList = ref<KnowledgeBase[]>([])
 const docList = ref<DocumentMeta[]>([])
@@ -166,24 +191,51 @@ async function handleDeleteKb(id: string) {
   } catch { /* 已 toast */ }
 }
 
-function handleUploadClick() {
-  fileInputRef.value?.click()
-}
-
-async function handleFileChange(event: Event) {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  if (!file || !activeKbId.value) return
-
-  uploading.value = true
+async function submitUpload() {
+  if (!activeKbId.value) return
+  const files: File[] = []
+  for (const item of fileList.value) {
+    if (item.raw) files.push(item.raw)
+  }
+  if (files.length === 0) {
+    ElMessage.warning('请选择文件')
+    return
+  }
+  if (files.length > 20) {
+    ElMessage.warning('单次最多上传 20 个文件')
+    return
+  }
+  notifyStore.unlockSound()
+  submitting.value = true
   try {
-    const data = await knowledgeApi.upload(file, activeKbId.value)
-    ElMessage.success(`上传成功：${data.message}（${data.embeddingCount} 个分段）`)
+    const accepted = await knowledgeApi.uploadBatch(files, activeKbId.value)
+    ElMessage.success(`已提交 ${accepted.length} 个文档，可离开本页`)
+    showUploadDialog.value = false
+    fileList.value = []
     await fetchDocList()
   } catch { /* 已 toast */ }
-  uploading.value = false
-  input.value = ''
+  submitting.value = false
 }
+
+let pollTimer: ReturnType<typeof setInterval> | undefined
+function stopPolling() {
+  if (pollTimer) {
+    clearInterval(pollTimer)
+    pollTimer = undefined
+  }
+}
+function syncPolling() {
+  const hasProcessing = docList.value.some(d => d.status === 'PROCESSING')
+  if (hasProcessing && !pollTimer) {
+    pollTimer = setInterval(() => { fetchDocList() }, 3000)
+  } else if (!hasProcessing) {
+    stopPolling()
+  }
+}
+
+watch(docList, syncPolling, { deep: true })
+
+let unsubTerminal: (() => void) | undefined
 
 async function handleDeleteDoc(id: string) {
   try {
@@ -197,6 +249,14 @@ async function handleDeleteDoc(id: string) {
 
 onMounted(() => {
   fetchKbList()
+  unsubTerminal = notifyStore.onJobTerminal((job) => {
+    if (job.jobType === 'kb_ingest') fetchDocList()
+  })
+})
+
+onUnmounted(() => {
+  stopPolling()
+  unsubTerminal?.()
 })
 </script>
 

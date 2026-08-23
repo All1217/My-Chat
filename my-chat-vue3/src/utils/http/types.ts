@@ -23,4 +23,6 @@ export interface RequestOptions {
   silent?: boolean
   /** 覆盖后端 message 作为提示文案 */
   errorMsg?: string
+  /** 覆盖客户端默认 timeout（毫秒） */
+  timeout?: number
 }

@@ -80,6 +80,13 @@ app:
   jobs:
     # 启动时把超过此时长仍为 PENDING/RUNNING 的任务标 FAILED
     stale-minutes: 10
+  ingest:
+    # 与 workspace 分开，避免 Agent 文件工具摸到用户原文
+    root: ./src/main/resources/ingest
+    max-file-size-mb: 50
+    max-files-per-request: 20
+    embed-batch-size: 32
+    allowed-extensions: pdf,docx,xlsx,html,htm,txt,md
   # 本地 searchWeb：Exa REST → Bocha → Tavily → DuckDuckGo
   # EXA_API_KEY 必须来自 https://dashboard.exa.ai/api-keys ，不要填 SMITHERY_API_KEY
   search:

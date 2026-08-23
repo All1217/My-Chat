@@ -4,6 +4,10 @@ target/
 !**/src/test/**/target/
 .kotlin
 
+# 知识库原文落盘（保留目录）
+src/main/resources/ingest/**
+!src/main/resources/ingest/.gitkeep
+
 ### IntelliJ IDEA ###
 .idea/modules.xml
 .idea/jarRepositories.xml

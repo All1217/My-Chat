@@ -6,6 +6,7 @@ import com.mychat.entity.po.DocumentMeta;
 import com.mychat.entity.po.KnowledgeBase;
 import com.mychat.mapper.DocumentMetaMapper;
 import com.mychat.mapper.KnowledgeBaseMapper;
+import com.mychat.service.knowledge.DocumentIngestService;
 import com.mychat.service.knowledge.EmbeddingService;
 import com.mychat.service.knowledge.KnowledgeBaseService;
 import lombok.AllArgsConstructor;
@@ -22,6 +23,7 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
     private final KnowledgeBaseMapper knowledgeBaseMapper;
     private final DocumentMetaMapper documentMetaMapper;
     private final EmbeddingService embeddingService;
+    private final DocumentIngestService documentIngestService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -30,6 +32,7 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
                 new LambdaQueryWrapper<DocumentMeta>().eq(DocumentMeta::getKbId, id));
         if (!docs.isEmpty()) {
             embeddingService.deleteByDocumentMetas(docs);
+            documentIngestService.deleteStoredFiles(docs);
             documentMetaMapper.delete(new LambdaQueryWrapper<DocumentMeta>().eq(DocumentMeta::getKbId, id));
         }
         knowledgeBaseMapper.deleteById(id);

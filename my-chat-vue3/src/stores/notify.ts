@@ -6,6 +6,9 @@ import type { AsyncJob } from '@/types/jobs'
 import { isTerminalStatus } from '@/types/jobs'
 import { playNotifySound, unlockNotifySound } from '@/utils/notifySound'
 
+const KB_INGEST = 'kb_ingest'
+const INGEST_COALESCE_MS = 1500
+
 /**
  * 全局任务通知：挂在 App.vue，路由切换不断线。
  * 后端 Job 是事实源；本 store 只订阅 SSE 并弹出 ElNotification。
@@ -17,6 +20,9 @@ export const useNotifyStore = defineStore('notify', () => {
   let eventSource: EventSource | null = null
   let gestureBound = false
   const terminalCallbacks: Array<(job: AsyncJob) => void> = []
+
+  let ingestBuffer: AsyncJob[] = []
+  let ingestTimer: ReturnType<typeof setTimeout> | undefined
 
   function bindUnlockGesture() {
     if (gestureBound || typeof document === 'undefined') return
@@ -37,7 +43,7 @@ export const useNotifyStore = defineStore('notify', () => {
     }
   }
 
-  function notifyTerminal(job: AsyncJob) {
+  function showSingleNotify(job: AsyncJob) {
     const ok = job.status === 'SUCCEEDED'
     ElNotification({
       title: ok ? '任务完成' : '任务失败',
@@ -45,7 +51,29 @@ export const useNotifyStore = defineStore('notify', () => {
       type: ok ? 'success' : 'error',
       duration: 5000,
     })
+  }
+
+  function flushIngestNotify() {
+    const jobs = ingestBuffer
+    ingestBuffer = []
+    ingestTimer = undefined
+    if (jobs.length === 0) return
+    if (jobs.length === 1) {
+      showSingleNotify(jobs[0])
+    } else {
+      const ok = jobs.filter(j => j.status === 'SUCCEEDED').length
+      const fail = jobs.length - ok
+      ElNotification({
+        title: fail === 0 ? '入库完成' : '入库结束',
+        message: `已完成 ${ok} 个` + (fail ? ` / 失败 ${fail} 个` : ''),
+        type: fail === 0 ? 'success' : 'warning',
+        duration: 5000,
+      })
+    }
     playNotifySound()
+  }
+
+  function notifyTerminal(job: AsyncJob) {
     for (const cb of terminalCallbacks) {
       try {
         cb(job)
@@ -53,6 +81,16 @@ export const useNotifyStore = defineStore('notify', () => {
         /* 业务回调失败不影响通知 */
       }
     }
+
+    if (job.jobType === KB_INGEST) {
+      ingestBuffer.push(job)
+      if (ingestTimer) clearTimeout(ingestTimer)
+      ingestTimer = setTimeout(flushIngestNotify, INGEST_COALESCE_MS)
+      return
+    }
+
+    showSingleNotify(job)
+    playNotifySound()
   }
 
   function onJobEvent(job: AsyncJob) {
@@ -95,7 +133,6 @@ export const useNotifyStore = defineStore('notify', () => {
     connected.value = false
   }
 
-  /** 后续知识库页可挂上刷新文档列表 */
   function onJobTerminal(cb: (job: AsyncJob) => void) {
     terminalCallbacks.push(cb)
     return () => {

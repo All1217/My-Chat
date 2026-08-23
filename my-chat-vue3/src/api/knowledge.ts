@@ -1,13 +1,6 @@
 import { ragClient } from '@/utils/http'
 import type { KnowledgeBase, DocumentMeta } from '@/types/knowledgeStore/types'
 
-export interface UploadResult {
-  documentId: string
-  filename: string
-  message: string
-  embeddingCount: number
-}
-
 export const knowledgeApi = {
   list: () => ragClient.get<KnowledgeBase[]>('/ai/knowledge-base/list'),
 
@@ -22,11 +15,15 @@ export const knowledgeApi = {
   remove: (id: string) =>
     ragClient.post<void>('/ai/knowledge-base/delete', null, { params: { id } }),
 
-  upload: (file: File, kbId: string) => {
+  uploadBatch: (files: File[], kbId: string) => {
     const formData = new FormData()
-    formData.append('file', file)
     formData.append('kbId', kbId)
-    return ragClient.post<UploadResult>('/ai/file/upload', formData)
+    for (const file of files) {
+      formData.append('files', file)
+    }
+    return ragClient.post<DocumentMeta[]>('/ai/knowledge-base/documents/upload', formData, {
+      timeout: 60_000,
+    })
   },
 
   deleteDocument: (id: string) =>

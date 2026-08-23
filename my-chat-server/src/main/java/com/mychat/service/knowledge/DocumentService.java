@@ -13,6 +13,7 @@ import org.jsoup.Jsoup;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.transformer.splitter.TokenTextSplitter;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.io.BufferedReader;
 import java.io.InputStream;
@@ -31,8 +32,17 @@ public class DocumentService {
     private static final TokenTextSplitter splitter = TokenTextSplitter.builder().build();
 
     public ProcessedDocument processDocument(InputStream inputStream, String filename, String kbId) {
-        log.info("Processing document: {}, kbId={}", filename, kbId);
-        String documentId = UUID.randomUUID().toString();
+        return processDocument(inputStream, filename, kbId, UUID.randomUUID().toString());
+    }
+
+    /**
+     * 按已有文档 ID 切段（异步入库必须用先插入的 document_meta.id，否则失败时清不掉向量）。
+     */
+    public ProcessedDocument processDocument(InputStream inputStream, String filename, String kbId, String documentId) {
+        if (!StringUtils.hasText(documentId)) {
+            throw new IllegalArgumentException("documentId 不能为空");
+        }
+        log.info("Processing document: {}, kbId={}, documentId={}", filename, kbId, documentId);
         try {
             String ext = filename.contains(".")
                     ? filename.substring(filename.lastIndexOf('.') + 1).toLowerCase()

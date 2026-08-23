@@ -14,5 +14,6 @@ export interface DocumentMeta {
   fileType: string
   chunkCount: number
   status: 'PROCESSING' | 'READY' | 'FAILED'
+  errorMessage?: string | null
   createdAt: string
 }

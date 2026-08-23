@@ -4,18 +4,14 @@ import com.mychat.common.result.Result;
 import com.mychat.entity.FileInfo;
 import com.mychat.entity.FileTreeNode;
 import com.mychat.entity.po.DocumentMeta;
-import com.mychat.mapper.DocumentMetaMapper;
-import com.mychat.service.knowledge.DocumentService;
-import com.mychat.service.knowledge.EmbeddingService;
+import com.mychat.service.knowledge.DocumentIngestService;
 import com.mychat.utils.WorkspaceUtil;
-import com.mychat.vo.DocumentResponseVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.InputStream;
 import java.util.*;
 
 @Slf4j
@@ -25,54 +21,25 @@ public class FileController {
     @Autowired
     private WorkspaceUtil workspaceUtil;
     @Autowired
-    private DocumentMetaMapper documentMetaMapper;
-    @Autowired
-    private DocumentService documentService;
-    @Autowired
-    private EmbeddingService embeddingService;
+    private DocumentIngestService documentIngestService;
 
     /**
-     * 上传文件并将其向量化
-     *
-     * @param file 文本文件
-     * @param kbId 可选：归入的知识库ID
-     * @return processing result
+     * 兼容旧路径：必须带 kbId，转调同一套异步入库。
      */
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public Result<?> uploadDocument(
+    public Result<List<DocumentMeta>> uploadDocument(
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "kbId", required = false) String kbId) {
-        log.info("Received document upload: {}, kbId={}", file.getOriginalFilename(), kbId);
+        if (kbId == null || kbId.isEmpty()) {
+            return Result.fail(400, "必须绑定知识库");
+        }
         try {
-            if (file.isEmpty()) return Result.fail(400, "空文件非法！");
-            String filename = file.getOriginalFilename();
-            if (filename == null || filename.isEmpty()) return Result.fail(400, "文件名不能为空！");
-
-            try (InputStream inputStream = file.getInputStream()) {
-                DocumentService.ProcessedDocument processed = documentService.processDocument(inputStream, filename, kbId);
-                int embeddingCount = embeddingService.storeSegments(processed.segments());
-
-                if (kbId != null && !kbId.isEmpty()) {
-                    DocumentMeta meta = new DocumentMeta();
-                    meta.setId(processed.documentId());
-                    meta.setKbId(kbId);
-                    meta.setFilename(filename);
-                    meta.setFileSize(file.getSize());
-                    meta.setFileType(filename.contains(".") ? filename.substring(filename.lastIndexOf('.') + 1) : "");
-                    meta.setChunkCount(embeddingCount);
-                    meta.setStatus("READY");
-                    documentMetaMapper.insert(meta);
-                }
-
-                return Result.ok(new DocumentResponseVO(
-                        processed.documentId(),
-                        filename,
-                        "文件上传并向量化成功！",
-                        embeddingCount));
-            }
+            return Result.ok(documentIngestService.accept(kbId, List.of(file)));
+        } catch (IllegalArgumentException e) {
+            return Result.fail(400, e.getMessage());
         } catch (Exception e) {
-            log.error("Failed to process document", e);
-            return Result.fail(500, "文件处理失败！");
+            log.error("Failed to submit document", e);
+            return Result.fail(500, e.getMessage() != null ? e.getMessage() : "文件处理失败！");
         }
     }
 
@@ -84,11 +51,7 @@ public class FileController {
         String id = body.get("id");
         if (id == null || id.isEmpty()) return Result.fail("参数 id 不能为空");
         try {
-            DocumentMeta meta = documentMetaMapper.selectById(id);
-            if (meta != null) {
-                embeddingService.deleteByDocumentId(meta.getId(), meta.getChunkCount());
-                documentMetaMapper.deleteById(id);
-            }
+            documentIngestService.deleteDocument(id);
             return Result.ok();
         } catch (Exception e) {
             log.error("Failed to delete document: {}", id, e);

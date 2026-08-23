@@ -1,0 +1,1120 @@
+2026-08-23T17:40:47.771+08:00  INFO 26328 --- [my-chat] [omcat-handler-0] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-08-23T17:40:47.772+08:00  INFO 26328 --- [my-chat] [omcat-handler-0] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-08-23T17:40:47.774+08:00  INFO 26328 --- [my-chat] [omcat-handler-0] o.s.web.servlet.DispatcherServlet        : Completed initialization in 1 ms
+2026-08-23T17:40:47.826+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-0] c.m.mapper.AsyncJobMapper.selectList     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE (status IN (?,?)) ORDER BY created_at DESC
+2026-08-23T17:40:47.827+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-0] c.m.mapper.AsyncJobMapper.selectList     : ==> Parameters: PENDING(String), RUNNING(String)
+2026-08-23T17:40:47.829+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-0] c.m.mapper.AsyncJobMapper.selectList     : <==      Total: 0
+2026-08-23T17:40:47.878+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-1] com.mychat.job.JobEventHub               : SSE 订阅数=1
+2026-08-23T17:40:53.004+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-2] c.m.m.ChatSessionsMapper.selectList      : ==>  Preparing: SELECT conversation_id,user_id,title,kb_id,created_at,work_dir,updated_at FROM chat_sessions ORDER BY created_at DESC
+2026-08-23T17:40:53.006+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-2] c.m.m.ChatSessionsMapper.selectList      : ==> Parameters: 
+2026-08-23T17:40:53.020+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-2] c.m.m.ChatSessionsMapper.selectList      : <==      Total: 1
+2026-08-23T17:40:58.142+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-3] c.m.m.KnowledgeBaseMapper.selectList     : ==>  Preparing: SELECT id,name,description,created_at,updated_at FROM knowledge_base
+2026-08-23T17:40:58.144+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-3] c.m.m.KnowledgeBaseMapper.selectList     : ==> Parameters: 
+2026-08-23T17:40:58.152+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-3] c.m.m.KnowledgeBaseMapper.selectList     : <==      Total: 1
+2026-08-23T17:41:21.818+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-4] c.m.mapper.KnowledgeBaseMapper.insert    : ==>  Preparing: INSERT INTO knowledge_base ( id, name, description, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ? )
+2026-08-23T17:41:21.819+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-4] c.m.mapper.KnowledgeBaseMapper.insert    : ==> Parameters: 9e35f762-557d-484a-a580-9bde58f11ac8(String), my-chat文档合集(String), my-chat文档合集(String), 2026-08-23T17:41:21.812870700(LocalDateTime), 2026-08-23T17:41:21.812870700(LocalDateTime)
+2026-08-23T17:41:21.827+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-4] c.m.mapper.KnowledgeBaseMapper.insert    : <==    Updates: 1
+2026-08-23T17:41:21.827+08:00  INFO 26328 --- [my-chat] [omcat-handler-4] c.m.controller.KnowledgeBaseController   : Created knowledge base: 9e35f762-557d-484a-a580-9bde58f11ac8 (my-chat文档合集)
+2026-08-23T17:41:21.847+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-5] c.m.m.KnowledgeBaseMapper.selectList     : ==>  Preparing: SELECT id,name,description,created_at,updated_at FROM knowledge_base
+2026-08-23T17:41:21.848+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-5] c.m.m.KnowledgeBaseMapper.selectList     : ==> Parameters: 
+2026-08-23T17:41:21.852+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-5] c.m.m.KnowledgeBaseMapper.selectList     : <==      Total: 2
+2026-08-23T17:41:22.935+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-6] c.m.m.DocumentMetaMapper.selectList      : ==>  Preparing: SELECT id,kb_id,filename,file_size,file_type,chunk_count,status,storage_path,error_message,created_at,updated_at FROM document_meta WHERE (kb_id = ?) ORDER BY created_at DESC
+2026-08-23T17:41:22.936+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-6] c.m.m.DocumentMetaMapper.selectList      : ==> Parameters: 9e35f762-557d-484a-a580-9bde58f11ac8(String)
+2026-08-23T17:41:22.940+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-6] c.m.m.DocumentMetaMapper.selectList      : <==      Total: 0
+2026-08-23T17:42:54.348+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.m.KnowledgeBaseMapper.selectById     : ==>  Preparing: SELECT id,name,description,created_at,updated_at FROM knowledge_base WHERE id=?
+2026-08-23T17:42:54.349+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.m.KnowledgeBaseMapper.selectById     : ==> Parameters: 9e35f762-557d-484a-a580-9bde58f11ac8(String)
+2026-08-23T17:42:54.351+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.m.KnowledgeBaseMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:54.392+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.DocumentMetaMapper.insert     : ==>  Preparing: INSERT INTO document_meta ( id, kb_id, filename, file_size, file_type, chunk_count, status, storage_path, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )
+2026-08-23T17:42:54.406+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.DocumentMetaMapper.insert     : ==> Parameters: f4876a81-d413-48a3-9db9-6401aa1caa41(String), 9e35f762-557d-484a-a580-9bde58f11ac8(String), P1-1-知识库批量异步入库.md(String), 13392(Long), md(String), 0(Integer), PROCESSING(String), E:\Program files\projects\My-Chat\my-chat-server\src\main\resources\ingest\9e35f762-557d-484a-a580-9bde58f11ac8\f4876a81-d413-48a3-9db9-6401aa1caa41\P1-1-知识库批量异步入库.md(String), 2026-08-23T17:42:54.392961600(LocalDateTime), 2026-08-23T17:42:54.392961600(LocalDateTime)
+2026-08-23T17:42:54.416+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.DocumentMetaMapper.insert     : <==    Updates: 1
+2026-08-23T17:42:54.515+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.mychat.mapper.AsyncJobMapper.insert    : ==>  Preparing: INSERT INTO async_job ( id, job_type, status, title, ref_id, payload, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? )
+2026-08-23T17:42:54.515+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.mychat.mapper.AsyncJobMapper.insert    : ==> Parameters: 8eb4b7a0-66d3-45cb-a870-469e94fbf98d(String), kb_ingest(String), PENDING(String), 向量化：P1-1-知识库批量异步入库.md(String), f4876a81-d413-48a3-9db9-6401aa1caa41(String), {"kbId":"9e35f762-557d-484a-a580-9bde58f11ac8","storagePath":"E:\\Program files\\projects\\My-Chat\\my-chat-server\\src\\main\\resources\\ingest\\9e35f762-557d-484a-a580-9bde58f11ac8\\f4876a81-d413-48a3-9db9-6401aa1caa41\\P1-1-知识库批量异步入库.md","filename":"P1-1-知识库批量异步入库.md","documentId":"f4876a81-d413-48a3-9db9-6401aa1caa41"}(String), 2026-08-23T17:42:54.514888900(LocalDateTime), 2026-08-23T17:42:54.514888900(LocalDateTime)
+2026-08-23T17:42:54.518+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.mychat.mapper.AsyncJobMapper.insert    : <==    Updates: 1
+2026-08-23T17:42:54.518+08:00  INFO 26328 --- [my-chat] [omcat-handler-7] com.mychat.job.AsyncJobServiceImpl       : 提交任务 id=8eb4b7a0-66d3-45cb-a870-469e94fbf98d type=kb_ingest title=向量化：P1-1-知识库批量异步入库.md
+2026-08-23T17:42:54.522+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:54.522+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: 8eb4b7a0-66d3-45cb-a870-469e94fbf98d(String)
+2026-08-23T17:42:54.523+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:54.523+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: 8eb4b7a0-66d3-45cb-a870-469e94fbf98d(String)
+2026-08-23T17:42:54.524+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:54.527+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:54.530+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.mychat.mapper.AsyncJobMapper.update    : ==>  Preparing: UPDATE async_job SET status=?,updated_at=? WHERE (id = ? AND status = ?)
+2026-08-23T17:42:54.531+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.mychat.mapper.AsyncJobMapper.update    : ==> Parameters: RUNNING(String), 2026-08-23T17:42:54.529989900(LocalDateTime), 8eb4b7a0-66d3-45cb-a870-469e94fbf98d(String), PENDING(String)
+2026-08-23T17:42:54.533+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.mychat.mapper.AsyncJobMapper.update    : <==    Updates: 1
+2026-08-23T17:42:54.533+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:54.533+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: 8eb4b7a0-66d3-45cb-a870-469e94fbf98d(String)
+2026-08-23T17:42:54.534+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:54.537+08:00  INFO 26328 --- [my-chat] [          job-1] com.mychat.job.KbIngestJobHandler        : 开始入库 documentId=f4876a81-d413-48a3-9db9-6401aa1caa41 jobId=8eb4b7a0-66d3-45cb-a870-469e94fbf98d
+2026-08-23T17:42:54.537+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.m.DocumentMetaMapper.selectById      : ==>  Preparing: SELECT id,kb_id,filename,file_size,file_type,chunk_count,status,storage_path,error_message,created_at,updated_at FROM document_meta WHERE id=?
+2026-08-23T17:42:54.538+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.m.DocumentMetaMapper.selectById      : ==> Parameters: f4876a81-d413-48a3-9db9-6401aa1caa41(String)
+2026-08-23T17:42:54.542+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.m.DocumentMetaMapper.selectById      : <==      Total: 1
+2026-08-23T17:42:54.544+08:00  INFO 26328 --- [my-chat] [          job-1] c.m.service.knowledge.DocumentService    : Processing document: P1-1-知识库批量异步入库.md, kbId=9e35f762-557d-484a-a580-9bde58f11ac8, documentId=f4876a81-d413-48a3-9db9-6401aa1caa41
+2026-08-23T17:42:54.545+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.DocumentMetaMapper.insert     : ==>  Preparing: INSERT INTO document_meta ( id, kb_id, filename, file_size, file_type, chunk_count, status, storage_path, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )
+2026-08-23T17:42:54.546+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.DocumentMetaMapper.insert     : ==> Parameters: 873f16f8-95b5-4fb1-8ea8-5cd94af63616(String), 9e35f762-557d-484a-a580-9bde58f11ac8(String), P2-9-mcp协议规划.md(String), 22873(Long), md(String), 0(Integer), PROCESSING(String), E:\Program files\projects\My-Chat\my-chat-server\src\main\resources\ingest\9e35f762-557d-484a-a580-9bde58f11ac8\873f16f8-95b5-4fb1-8ea8-5cd94af63616\P2-9-mcp协议规划.md(String), 2026-08-23T17:42:54.545098200(LocalDateTime), 2026-08-23T17:42:54.545098200(LocalDateTime)
+2026-08-23T17:42:54.547+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.DocumentMetaMapper.insert     : <==    Updates: 1
+2026-08-23T17:42:54.548+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.mychat.mapper.AsyncJobMapper.insert    : ==>  Preparing: INSERT INTO async_job ( id, job_type, status, title, ref_id, payload, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? )
+2026-08-23T17:42:54.549+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.mychat.mapper.AsyncJobMapper.insert    : ==> Parameters: b1da8645-bf08-42a5-a490-0276d3489c9d(String), kb_ingest(String), PENDING(String), 向量化：P2-9-mcp协议规划.md(String), 873f16f8-95b5-4fb1-8ea8-5cd94af63616(String), {"kbId":"9e35f762-557d-484a-a580-9bde58f11ac8","storagePath":"E:\\Program files\\projects\\My-Chat\\my-chat-server\\src\\main\\resources\\ingest\\9e35f762-557d-484a-a580-9bde58f11ac8\\873f16f8-95b5-4fb1-8ea8-5cd94af63616\\P2-9-mcp协议规划.md","filename":"P2-9-mcp协议规划.md","documentId":"873f16f8-95b5-4fb1-8ea8-5cd94af63616"}(String), 2026-08-23T17:42:54.548099700(LocalDateTime), 2026-08-23T17:42:54.548099700(LocalDateTime)
+2026-08-23T17:42:54.549+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.mychat.mapper.AsyncJobMapper.insert    : <==    Updates: 1
+2026-08-23T17:42:54.550+08:00  INFO 26328 --- [my-chat] [omcat-handler-7] com.mychat.job.AsyncJobServiceImpl       : 提交任务 id=b1da8645-bf08-42a5-a490-0276d3489c9d type=kb_ingest title=向量化：P2-9-mcp协议规划.md
+2026-08-23T17:42:54.550+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:54.550+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: b1da8645-bf08-42a5-a490-0276d3489c9d(String)
+2026-08-23T17:42:54.550+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:54.550+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: b1da8645-bf08-42a5-a490-0276d3489c9d(String)
+2026-08-23T17:42:54.551+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:54.552+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:54.553+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.mychat.mapper.AsyncJobMapper.update    : ==>  Preparing: UPDATE async_job SET status=?,updated_at=? WHERE (id = ? AND status = ?)
+2026-08-23T17:42:54.553+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.mychat.mapper.AsyncJobMapper.update    : ==> Parameters: RUNNING(String), 2026-08-23T17:42:54.552614600(LocalDateTime), b1da8645-bf08-42a5-a490-0276d3489c9d(String), PENDING(String)
+2026-08-23T17:42:54.554+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.mychat.mapper.AsyncJobMapper.update    : <==    Updates: 1
+2026-08-23T17:42:54.554+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:54.554+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: b1da8645-bf08-42a5-a490-0276d3489c9d(String)
+2026-08-23T17:42:54.556+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:54.557+08:00  INFO 26328 --- [my-chat] [          job-2] com.mychat.job.KbIngestJobHandler        : 开始入库 documentId=873f16f8-95b5-4fb1-8ea8-5cd94af63616 jobId=b1da8645-bf08-42a5-a490-0276d3489c9d
+2026-08-23T17:42:54.557+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.m.DocumentMetaMapper.selectById      : ==>  Preparing: SELECT id,kb_id,filename,file_size,file_type,chunk_count,status,storage_path,error_message,created_at,updated_at FROM document_meta WHERE id=?
+2026-08-23T17:42:54.557+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.m.DocumentMetaMapper.selectById      : ==> Parameters: 873f16f8-95b5-4fb1-8ea8-5cd94af63616(String)
+2026-08-23T17:42:54.558+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.m.DocumentMetaMapper.selectById      : <==      Total: 1
+2026-08-23T17:42:54.559+08:00  INFO 26328 --- [my-chat] [          job-2] c.m.service.knowledge.DocumentService    : Processing document: P2-9-mcp协议规划.md, kbId=9e35f762-557d-484a-a580-9bde58f11ac8, documentId=873f16f8-95b5-4fb1-8ea8-5cd94af63616
+2026-08-23T17:42:54.564+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.DocumentMetaMapper.insert     : ==>  Preparing: INSERT INTO document_meta ( id, kb_id, filename, file_size, file_type, chunk_count, status, storage_path, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )
+2026-08-23T17:42:54.565+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.DocumentMetaMapper.insert     : ==> Parameters: bee08d20-409c-4635-826a-f2dcd2a8e179(String), 9e35f762-557d-484a-a580-9bde58f11ac8(String), P2-9-接入第三方MCP服务行动方案.md(String), 5727(Long), md(String), 0(Integer), PROCESSING(String), E:\Program files\projects\My-Chat\my-chat-server\src\main\resources\ingest\9e35f762-557d-484a-a580-9bde58f11ac8\bee08d20-409c-4635-826a-f2dcd2a8e179\P2-9-接入第三方MCP服务行动方案.md(String), 2026-08-23T17:42:54.564766600(LocalDateTime), 2026-08-23T17:42:54.564766600(LocalDateTime)
+2026-08-23T17:42:54.566+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.DocumentMetaMapper.insert     : <==    Updates: 1
+2026-08-23T17:42:54.567+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.mychat.mapper.AsyncJobMapper.insert    : ==>  Preparing: INSERT INTO async_job ( id, job_type, status, title, ref_id, payload, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? )
+2026-08-23T17:42:54.567+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.mychat.mapper.AsyncJobMapper.insert    : ==> Parameters: 0ec0d039-a5b4-4b59-a5f8-4a4c2172bc44(String), kb_ingest(String), PENDING(String), 向量化：P2-9-接入第三方MCP服务行动方案.md(String), bee08d20-409c-4635-826a-f2dcd2a8e179(String), {"kbId":"9e35f762-557d-484a-a580-9bde58f11ac8","storagePath":"E:\\Program files\\projects\\My-Chat\\my-chat-server\\src\\main\\resources\\ingest\\9e35f762-557d-484a-a580-9bde58f11ac8\\bee08d20-409c-4635-826a-f2dcd2a8e179\\P2-9-接入第三方MCP服务行动方案.md","filename":"P2-9-接入第三方MCP服务行动方案.md","documentId":"bee08d20-409c-4635-826a-f2dcd2a8e179"}(String), 2026-08-23T17:42:54.566767500(LocalDateTime), 2026-08-23T17:42:54.566767500(LocalDateTime)
+2026-08-23T17:42:54.568+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.mychat.mapper.AsyncJobMapper.insert    : <==    Updates: 1
+2026-08-23T17:42:54.569+08:00  INFO 26328 --- [my-chat] [omcat-handler-7] com.mychat.job.AsyncJobServiceImpl       : 提交任务 id=0ec0d039-a5b4-4b59-a5f8-4a4c2172bc44 type=kb_ingest title=向量化：P2-9-接入第三方MCP服务行动方案.md
+2026-08-23T17:42:54.569+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:54.569+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: 0ec0d039-a5b4-4b59-a5f8-4a4c2172bc44(String)
+2026-08-23T17:42:54.570+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:54.574+08:00  INFO 26328 --- [my-chat] [          job-1] o.s.a.transformer.splitter.TextSplitter  : Splitting up document into 6 chunks.
+2026-08-23T17:42:54.577+08:00  INFO 26328 --- [my-chat] [          job-1] c.m.service.knowledge.DocumentService    : Document 'P1-1-知识库批量异步入库.md' processed into 6 segments
+2026-08-23T17:42:54.583+08:00  INFO 26328 --- [my-chat] [          job-2] o.s.a.transformer.splitter.TextSplitter  : Splitting up document into 9 chunks.
+2026-08-23T17:42:54.584+08:00  INFO 26328 --- [my-chat] [          job-2] c.m.service.knowledge.DocumentService    : Document 'P2-9-mcp协议规划.md' processed into 9 segments
+2026-08-23T17:42:54.585+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.DocumentMetaMapper.insert     : ==>  Preparing: INSERT INTO document_meta ( id, kb_id, filename, file_size, file_type, chunk_count, status, storage_path, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )
+2026-08-23T17:42:54.585+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.DocumentMetaMapper.insert     : ==> Parameters: 185bb999-2cf8-4b40-ad5a-c89d21033ffa(String), 9e35f762-557d-484a-a580-9bde58f11ac8(String), P2-10-agents开发规划（v1.1）.md(String), 15870(Long), md(String), 0(Integer), PROCESSING(String), E:\Program files\projects\My-Chat\my-chat-server\src\main\resources\ingest\9e35f762-557d-484a-a580-9bde58f11ac8\185bb999-2cf8-4b40-ad5a-c89d21033ffa\P2-10-agents开发规划（v1.1）.md(String), 2026-08-23T17:42:54.585841100(LocalDateTime), 2026-08-23T17:42:54.585841100(LocalDateTime)
+2026-08-23T17:42:54.586+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.DocumentMetaMapper.insert     : <==    Updates: 1
+2026-08-23T17:42:54.587+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.mychat.mapper.AsyncJobMapper.insert    : ==>  Preparing: INSERT INTO async_job ( id, job_type, status, title, ref_id, payload, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? )
+2026-08-23T17:42:54.588+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.mychat.mapper.AsyncJobMapper.insert    : ==> Parameters: 0f8e48eb-c44b-40f4-9dbb-aaa2ef78d31f(String), kb_ingest(String), PENDING(String), 向量化：P2-10-agents开发规划（v1.1）.md(String), 185bb999-2cf8-4b40-ad5a-c89d21033ffa(String), {"kbId":"9e35f762-557d-484a-a580-9bde58f11ac8","storagePath":"E:\\Program files\\projects\\My-Chat\\my-chat-server\\src\\main\\resources\\ingest\\9e35f762-557d-484a-a580-9bde58f11ac8\\185bb999-2cf8-4b40-ad5a-c89d21033ffa\\P2-10-agents开发规划（v1.1）.md","filename":"P2-10-agents开发规划（v1.1）.md","documentId":"185bb999-2cf8-4b40-ad5a-c89d21033ffa"}(String), 2026-08-23T17:42:54.587862300(LocalDateTime), 2026-08-23T17:42:54.587862300(LocalDateTime)
+2026-08-23T17:42:54.589+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.mychat.mapper.AsyncJobMapper.insert    : <==    Updates: 1
+2026-08-23T17:42:54.589+08:00  INFO 26328 --- [my-chat] [omcat-handler-7] com.mychat.job.AsyncJobServiceImpl       : 提交任务 id=0f8e48eb-c44b-40f4-9dbb-aaa2ef78d31f type=kb_ingest title=向量化：P2-10-agents开发规划（v1.1）.md
+2026-08-23T17:42:54.589+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:54.589+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: 0f8e48eb-c44b-40f4-9dbb-aaa2ef78d31f(String)
+2026-08-23T17:42:54.592+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:54.604+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.DocumentMetaMapper.insert     : ==>  Preparing: INSERT INTO document_meta ( id, kb_id, filename, file_size, file_type, chunk_count, status, storage_path, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )
+2026-08-23T17:42:54.604+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.DocumentMetaMapper.insert     : ==> Parameters: 241da065-0d92-4e47-90fd-6e44cfae4a85(String), 9e35f762-557d-484a-a580-9bde58f11ac8(String), P2-10-agents开发-主聊天技术拆解.md(String), 5525(Long), md(String), 0(Integer), PROCESSING(String), E:\Program files\projects\My-Chat\my-chat-server\src\main\resources\ingest\9e35f762-557d-484a-a580-9bde58f11ac8\241da065-0d92-4e47-90fd-6e44cfae4a85\P2-10-agents开发-主聊天技术拆解.md(String), 2026-08-23T17:42:54.603695(LocalDateTime), 2026-08-23T17:42:54.603695(LocalDateTime)
+2026-08-23T17:42:54.606+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.DocumentMetaMapper.insert     : <==    Updates: 1
+2026-08-23T17:42:54.607+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.mychat.mapper.AsyncJobMapper.insert    : ==>  Preparing: INSERT INTO async_job ( id, job_type, status, title, ref_id, payload, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? )
+2026-08-23T17:42:54.608+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.mychat.mapper.AsyncJobMapper.insert    : ==> Parameters: ef1ebb95-c13d-4be0-be58-277aa0c8a1f4(String), kb_ingest(String), PENDING(String), 向量化：P2-10-agents开发-主聊天技术拆解.md(String), 241da065-0d92-4e47-90fd-6e44cfae4a85(String), {"kbId":"9e35f762-557d-484a-a580-9bde58f11ac8","storagePath":"E:\\Program files\\projects\\My-Chat\\my-chat-server\\src\\main\\resources\\ingest\\9e35f762-557d-484a-a580-9bde58f11ac8\\241da065-0d92-4e47-90fd-6e44cfae4a85\\P2-10-agents开发-主聊天技术拆解.md","filename":"P2-10-agents开发-主聊天技术拆解.md","documentId":"241da065-0d92-4e47-90fd-6e44cfae4a85"}(String), 2026-08-23T17:42:54.607050700(LocalDateTime), 2026-08-23T17:42:54.607050700(LocalDateTime)
+2026-08-23T17:42:54.613+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.mychat.mapper.AsyncJobMapper.insert    : <==    Updates: 1
+2026-08-23T17:42:54.613+08:00  INFO 26328 --- [my-chat] [omcat-handler-7] com.mychat.job.AsyncJobServiceImpl       : 提交任务 id=ef1ebb95-c13d-4be0-be58-277aa0c8a1f4 type=kb_ingest title=向量化：P2-10-agents开发-主聊天技术拆解.md
+2026-08-23T17:42:54.614+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:54.614+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: ef1ebb95-c13d-4be0-be58-277aa0c8a1f4(String)
+2026-08-23T17:42:54.615+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:54.629+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.DocumentMetaMapper.insert     : ==>  Preparing: INSERT INTO document_meta ( id, kb_id, filename, file_size, file_type, chunk_count, status, storage_path, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )
+2026-08-23T17:42:54.630+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.DocumentMetaMapper.insert     : ==> Parameters: e5de992e-d3e2-4f70-91d0-102765d8f1ad(String), 9e35f762-557d-484a-a580-9bde58f11ac8(String), P2-11-异步任务+消息通知.md(String), 8121(Long), md(String), 0(Integer), PROCESSING(String), E:\Program files\projects\My-Chat\my-chat-server\src\main\resources\ingest\9e35f762-557d-484a-a580-9bde58f11ac8\e5de992e-d3e2-4f70-91d0-102765d8f1ad\P2-11-异步任务+消息通知.md(String), 2026-08-23T17:42:54.629938500(LocalDateTime), 2026-08-23T17:42:54.629938500(LocalDateTime)
+2026-08-23T17:42:54.631+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.DocumentMetaMapper.insert     : <==    Updates: 1
+2026-08-23T17:42:54.632+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.mychat.mapper.AsyncJobMapper.insert    : ==>  Preparing: INSERT INTO async_job ( id, job_type, status, title, ref_id, payload, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? )
+2026-08-23T17:42:54.632+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.mychat.mapper.AsyncJobMapper.insert    : ==> Parameters: 45d11d05-83fc-4b47-afd7-22086664a9e9(String), kb_ingest(String), PENDING(String), 向量化：P2-11-异步任务+消息通知.md(String), e5de992e-d3e2-4f70-91d0-102765d8f1ad(String), {"kbId":"9e35f762-557d-484a-a580-9bde58f11ac8","storagePath":"E:\\Program files\\projects\\My-Chat\\my-chat-server\\src\\main\\resources\\ingest\\9e35f762-557d-484a-a580-9bde58f11ac8\\e5de992e-d3e2-4f70-91d0-102765d8f1ad\\P2-11-异步任务+消息通知.md","filename":"P2-11-异步任务+消息通知.md","documentId":"e5de992e-d3e2-4f70-91d0-102765d8f1ad"}(String), 2026-08-23T17:42:54.631936600(LocalDateTime), 2026-08-23T17:42:54.631936600(LocalDateTime)
+2026-08-23T17:42:54.633+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.mychat.mapper.AsyncJobMapper.insert    : <==    Updates: 1
+2026-08-23T17:42:54.633+08:00  INFO 26328 --- [my-chat] [omcat-handler-7] com.mychat.job.AsyncJobServiceImpl       : 提交任务 id=45d11d05-83fc-4b47-afd7-22086664a9e9 type=kb_ingest title=向量化：P2-11-异步任务+消息通知.md
+2026-08-23T17:42:54.634+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:54.634+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: 45d11d05-83fc-4b47-afd7-22086664a9e9(String)
+2026-08-23T17:42:54.636+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:54.650+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.DocumentMetaMapper.insert     : ==>  Preparing: INSERT INTO document_meta ( id, kb_id, filename, file_size, file_type, chunk_count, status, storage_path, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )
+2026-08-23T17:42:54.650+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.DocumentMetaMapper.insert     : ==> Parameters: c33c40f1-09fd-47b1-b3cc-ec1981e72474(String), 9e35f762-557d-484a-a580-9bde58f11ac8(String), P1-自定义工作目录-后期重构升级.md(String), 14286(Long), md(String), 0(Integer), PROCESSING(String), E:\Program files\projects\My-Chat\my-chat-server\src\main\resources\ingest\9e35f762-557d-484a-a580-9bde58f11ac8\c33c40f1-09fd-47b1-b3cc-ec1981e72474\P1-自定义工作目录-后期重构升级.md(String), 2026-08-23T17:42:54.649390(LocalDateTime), 2026-08-23T17:42:54.649390(LocalDateTime)
+2026-08-23T17:42:54.652+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.DocumentMetaMapper.insert     : <==    Updates: 1
+2026-08-23T17:42:54.653+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.mychat.mapper.AsyncJobMapper.insert    : ==>  Preparing: INSERT INTO async_job ( id, job_type, status, title, ref_id, payload, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? )
+2026-08-23T17:42:54.653+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.mychat.mapper.AsyncJobMapper.insert    : ==> Parameters: 67995a78-2522-429b-8c3c-8259982366a5(String), kb_ingest(String), PENDING(String), 向量化：P1-自定义工作目录-后期重构升级.md(String), c33c40f1-09fd-47b1-b3cc-ec1981e72474(String), {"kbId":"9e35f762-557d-484a-a580-9bde58f11ac8","storagePath":"E:\\Program files\\projects\\My-Chat\\my-chat-server\\src\\main\\resources\\ingest\\9e35f762-557d-484a-a580-9bde58f11ac8\\c33c40f1-09fd-47b1-b3cc-ec1981e72474\\P1-自定义工作目录-后期重构升级.md","filename":"P1-自定义工作目录-后期重构升级.md","documentId":"c33c40f1-09fd-47b1-b3cc-ec1981e72474"}(String), 2026-08-23T17:42:54.653380(LocalDateTime), 2026-08-23T17:42:54.653380(LocalDateTime)
+2026-08-23T17:42:54.654+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.mychat.mapper.AsyncJobMapper.insert    : <==    Updates: 1
+2026-08-23T17:42:54.654+08:00  INFO 26328 --- [my-chat] [omcat-handler-7] com.mychat.job.AsyncJobServiceImpl       : 提交任务 id=67995a78-2522-429b-8c3c-8259982366a5 type=kb_ingest title=向量化：P1-自定义工作目录-后期重构升级.md
+2026-08-23T17:42:54.654+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:54.654+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: 67995a78-2522-429b-8c3c-8259982366a5(String)
+2026-08-23T17:42:54.658+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:54.674+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.DocumentMetaMapper.insert     : ==>  Preparing: INSERT INTO document_meta ( id, kb_id, filename, file_size, file_type, chunk_count, status, storage_path, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )
+2026-08-23T17:42:54.674+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.DocumentMetaMapper.insert     : ==> Parameters: 70ba5407-8c26-479f-a164-d1db55ffa0ff(String), 9e35f762-557d-484a-a580-9bde58f11ac8(String), P2-7-可观测性时间线总结与思考回显规划.md(String), 7357(Long), md(String), 0(Integer), PROCESSING(String), E:\Program files\projects\My-Chat\my-chat-server\src\main\resources\ingest\9e35f762-557d-484a-a580-9bde58f11ac8\70ba5407-8c26-479f-a164-d1db55ffa0ff\P2-7-可观测性时间线总结与思考回显规划.md(String), 2026-08-23T17:42:54.674782800(LocalDateTime), 2026-08-23T17:42:54.674782800(LocalDateTime)
+2026-08-23T17:42:54.676+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.DocumentMetaMapper.insert     : <==    Updates: 1
+2026-08-23T17:42:54.677+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.mychat.mapper.AsyncJobMapper.insert    : ==>  Preparing: INSERT INTO async_job ( id, job_type, status, title, ref_id, payload, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? )
+2026-08-23T17:42:54.678+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.mychat.mapper.AsyncJobMapper.insert    : ==> Parameters: cffe9dd7-e0a6-47a8-a11e-e8f2ce54ad6d(String), kb_ingest(String), PENDING(String), 向量化：P2-7-可观测性时间线总结与思考回显规划.md(String), 70ba5407-8c26-479f-a164-d1db55ffa0ff(String), {"kbId":"9e35f762-557d-484a-a580-9bde58f11ac8","storagePath":"E:\\Program files\\projects\\My-Chat\\my-chat-server\\src\\main\\resources\\ingest\\9e35f762-557d-484a-a580-9bde58f11ac8\\70ba5407-8c26-479f-a164-d1db55ffa0ff\\P2-7-可观测性时间线总结与思考回显规划.md","filename":"P2-7-可观测性时间线总结与思考回显规划.md","documentId":"70ba5407-8c26-479f-a164-d1db55ffa0ff"}(String), 2026-08-23T17:42:54.677803600(LocalDateTime), 2026-08-23T17:42:54.677803600(LocalDateTime)
+2026-08-23T17:42:54.680+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.mychat.mapper.AsyncJobMapper.insert    : <==    Updates: 1
+2026-08-23T17:42:54.681+08:00  INFO 26328 --- [my-chat] [omcat-handler-7] com.mychat.job.AsyncJobServiceImpl       : 提交任务 id=cffe9dd7-e0a6-47a8-a11e-e8f2ce54ad6d type=kb_ingest title=向量化：P2-7-可观测性时间线总结与思考回显规划.md
+2026-08-23T17:42:54.681+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:54.681+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: cffe9dd7-e0a6-47a8-a11e-e8f2ce54ad6d(String)
+2026-08-23T17:42:54.682+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:54.696+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.DocumentMetaMapper.insert     : ==>  Preparing: INSERT INTO document_meta ( id, kb_id, filename, file_size, file_type, chunk_count, status, storage_path, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )
+2026-08-23T17:42:54.697+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.DocumentMetaMapper.insert     : ==> Parameters: 94be1f11-dc5d-4d7e-a3a3-79d16ad38dfb(String), 9e35f762-557d-484a-a580-9bde58f11ac8(String), P0-7-工具调用和向量知识库竞争模型注意力解决方案.md(String), 11149(Long), md(String), 0(Integer), PROCESSING(String), E:\Program files\projects\My-Chat\my-chat-server\src\main\resources\ingest\9e35f762-557d-484a-a580-9bde58f11ac8\94be1f11-dc5d-4d7e-a3a3-79d16ad38dfb\P0-7-工具调用和向量知识库竞争模型注意力解决方案.md(String), 2026-08-23T17:42:54.696155700(LocalDateTime), 2026-08-23T17:42:54.696155700(LocalDateTime)
+2026-08-23T17:42:54.698+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.DocumentMetaMapper.insert     : <==    Updates: 1
+2026-08-23T17:42:54.699+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.mychat.mapper.AsyncJobMapper.insert    : ==>  Preparing: INSERT INTO async_job ( id, job_type, status, title, ref_id, payload, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? )
+2026-08-23T17:42:54.699+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.mychat.mapper.AsyncJobMapper.insert    : ==> Parameters: 79d22219-cd13-43a5-8eaa-b881734f1103(String), kb_ingest(String), PENDING(String), 向量化：P0-7-工具调用和向量知识库竞争模型注意力解决方案.md(String), 94be1f11-dc5d-4d7e-a3a3-79d16ad38dfb(String), {"kbId":"9e35f762-557d-484a-a580-9bde58f11ac8","storagePath":"E:\\Program files\\projects\\My-Chat\\my-chat-server\\src\\main\\resources\\ingest\\9e35f762-557d-484a-a580-9bde58f11ac8\\94be1f11-dc5d-4d7e-a3a3-79d16ad38dfb\\P0-7-工具调用和向量知识库竞争模型注意力解决方案.md","filename":"P0-7-工具调用和向量知识库竞争模型注意力解决方案.md","documentId":"94be1f11-dc5d-4d7e-a3a3-79d16ad38dfb"}(String), 2026-08-23T17:42:54.699674100(LocalDateTime), 2026-08-23T17:42:54.699674100(LocalDateTime)
+2026-08-23T17:42:54.700+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.mychat.mapper.AsyncJobMapper.insert    : <==    Updates: 1
+2026-08-23T17:42:54.700+08:00  INFO 26328 --- [my-chat] [omcat-handler-7] com.mychat.job.AsyncJobServiceImpl       : 提交任务 id=79d22219-cd13-43a5-8eaa-b881734f1103 type=kb_ingest title=向量化：P0-7-工具调用和向量知识库竞争模型注意力解决方案.md
+2026-08-23T17:42:54.701+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:54.701+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: 79d22219-cd13-43a5-8eaa-b881734f1103(String)
+2026-08-23T17:42:54.703+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:54.716+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.DocumentMetaMapper.insert     : ==>  Preparing: INSERT INTO document_meta ( id, kb_id, filename, file_size, file_type, chunk_count, status, storage_path, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )
+2026-08-23T17:42:54.717+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.DocumentMetaMapper.insert     : ==> Parameters: d7c311a6-66eb-43d4-b63d-0e533c0d67a3(String), 9e35f762-557d-484a-a580-9bde58f11ac8(String), P0-7-知识库隔离查询方案对比.md(String), 6453(Long), md(String), 0(Integer), PROCESSING(String), E:\Program files\projects\My-Chat\my-chat-server\src\main\resources\ingest\9e35f762-557d-484a-a580-9bde58f11ac8\d7c311a6-66eb-43d4-b63d-0e533c0d67a3\P0-7-知识库隔离查询方案对比.md(String), 2026-08-23T17:42:54.716914500(LocalDateTime), 2026-08-23T17:42:54.716914500(LocalDateTime)
+2026-08-23T17:42:54.719+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.DocumentMetaMapper.insert     : <==    Updates: 1
+2026-08-23T17:42:54.720+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.mychat.mapper.AsyncJobMapper.insert    : ==>  Preparing: INSERT INTO async_job ( id, job_type, status, title, ref_id, payload, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? )
+2026-08-23T17:42:54.720+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.mychat.mapper.AsyncJobMapper.insert    : ==> Parameters: 56e04bb7-d9e5-4a48-b1a8-8c633a92df80(String), kb_ingest(String), PENDING(String), 向量化：P0-7-知识库隔离查询方案对比.md(String), d7c311a6-66eb-43d4-b63d-0e533c0d67a3(String), {"kbId":"9e35f762-557d-484a-a580-9bde58f11ac8","storagePath":"E:\\Program files\\projects\\My-Chat\\my-chat-server\\src\\main\\resources\\ingest\\9e35f762-557d-484a-a580-9bde58f11ac8\\d7c311a6-66eb-43d4-b63d-0e533c0d67a3\\P0-7-知识库隔离查询方案对比.md","filename":"P0-7-知识库隔离查询方案对比.md","documentId":"d7c311a6-66eb-43d4-b63d-0e533c0d67a3"}(String), 2026-08-23T17:42:54.720433600(LocalDateTime), 2026-08-23T17:42:54.720433600(LocalDateTime)
+2026-08-23T17:42:54.721+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.mychat.mapper.AsyncJobMapper.insert    : <==    Updates: 1
+2026-08-23T17:42:54.721+08:00  INFO 26328 --- [my-chat] [omcat-handler-7] com.mychat.job.AsyncJobServiceImpl       : 提交任务 id=56e04bb7-d9e5-4a48-b1a8-8c633a92df80 type=kb_ingest title=向量化：P0-7-知识库隔离查询方案对比.md
+2026-08-23T17:42:54.721+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:54.722+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: 56e04bb7-d9e5-4a48-b1a8-8c633a92df80(String)
+2026-08-23T17:42:54.723+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:54.739+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.DocumentMetaMapper.insert     : ==>  Preparing: INSERT INTO document_meta ( id, kb_id, filename, file_size, file_type, chunk_count, status, storage_path, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )
+2026-08-23T17:42:54.739+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.DocumentMetaMapper.insert     : ==> Parameters: a7f5cf04-bdd4-484b-90c5-b01683a8302b(String), 9e35f762-557d-484a-a580-9bde58f11ac8(String), P0-RESTFUL API重构方案.md(String), 12988(Long), md(String), 0(Integer), PROCESSING(String), E:\Program files\projects\My-Chat\my-chat-server\src\main\resources\ingest\9e35f762-557d-484a-a580-9bde58f11ac8\a7f5cf04-bdd4-484b-90c5-b01683a8302b\P0-RESTFUL API重构方案.md(String), 2026-08-23T17:42:54.738544800(LocalDateTime), 2026-08-23T17:42:54.738544800(LocalDateTime)
+2026-08-23T17:42:54.740+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.DocumentMetaMapper.insert     : <==    Updates: 1
+2026-08-23T17:42:54.741+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.mychat.mapper.AsyncJobMapper.insert    : ==>  Preparing: INSERT INTO async_job ( id, job_type, status, title, ref_id, payload, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? )
+2026-08-23T17:42:54.742+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.mychat.mapper.AsyncJobMapper.insert    : ==> Parameters: 81a5a47f-8437-425a-8ebc-92f5219fb5f6(String), kb_ingest(String), PENDING(String), 向量化：P0-RESTFUL API重构方案.md(String), a7f5cf04-bdd4-484b-90c5-b01683a8302b(String), {"kbId":"9e35f762-557d-484a-a580-9bde58f11ac8","storagePath":"E:\\Program files\\projects\\My-Chat\\my-chat-server\\src\\main\\resources\\ingest\\9e35f762-557d-484a-a580-9bde58f11ac8\\a7f5cf04-bdd4-484b-90c5-b01683a8302b\\P0-RESTFUL API重构方案.md","filename":"P0-RESTFUL API重构方案.md","documentId":"a7f5cf04-bdd4-484b-90c5-b01683a8302b"}(String), 2026-08-23T17:42:54.741789(LocalDateTime), 2026-08-23T17:42:54.741789(LocalDateTime)
+2026-08-23T17:42:54.743+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.mychat.mapper.AsyncJobMapper.insert    : <==    Updates: 1
+2026-08-23T17:42:54.743+08:00  INFO 26328 --- [my-chat] [omcat-handler-7] com.mychat.job.AsyncJobServiceImpl       : 提交任务 id=81a5a47f-8437-425a-8ebc-92f5219fb5f6 type=kb_ingest title=向量化：P0-RESTFUL API重构方案.md
+2026-08-23T17:42:54.743+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:54.744+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: 81a5a47f-8437-425a-8ebc-92f5219fb5f6(String)
+2026-08-23T17:42:54.744+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:54.758+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.DocumentMetaMapper.insert     : ==>  Preparing: INSERT INTO document_meta ( id, kb_id, filename, file_size, file_type, chunk_count, status, storage_path, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )
+2026-08-23T17:42:54.758+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.DocumentMetaMapper.insert     : ==> Parameters: 96049dc4-57f0-4c2b-89ff-d0ce0a06c073(String), 9e35f762-557d-484a-a580-9bde58f11ac8(String), P0-知识库迭代规划.md(String), 17146(Long), md(String), 0(Integer), PROCESSING(String), E:\Program files\projects\My-Chat\my-chat-server\src\main\resources\ingest\9e35f762-557d-484a-a580-9bde58f11ac8\96049dc4-57f0-4c2b-89ff-d0ce0a06c073\P0-知识库迭代规划.md(String), 2026-08-23T17:42:54.757999200(LocalDateTime), 2026-08-23T17:42:54.757999200(LocalDateTime)
+2026-08-23T17:42:54.760+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.DocumentMetaMapper.insert     : <==    Updates: 1
+2026-08-23T17:42:54.761+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.mychat.mapper.AsyncJobMapper.insert    : ==>  Preparing: INSERT INTO async_job ( id, job_type, status, title, ref_id, payload, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? )
+2026-08-23T17:42:54.762+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.mychat.mapper.AsyncJobMapper.insert    : ==> Parameters: e8fb31b4-551d-40c7-a1d8-f155e02128e2(String), kb_ingest(String), PENDING(String), 向量化：P0-知识库迭代规划.md(String), 96049dc4-57f0-4c2b-89ff-d0ce0a06c073(String), {"kbId":"9e35f762-557d-484a-a580-9bde58f11ac8","storagePath":"E:\\Program files\\projects\\My-Chat\\my-chat-server\\src\\main\\resources\\ingest\\9e35f762-557d-484a-a580-9bde58f11ac8\\96049dc4-57f0-4c2b-89ff-d0ce0a06c073\\P0-知识库迭代规划.md","filename":"P0-知识库迭代规划.md","documentId":"96049dc4-57f0-4c2b-89ff-d0ce0a06c073"}(String), 2026-08-23T17:42:54.761066800(LocalDateTime), 2026-08-23T17:42:54.761066800(LocalDateTime)
+2026-08-23T17:42:54.763+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.mychat.mapper.AsyncJobMapper.insert    : <==    Updates: 1
+2026-08-23T17:42:54.763+08:00  INFO 26328 --- [my-chat] [omcat-handler-7] com.mychat.job.AsyncJobServiceImpl       : 提交任务 id=e8fb31b4-551d-40c7-a1d8-f155e02128e2 type=kb_ingest title=向量化：P0-知识库迭代规划.md
+2026-08-23T17:42:54.763+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:54.764+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: e8fb31b4-551d-40c7-a1d8-f155e02128e2(String)
+2026-08-23T17:42:54.765+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:54.779+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.DocumentMetaMapper.insert     : ==>  Preparing: INSERT INTO document_meta ( id, kb_id, filename, file_size, file_type, chunk_count, status, storage_path, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )
+2026-08-23T17:42:54.779+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.DocumentMetaMapper.insert     : ==> Parameters: 1c4d665b-b7b2-489f-b375-577dd87fb8cb(String), 9e35f762-557d-484a-a580-9bde58f11ac8(String), P1-7-自定义工作目录初期方案研讨.md(String), 4906(Long), md(String), 0(Integer), PROCESSING(String), E:\Program files\projects\My-Chat\my-chat-server\src\main\resources\ingest\9e35f762-557d-484a-a580-9bde58f11ac8\1c4d665b-b7b2-489f-b375-577dd87fb8cb\P1-7-自定义工作目录初期方案研讨.md(String), 2026-08-23T17:42:54.779162900(LocalDateTime), 2026-08-23T17:42:54.779162900(LocalDateTime)
+2026-08-23T17:42:54.781+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.DocumentMetaMapper.insert     : <==    Updates: 1
+2026-08-23T17:42:54.782+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.mychat.mapper.AsyncJobMapper.insert    : ==>  Preparing: INSERT INTO async_job ( id, job_type, status, title, ref_id, payload, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? )
+2026-08-23T17:42:54.782+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.mychat.mapper.AsyncJobMapper.insert    : ==> Parameters: 18a83210-d4df-4792-ab5d-e9ac2250ad9f(String), kb_ingest(String), PENDING(String), 向量化：P1-7-自定义工作目录初期方案研讨.md(String), 1c4d665b-b7b2-489f-b375-577dd87fb8cb(String), {"kbId":"9e35f762-557d-484a-a580-9bde58f11ac8","storagePath":"E:\\Program files\\projects\\My-Chat\\my-chat-server\\src\\main\\resources\\ingest\\9e35f762-557d-484a-a580-9bde58f11ac8\\1c4d665b-b7b2-489f-b375-577dd87fb8cb\\P1-7-自定义工作目录初期方案研讨.md","filename":"P1-7-自定义工作目录初期方案研讨.md","documentId":"1c4d665b-b7b2-489f-b375-577dd87fb8cb"}(String), 2026-08-23T17:42:54.782018500(LocalDateTime), 2026-08-23T17:42:54.782018500(LocalDateTime)
+2026-08-23T17:42:54.783+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.mychat.mapper.AsyncJobMapper.insert    : <==    Updates: 1
+2026-08-23T17:42:54.783+08:00  INFO 26328 --- [my-chat] [omcat-handler-7] com.mychat.job.AsyncJobServiceImpl       : 提交任务 id=18a83210-d4df-4792-ab5d-e9ac2250ad9f type=kb_ingest title=向量化：P1-7-自定义工作目录初期方案研讨.md
+2026-08-23T17:42:54.783+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:54.784+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: 18a83210-d4df-4792-ab5d-e9ac2250ad9f(String)
+2026-08-23T17:42:54.785+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:54.797+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.DocumentMetaMapper.insert     : ==>  Preparing: INSERT INTO document_meta ( id, kb_id, filename, file_size, file_type, chunk_count, status, storage_path, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )
+2026-08-23T17:42:54.798+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.DocumentMetaMapper.insert     : ==> Parameters: 6bbd8e26-508a-42d4-a59f-b664209c2538(String), 9e35f762-557d-484a-a580-9bde58f11ac8(String), P1-7-自定义工作目录-中期优化摘要.md(String), 4161(Long), md(String), 0(Integer), PROCESSING(String), E:\Program files\projects\My-Chat\my-chat-server\src\main\resources\ingest\9e35f762-557d-484a-a580-9bde58f11ac8\6bbd8e26-508a-42d4-a59f-b664209c2538\P1-7-自定义工作目录-中期优化摘要.md(String), 2026-08-23T17:42:54.797577700(LocalDateTime), 2026-08-23T17:42:54.797577700(LocalDateTime)
+2026-08-23T17:42:54.799+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.DocumentMetaMapper.insert     : <==    Updates: 1
+2026-08-23T17:42:54.800+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.mychat.mapper.AsyncJobMapper.insert    : ==>  Preparing: INSERT INTO async_job ( id, job_type, status, title, ref_id, payload, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? )
+2026-08-23T17:42:54.800+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.mychat.mapper.AsyncJobMapper.insert    : ==> Parameters: 93a99414-db9e-4f84-ab8a-7b4339465945(String), kb_ingest(String), PENDING(String), 向量化：P1-7-自定义工作目录-中期优化摘要.md(String), 6bbd8e26-508a-42d4-a59f-b664209c2538(String), {"kbId":"9e35f762-557d-484a-a580-9bde58f11ac8","storagePath":"E:\\Program files\\projects\\My-Chat\\my-chat-server\\src\\main\\resources\\ingest\\9e35f762-557d-484a-a580-9bde58f11ac8\\6bbd8e26-508a-42d4-a59f-b664209c2538\\P1-7-自定义工作目录-中期优化摘要.md","filename":"P1-7-自定义工作目录-中期优化摘要.md","documentId":"6bbd8e26-508a-42d4-a59f-b664209c2538"}(String), 2026-08-23T17:42:54.800580800(LocalDateTime), 2026-08-23T17:42:54.800580800(LocalDateTime)
+2026-08-23T17:42:54.804+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.mychat.mapper.AsyncJobMapper.insert    : <==    Updates: 1
+2026-08-23T17:42:54.804+08:00  INFO 26328 --- [my-chat] [omcat-handler-7] com.mychat.job.AsyncJobServiceImpl       : 提交任务 id=93a99414-db9e-4f84-ab8a-7b4339465945 type=kb_ingest title=向量化：P1-7-自定义工作目录-中期优化摘要.md
+2026-08-23T17:42:54.804+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:54.804+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: 93a99414-db9e-4f84-ab8a-7b4339465945(String)
+2026-08-23T17:42:54.806+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:54.816+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.DocumentMetaMapper.insert     : ==>  Preparing: INSERT INTO document_meta ( id, kb_id, filename, file_size, file_type, chunk_count, status, storage_path, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )
+2026-08-23T17:42:54.818+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.DocumentMetaMapper.insert     : ==> Parameters: 0a673efb-2412-41fb-920d-b0602d98b738(String), 9e35f762-557d-484a-a580-9bde58f11ac8(String), P1-9-会话上传文件-回顾与展望.md(String), 12620(Long), md(String), 0(Integer), PROCESSING(String), E:\Program files\projects\My-Chat\my-chat-server\src\main\resources\ingest\9e35f762-557d-484a-a580-9bde58f11ac8\0a673efb-2412-41fb-920d-b0602d98b738\P1-9-会话上传文件-回顾与展望.md(String), 2026-08-23T17:42:54.816890200(LocalDateTime), 2026-08-23T17:42:54.816890200(LocalDateTime)
+2026-08-23T17:42:54.819+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.DocumentMetaMapper.insert     : <==    Updates: 1
+2026-08-23T17:42:54.820+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.mychat.mapper.AsyncJobMapper.insert    : ==>  Preparing: INSERT INTO async_job ( id, job_type, status, title, ref_id, payload, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? )
+2026-08-23T17:42:54.820+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.mychat.mapper.AsyncJobMapper.insert    : ==> Parameters: 0f151bb2-be0d-48f8-b3e3-86b91b2b417e(String), kb_ingest(String), PENDING(String), 向量化：P1-9-会话上传文件-回顾与展望.md(String), 0a673efb-2412-41fb-920d-b0602d98b738(String), {"kbId":"9e35f762-557d-484a-a580-9bde58f11ac8","storagePath":"E:\\Program files\\projects\\My-Chat\\my-chat-server\\src\\main\\resources\\ingest\\9e35f762-557d-484a-a580-9bde58f11ac8\\0a673efb-2412-41fb-920d-b0602d98b738\\P1-9-会话上传文件-回顾与展望.md","filename":"P1-9-会话上传文件-回顾与展望.md","documentId":"0a673efb-2412-41fb-920d-b0602d98b738"}(String), 2026-08-23T17:42:54.819722900(LocalDateTime), 2026-08-23T17:42:54.819722900(LocalDateTime)
+2026-08-23T17:42:54.821+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.mychat.mapper.AsyncJobMapper.insert    : <==    Updates: 1
+2026-08-23T17:42:54.821+08:00  INFO 26328 --- [my-chat] [omcat-handler-7] com.mychat.job.AsyncJobServiceImpl       : 提交任务 id=0f151bb2-be0d-48f8-b3e3-86b91b2b417e type=kb_ingest title=向量化：P1-9-会话上传文件-回顾与展望.md
+2026-08-23T17:42:54.823+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:54.823+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: 0f151bb2-be0d-48f8-b3e3-86b91b2b417e(String)
+2026-08-23T17:42:54.824+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:54.839+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.DocumentMetaMapper.insert     : ==>  Preparing: INSERT INTO document_meta ( id, kb_id, filename, file_size, file_type, chunk_count, status, storage_path, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )
+2026-08-23T17:42:54.840+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.DocumentMetaMapper.insert     : ==> Parameters: ad64f2e0-52c3-4b3e-8e88-99b97f47ff45(String), 9e35f762-557d-484a-a580-9bde58f11ac8(String), P1-AI工作区上下文-技术分析.md(String), 19542(Long), md(String), 0(Integer), PROCESSING(String), E:\Program files\projects\My-Chat\my-chat-server\src\main\resources\ingest\9e35f762-557d-484a-a580-9bde58f11ac8\ad64f2e0-52c3-4b3e-8e88-99b97f47ff45\P1-AI工作区上下文-技术分析.md(String), 2026-08-23T17:42:54.839484500(LocalDateTime), 2026-08-23T17:42:54.839484500(LocalDateTime)
+2026-08-23T17:42:54.841+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.DocumentMetaMapper.insert     : <==    Updates: 1
+2026-08-23T17:42:54.843+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.mychat.mapper.AsyncJobMapper.insert    : ==>  Preparing: INSERT INTO async_job ( id, job_type, status, title, ref_id, payload, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? )
+2026-08-23T17:42:54.844+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.mychat.mapper.AsyncJobMapper.insert    : ==> Parameters: de77b97f-055c-42c6-95ce-ded40ed54a99(String), kb_ingest(String), PENDING(String), 向量化：P1-AI工作区上下文-技术分析.md(String), ad64f2e0-52c3-4b3e-8e88-99b97f47ff45(String), {"kbId":"9e35f762-557d-484a-a580-9bde58f11ac8","storagePath":"E:\\Program files\\projects\\My-Chat\\my-chat-server\\src\\main\\resources\\ingest\\9e35f762-557d-484a-a580-9bde58f11ac8\\ad64f2e0-52c3-4b3e-8e88-99b97f47ff45\\P1-AI工作区上下文-技术分析.md","filename":"P1-AI工作区上下文-技术分析.md","documentId":"ad64f2e0-52c3-4b3e-8e88-99b97f47ff45"}(String), 2026-08-23T17:42:54.843190(LocalDateTime), 2026-08-23T17:42:54.843190(LocalDateTime)
+2026-08-23T17:42:54.845+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.mychat.mapper.AsyncJobMapper.insert    : <==    Updates: 1
+2026-08-23T17:42:54.845+08:00  INFO 26328 --- [my-chat] [omcat-handler-7] com.mychat.job.AsyncJobServiceImpl       : 提交任务 id=de77b97f-055c-42c6-95ce-ded40ed54a99 type=kb_ingest title=向量化：P1-AI工作区上下文-技术分析.md
+2026-08-23T17:42:54.847+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:54.847+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: de77b97f-055c-42c6-95ce-ded40ed54a99(String)
+2026-08-23T17:42:54.848+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-7] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:54.880+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-8] c.m.m.DocumentMetaMapper.selectList      : ==>  Preparing: SELECT id,kb_id,filename,file_size,file_type,chunk_count,status,storage_path,error_message,created_at,updated_at FROM document_meta WHERE (kb_id = ?) ORDER BY created_at DESC
+2026-08-23T17:42:54.881+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-8] c.m.m.DocumentMetaMapper.selectList      : ==> Parameters: 9e35f762-557d-484a-a580-9bde58f11ac8(String)
+2026-08-23T17:42:54.886+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-8] c.m.m.DocumentMetaMapper.selectList      : <==      Total: 16
+2026-08-23T17:42:57.710+08:00  INFO 26328 --- [my-chat] [          job-1] c.m.service.knowledge.EmbeddingService   : Stored embedding batch 0-6 / 6
+2026-08-23T17:42:57.714+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.DocumentMetaMapper.update     : ==>  Preparing: UPDATE document_meta SET status=?,chunk_count=?,error_message=? WHERE (id = ?)
+2026-08-23T17:42:57.716+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.DocumentMetaMapper.update     : ==> Parameters: READY(String), 6(Integer), null, f4876a81-d413-48a3-9db9-6401aa1caa41(String)
+2026-08-23T17:42:57.717+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.DocumentMetaMapper.update     : <==    Updates: 1
+2026-08-23T17:42:57.719+08:00  INFO 26328 --- [my-chat] [          job-1] c.m.s.knowledge.DocumentIngestService    : 文档入库成功 documentId=f4876a81-d413-48a3-9db9-6401aa1caa41 chunks=6
+2026-08-23T17:42:57.721+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.mychat.mapper.AsyncJobMapper.update    : ==>  Preparing: UPDATE async_job SET status=?,error_message=?,finished_at=?,updated_at=? WHERE (id = ?)
+2026-08-23T17:42:57.723+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.mychat.mapper.AsyncJobMapper.update    : ==> Parameters: SUCCEEDED(String), null, 2026-08-23T17:42:57.719062(LocalDateTime), 2026-08-23T17:42:57.719062(LocalDateTime), 8eb4b7a0-66d3-45cb-a870-469e94fbf98d(String)
+2026-08-23T17:42:57.731+08:00  INFO 26328 --- [my-chat] [          job-2] c.m.service.knowledge.EmbeddingService   : Stored embedding batch 0-9 / 9
+2026-08-23T17:42:57.731+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.DocumentMetaMapper.update     : ==>  Preparing: UPDATE document_meta SET status=?,chunk_count=?,error_message=? WHERE (id = ?)
+2026-08-23T17:42:57.733+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.DocumentMetaMapper.update     : ==> Parameters: READY(String), 9(Integer), null, 873f16f8-95b5-4fb1-8ea8-5cd94af63616(String)
+2026-08-23T17:42:57.733+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.DocumentMetaMapper.update     : <==    Updates: 1
+2026-08-23T17:42:57.733+08:00  INFO 26328 --- [my-chat] [          job-2] c.m.s.knowledge.DocumentIngestService    : 文档入库成功 documentId=873f16f8-95b5-4fb1-8ea8-5cd94af63616 chunks=9
+2026-08-23T17:42:57.734+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.mychat.mapper.AsyncJobMapper.update    : <==    Updates: 1
+2026-08-23T17:42:57.734+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.mychat.mapper.AsyncJobMapper.update    : ==>  Preparing: UPDATE async_job SET status=?,error_message=?,finished_at=?,updated_at=? WHERE (id = ?)
+2026-08-23T17:42:57.734+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:57.735+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: 8eb4b7a0-66d3-45cb-a870-469e94fbf98d(String)
+2026-08-23T17:42:57.735+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.mychat.mapper.AsyncJobMapper.update    : ==> Parameters: SUCCEEDED(String), null, 2026-08-23T17:42:57.734532100(LocalDateTime), 2026-08-23T17:42:57.734532100(LocalDateTime), b1da8645-bf08-42a5-a490-0276d3489c9d(String)
+2026-08-23T17:42:57.736+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.mychat.mapper.AsyncJobMapper.update    : <==    Updates: 1
+2026-08-23T17:42:57.736+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:57.736+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: b1da8645-bf08-42a5-a490-0276d3489c9d(String)
+2026-08-23T17:42:57.737+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:57.737+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:57.737+08:00  INFO 26328 --- [my-chat] [          job-1] com.mychat.job.AsyncJobDispatcher        : 任务终态 jobId=8eb4b7a0-66d3-45cb-a870-469e94fbf98d status=SUCCEEDED
+2026-08-23T17:42:57.737+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:57.738+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: 0ec0d039-a5b4-4b59-a5f8-4a4c2172bc44(String)
+2026-08-23T17:42:57.738+08:00  INFO 26328 --- [my-chat] [          job-2] com.mychat.job.AsyncJobDispatcher        : 任务终态 jobId=b1da8645-bf08-42a5-a490-0276d3489c9d status=SUCCEEDED
+2026-08-23T17:42:57.738+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:57.738+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: 0f8e48eb-c44b-40f4-9dbb-aaa2ef78d31f(String)
+2026-08-23T17:42:57.740+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:57.740+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:57.741+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.mychat.mapper.AsyncJobMapper.update    : ==>  Preparing: UPDATE async_job SET status=?,updated_at=? WHERE (id = ? AND status = ?)
+2026-08-23T17:42:57.741+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.mychat.mapper.AsyncJobMapper.update    : ==>  Preparing: UPDATE async_job SET status=?,updated_at=? WHERE (id = ? AND status = ?)
+2026-08-23T17:42:57.741+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.mychat.mapper.AsyncJobMapper.update    : ==> Parameters: RUNNING(String), 2026-08-23T17:42:57.740107200(LocalDateTime), 0ec0d039-a5b4-4b59-a5f8-4a4c2172bc44(String), PENDING(String)
+2026-08-23T17:42:57.741+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.mychat.mapper.AsyncJobMapper.update    : ==> Parameters: RUNNING(String), 2026-08-23T17:42:57.740107200(LocalDateTime), 0f8e48eb-c44b-40f4-9dbb-aaa2ef78d31f(String), PENDING(String)
+2026-08-23T17:42:57.742+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.mychat.mapper.AsyncJobMapper.update    : <==    Updates: 1
+2026-08-23T17:42:57.742+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.mychat.mapper.AsyncJobMapper.update    : <==    Updates: 1
+2026-08-23T17:42:57.742+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:57.742+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:57.742+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: 0ec0d039-a5b4-4b59-a5f8-4a4c2172bc44(String)
+2026-08-23T17:42:57.742+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: 0f8e48eb-c44b-40f4-9dbb-aaa2ef78d31f(String)
+2026-08-23T17:42:57.743+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:57.743+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:57.744+08:00  INFO 26328 --- [my-chat] [          job-2] com.mychat.job.KbIngestJobHandler        : 开始入库 documentId=185bb999-2cf8-4b40-ad5a-c89d21033ffa jobId=0f8e48eb-c44b-40f4-9dbb-aaa2ef78d31f
+2026-08-23T17:42:57.744+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.m.DocumentMetaMapper.selectById      : ==>  Preparing: SELECT id,kb_id,filename,file_size,file_type,chunk_count,status,storage_path,error_message,created_at,updated_at FROM document_meta WHERE id=?
+2026-08-23T17:42:57.744+08:00  INFO 26328 --- [my-chat] [          job-1] com.mychat.job.KbIngestJobHandler        : 开始入库 documentId=bee08d20-409c-4635-826a-f2dcd2a8e179 jobId=0ec0d039-a5b4-4b59-a5f8-4a4c2172bc44
+2026-08-23T17:42:57.744+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.m.DocumentMetaMapper.selectById      : ==> Parameters: 185bb999-2cf8-4b40-ad5a-c89d21033ffa(String)
+2026-08-23T17:42:57.744+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.m.DocumentMetaMapper.selectById      : ==>  Preparing: SELECT id,kb_id,filename,file_size,file_type,chunk_count,status,storage_path,error_message,created_at,updated_at FROM document_meta WHERE id=?
+2026-08-23T17:42:57.744+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.m.DocumentMetaMapper.selectById      : ==> Parameters: bee08d20-409c-4635-826a-f2dcd2a8e179(String)
+2026-08-23T17:42:57.745+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.m.DocumentMetaMapper.selectById      : <==      Total: 1
+2026-08-23T17:42:57.746+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.m.DocumentMetaMapper.selectById      : <==      Total: 1
+2026-08-23T17:42:57.746+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-9] c.m.m.DocumentMetaMapper.selectList      : ==>  Preparing: SELECT id,kb_id,filename,file_size,file_type,chunk_count,status,storage_path,error_message,created_at,updated_at FROM document_meta WHERE (kb_id = ?) ORDER BY created_at DESC
+2026-08-23T17:42:57.746+08:00  INFO 26328 --- [my-chat] [          job-2] c.m.service.knowledge.DocumentService    : Processing document: P2-10-agents开发规划（v1.1）.md, kbId=9e35f762-557d-484a-a580-9bde58f11ac8, documentId=185bb999-2cf8-4b40-ad5a-c89d21033ffa
+2026-08-23T17:42:57.746+08:00  INFO 26328 --- [my-chat] [          job-1] c.m.service.knowledge.DocumentService    : Processing document: P2-9-接入第三方MCP服务行动方案.md, kbId=9e35f762-557d-484a-a580-9bde58f11ac8, documentId=bee08d20-409c-4635-826a-f2dcd2a8e179
+2026-08-23T17:42:57.746+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-9] c.m.m.DocumentMetaMapper.selectList      : ==> Parameters: 9e35f762-557d-484a-a580-9bde58f11ac8(String)
+2026-08-23T17:42:57.751+08:00  INFO 26328 --- [my-chat] [          job-1] o.s.a.transformer.splitter.TextSplitter  : Splitting up document into 3 chunks.
+2026-08-23T17:42:57.752+08:00  INFO 26328 --- [my-chat] [          job-1] c.m.service.knowledge.DocumentService    : Document 'P2-9-接入第三方MCP服务行动方案.md' processed into 3 segments
+2026-08-23T17:42:57.756+08:00 DEBUG 26328 --- [my-chat] [omcat-handler-9] c.m.m.DocumentMetaMapper.selectList      : <==      Total: 16
+2026-08-23T17:42:57.760+08:00  INFO 26328 --- [my-chat] [          job-2] o.s.a.transformer.splitter.TextSplitter  : Splitting up document into 8 chunks.
+2026-08-23T17:42:57.761+08:00  INFO 26328 --- [my-chat] [          job-2] c.m.service.knowledge.DocumentService    : Document 'P2-10-agents开发规划（v1.1）.md' processed into 8 segments
+2026-08-23T17:42:57.771+08:00 DEBUG 26328 --- [my-chat] [mcat-handler-10] c.m.m.DocumentMetaMapper.selectList      : ==>  Preparing: SELECT id,kb_id,filename,file_size,file_type,chunk_count,status,storage_path,error_message,created_at,updated_at FROM document_meta WHERE (kb_id = ?) ORDER BY created_at DESC
+2026-08-23T17:42:57.771+08:00 DEBUG 26328 --- [my-chat] [mcat-handler-10] c.m.m.DocumentMetaMapper.selectList      : ==> Parameters: 9e35f762-557d-484a-a580-9bde58f11ac8(String)
+2026-08-23T17:42:57.773+08:00 DEBUG 26328 --- [my-chat] [mcat-handler-10] c.m.m.DocumentMetaMapper.selectList      : <==      Total: 16
+2026-08-23T17:42:57.904+08:00 DEBUG 26328 --- [my-chat] [mcat-handler-11] c.m.m.DocumentMetaMapper.selectList      : ==>  Preparing: SELECT id,kb_id,filename,file_size,file_type,chunk_count,status,storage_path,error_message,created_at,updated_at FROM document_meta WHERE (kb_id = ?) ORDER BY created_at DESC
+2026-08-23T17:42:57.904+08:00 DEBUG 26328 --- [my-chat] [mcat-handler-11] c.m.m.DocumentMetaMapper.selectList      : ==> Parameters: 9e35f762-557d-484a-a580-9bde58f11ac8(String)
+2026-08-23T17:42:57.913+08:00 DEBUG 26328 --- [my-chat] [mcat-handler-11] c.m.m.DocumentMetaMapper.selectList      : <==      Total: 16
+2026-08-23T17:42:58.031+08:00  INFO 26328 --- [my-chat] [          job-1] c.m.service.knowledge.EmbeddingService   : Stored embedding batch 0-3 / 3
+2026-08-23T17:42:58.033+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.DocumentMetaMapper.update     : ==>  Preparing: UPDATE document_meta SET status=?,chunk_count=?,error_message=? WHERE (id = ?)
+2026-08-23T17:42:58.035+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.DocumentMetaMapper.update     : ==> Parameters: READY(String), 3(Integer), null, bee08d20-409c-4635-826a-f2dcd2a8e179(String)
+2026-08-23T17:42:58.036+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.DocumentMetaMapper.update     : <==    Updates: 1
+2026-08-23T17:42:58.036+08:00  INFO 26328 --- [my-chat] [          job-1] c.m.s.knowledge.DocumentIngestService    : 文档入库成功 documentId=bee08d20-409c-4635-826a-f2dcd2a8e179 chunks=3
+2026-08-23T17:42:58.038+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.mychat.mapper.AsyncJobMapper.update    : ==>  Preparing: UPDATE async_job SET status=?,error_message=?,finished_at=?,updated_at=? WHERE (id = ?)
+2026-08-23T17:42:58.038+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.mychat.mapper.AsyncJobMapper.update    : ==> Parameters: SUCCEEDED(String), null, 2026-08-23T17:42:58.037540900(LocalDateTime), 2026-08-23T17:42:58.037540900(LocalDateTime), 0ec0d039-a5b4-4b59-a5f8-4a4c2172bc44(String)
+2026-08-23T17:42:58.039+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.mychat.mapper.AsyncJobMapper.update    : <==    Updates: 1
+2026-08-23T17:42:58.039+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:58.039+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: 0ec0d039-a5b4-4b59-a5f8-4a4c2172bc44(String)
+2026-08-23T17:42:58.041+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:58.042+08:00  INFO 26328 --- [my-chat] [          job-1] com.mychat.job.AsyncJobDispatcher        : 任务终态 jobId=0ec0d039-a5b4-4b59-a5f8-4a4c2172bc44 status=SUCCEEDED
+2026-08-23T17:42:58.042+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:58.042+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: ef1ebb95-c13d-4be0-be58-277aa0c8a1f4(String)
+2026-08-23T17:42:58.043+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:58.044+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.mychat.mapper.AsyncJobMapper.update    : ==>  Preparing: UPDATE async_job SET status=?,updated_at=? WHERE (id = ? AND status = ?)
+2026-08-23T17:42:58.045+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.mychat.mapper.AsyncJobMapper.update    : ==> Parameters: RUNNING(String), 2026-08-23T17:42:58.044021900(LocalDateTime), ef1ebb95-c13d-4be0-be58-277aa0c8a1f4(String), PENDING(String)
+2026-08-23T17:42:58.046+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.mychat.mapper.AsyncJobMapper.update    : <==    Updates: 1
+2026-08-23T17:42:58.046+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:58.046+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: ef1ebb95-c13d-4be0-be58-277aa0c8a1f4(String)
+2026-08-23T17:42:58.047+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:58.048+08:00  INFO 26328 --- [my-chat] [          job-1] com.mychat.job.KbIngestJobHandler        : 开始入库 documentId=241da065-0d92-4e47-90fd-6e44cfae4a85 jobId=ef1ebb95-c13d-4be0-be58-277aa0c8a1f4
+2026-08-23T17:42:58.048+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.m.DocumentMetaMapper.selectById      : ==>  Preparing: SELECT id,kb_id,filename,file_size,file_type,chunk_count,status,storage_path,error_message,created_at,updated_at FROM document_meta WHERE id=?
+2026-08-23T17:42:58.049+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.m.DocumentMetaMapper.selectById      : ==> Parameters: 241da065-0d92-4e47-90fd-6e44cfae4a85(String)
+2026-08-23T17:42:58.049+08:00 DEBUG 26328 --- [my-chat] [mcat-handler-12] c.m.m.DocumentMetaMapper.selectList      : ==>  Preparing: SELECT id,kb_id,filename,file_size,file_type,chunk_count,status,storage_path,error_message,created_at,updated_at FROM document_meta WHERE (kb_id = ?) ORDER BY created_at DESC
+2026-08-23T17:42:58.050+08:00 DEBUG 26328 --- [my-chat] [mcat-handler-12] c.m.m.DocumentMetaMapper.selectList      : ==> Parameters: 9e35f762-557d-484a-a580-9bde58f11ac8(String)
+2026-08-23T17:42:58.051+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.m.DocumentMetaMapper.selectById      : <==      Total: 1
+2026-08-23T17:42:58.051+08:00  INFO 26328 --- [my-chat] [          job-1] c.m.service.knowledge.DocumentService    : Processing document: P2-10-agents开发-主聊天技术拆解.md, kbId=9e35f762-557d-484a-a580-9bde58f11ac8, documentId=241da065-0d92-4e47-90fd-6e44cfae4a85
+2026-08-23T17:42:58.056+08:00 DEBUG 26328 --- [my-chat] [mcat-handler-12] c.m.m.DocumentMetaMapper.selectList      : <==      Total: 16
+2026-08-23T17:42:58.059+08:00  INFO 26328 --- [my-chat] [          job-1] o.s.a.transformer.splitter.TextSplitter  : Splitting up document into 3 chunks.
+2026-08-23T17:42:58.060+08:00  INFO 26328 --- [my-chat] [          job-1] c.m.service.knowledge.DocumentService    : Document 'P2-10-agents开发-主聊天技术拆解.md' processed into 3 segments
+2026-08-23T17:42:58.181+08:00  INFO 26328 --- [my-chat] [          job-2] c.m.service.knowledge.EmbeddingService   : Stored embedding batch 0-8 / 8
+2026-08-23T17:42:58.181+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.DocumentMetaMapper.update     : ==>  Preparing: UPDATE document_meta SET status=?,chunk_count=?,error_message=? WHERE (id = ?)
+2026-08-23T17:42:58.181+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.DocumentMetaMapper.update     : ==> Parameters: READY(String), 8(Integer), null, 185bb999-2cf8-4b40-ad5a-c89d21033ffa(String)
+2026-08-23T17:42:58.183+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.DocumentMetaMapper.update     : <==    Updates: 1
+2026-08-23T17:42:58.183+08:00  INFO 26328 --- [my-chat] [          job-2] c.m.s.knowledge.DocumentIngestService    : 文档入库成功 documentId=185bb999-2cf8-4b40-ad5a-c89d21033ffa chunks=8
+2026-08-23T17:42:58.184+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.mychat.mapper.AsyncJobMapper.update    : ==>  Preparing: UPDATE async_job SET status=?,error_message=?,finished_at=?,updated_at=? WHERE (id = ?)
+2026-08-23T17:42:58.186+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.mychat.mapper.AsyncJobMapper.update    : ==> Parameters: SUCCEEDED(String), null, 2026-08-23T17:42:58.183948300(LocalDateTime), 2026-08-23T17:42:58.183948300(LocalDateTime), 0f8e48eb-c44b-40f4-9dbb-aaa2ef78d31f(String)
+2026-08-23T17:42:58.186+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.mychat.mapper.AsyncJobMapper.update    : <==    Updates: 1
+2026-08-23T17:42:58.187+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:58.187+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: 0f8e48eb-c44b-40f4-9dbb-aaa2ef78d31f(String)
+2026-08-23T17:42:58.188+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:58.188+08:00  INFO 26328 --- [my-chat] [          job-2] com.mychat.job.AsyncJobDispatcher        : 任务终态 jobId=0f8e48eb-c44b-40f4-9dbb-aaa2ef78d31f status=SUCCEEDED
+2026-08-23T17:42:58.189+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:58.189+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: 45d11d05-83fc-4b47-afd7-22086664a9e9(String)
+2026-08-23T17:42:58.189+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:58.191+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.mychat.mapper.AsyncJobMapper.update    : ==>  Preparing: UPDATE async_job SET status=?,updated_at=? WHERE (id = ? AND status = ?)
+2026-08-23T17:42:58.192+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.mychat.mapper.AsyncJobMapper.update    : ==> Parameters: RUNNING(String), 2026-08-23T17:42:58.190121(LocalDateTime), 45d11d05-83fc-4b47-afd7-22086664a9e9(String), PENDING(String)
+2026-08-23T17:42:58.193+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.mychat.mapper.AsyncJobMapper.update    : <==    Updates: 1
+2026-08-23T17:42:58.194+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:58.194+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: 45d11d05-83fc-4b47-afd7-22086664a9e9(String)
+2026-08-23T17:42:58.195+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:58.196+08:00  INFO 26328 --- [my-chat] [          job-2] com.mychat.job.KbIngestJobHandler        : 开始入库 documentId=e5de992e-d3e2-4f70-91d0-102765d8f1ad jobId=45d11d05-83fc-4b47-afd7-22086664a9e9
+2026-08-23T17:42:58.196+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.m.DocumentMetaMapper.selectById      : ==>  Preparing: SELECT id,kb_id,filename,file_size,file_type,chunk_count,status,storage_path,error_message,created_at,updated_at FROM document_meta WHERE id=?
+2026-08-23T17:42:58.196+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.m.DocumentMetaMapper.selectById      : ==> Parameters: e5de992e-d3e2-4f70-91d0-102765d8f1ad(String)
+2026-08-23T17:42:58.197+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.m.DocumentMetaMapper.selectById      : <==      Total: 1
+2026-08-23T17:42:58.198+08:00 DEBUG 26328 --- [my-chat] [mcat-handler-13] c.m.m.DocumentMetaMapper.selectList      : ==>  Preparing: SELECT id,kb_id,filename,file_size,file_type,chunk_count,status,storage_path,error_message,created_at,updated_at FROM document_meta WHERE (kb_id = ?) ORDER BY created_at DESC
+2026-08-23T17:42:58.198+08:00 DEBUG 26328 --- [my-chat] [mcat-handler-13] c.m.m.DocumentMetaMapper.selectList      : ==> Parameters: 9e35f762-557d-484a-a580-9bde58f11ac8(String)
+2026-08-23T17:42:58.198+08:00  INFO 26328 --- [my-chat] [          job-2] c.m.service.knowledge.DocumentService    : Processing document: P2-11-异步任务+消息通知.md, kbId=9e35f762-557d-484a-a580-9bde58f11ac8, documentId=e5de992e-d3e2-4f70-91d0-102765d8f1ad
+2026-08-23T17:42:58.202+08:00 DEBUG 26328 --- [my-chat] [mcat-handler-13] c.m.m.DocumentMetaMapper.selectList      : <==      Total: 16
+2026-08-23T17:42:58.205+08:00  INFO 26328 --- [my-chat] [          job-2] o.s.a.transformer.splitter.TextSplitter  : Splitting up document into 4 chunks.
+2026-08-23T17:42:58.205+08:00  INFO 26328 --- [my-chat] [          job-2] c.m.service.knowledge.DocumentService    : Document 'P2-11-异步任务+消息通知.md' processed into 4 segments
+2026-08-23T17:42:58.285+08:00  INFO 26328 --- [my-chat] [          job-1] c.m.service.knowledge.EmbeddingService   : Stored embedding batch 0-3 / 3
+2026-08-23T17:42:58.288+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.DocumentMetaMapper.update     : ==>  Preparing: UPDATE document_meta SET status=?,chunk_count=?,error_message=? WHERE (id = ?)
+2026-08-23T17:42:58.289+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.DocumentMetaMapper.update     : ==> Parameters: READY(String), 3(Integer), null, 241da065-0d92-4e47-90fd-6e44cfae4a85(String)
+2026-08-23T17:42:58.292+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.DocumentMetaMapper.update     : <==    Updates: 1
+2026-08-23T17:42:58.294+08:00  INFO 26328 --- [my-chat] [          job-1] c.m.s.knowledge.DocumentIngestService    : 文档入库成功 documentId=241da065-0d92-4e47-90fd-6e44cfae4a85 chunks=3
+2026-08-23T17:42:58.297+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.mychat.mapper.AsyncJobMapper.update    : ==>  Preparing: UPDATE async_job SET status=?,error_message=?,finished_at=?,updated_at=? WHERE (id = ?)
+2026-08-23T17:42:58.297+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.mychat.mapper.AsyncJobMapper.update    : ==> Parameters: SUCCEEDED(String), null, 2026-08-23T17:42:58.294963500(LocalDateTime), 2026-08-23T17:42:58.294963500(LocalDateTime), ef1ebb95-c13d-4be0-be58-277aa0c8a1f4(String)
+2026-08-23T17:42:58.297+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.mychat.mapper.AsyncJobMapper.update    : <==    Updates: 1
+2026-08-23T17:42:58.298+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:58.298+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: ef1ebb95-c13d-4be0-be58-277aa0c8a1f4(String)
+2026-08-23T17:42:58.299+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:58.300+08:00  INFO 26328 --- [my-chat] [          job-1] com.mychat.job.AsyncJobDispatcher        : 任务终态 jobId=ef1ebb95-c13d-4be0-be58-277aa0c8a1f4 status=SUCCEEDED
+2026-08-23T17:42:58.302+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:58.302+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: 67995a78-2522-429b-8c3c-8259982366a5(String)
+2026-08-23T17:42:58.302+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:58.309+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.mychat.mapper.AsyncJobMapper.update    : ==>  Preparing: UPDATE async_job SET status=?,updated_at=? WHERE (id = ? AND status = ?)
+2026-08-23T17:42:58.311+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.mychat.mapper.AsyncJobMapper.update    : ==> Parameters: RUNNING(String), 2026-08-23T17:42:58.303467200(LocalDateTime), 67995a78-2522-429b-8c3c-8259982366a5(String), PENDING(String)
+2026-08-23T17:42:58.313+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.mychat.mapper.AsyncJobMapper.update    : <==    Updates: 1
+2026-08-23T17:42:58.313+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:58.314+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: 67995a78-2522-429b-8c3c-8259982366a5(String)
+2026-08-23T17:42:58.314+08:00 DEBUG 26328 --- [my-chat] [mcat-handler-14] c.m.m.DocumentMetaMapper.selectList      : ==>  Preparing: SELECT id,kb_id,filename,file_size,file_type,chunk_count,status,storage_path,error_message,created_at,updated_at FROM document_meta WHERE (kb_id = ?) ORDER BY created_at DESC
+2026-08-23T17:42:58.314+08:00 DEBUG 26328 --- [my-chat] [mcat-handler-14] c.m.m.DocumentMetaMapper.selectList      : ==> Parameters: 9e35f762-557d-484a-a580-9bde58f11ac8(String)
+2026-08-23T17:42:58.314+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:58.315+08:00  INFO 26328 --- [my-chat] [          job-1] com.mychat.job.KbIngestJobHandler        : 开始入库 documentId=c33c40f1-09fd-47b1-b3cc-ec1981e72474 jobId=67995a78-2522-429b-8c3c-8259982366a5
+2026-08-23T17:42:58.315+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.m.DocumentMetaMapper.selectById      : ==>  Preparing: SELECT id,kb_id,filename,file_size,file_type,chunk_count,status,storage_path,error_message,created_at,updated_at FROM document_meta WHERE id=?
+2026-08-23T17:42:58.315+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.m.DocumentMetaMapper.selectById      : ==> Parameters: c33c40f1-09fd-47b1-b3cc-ec1981e72474(String)
+2026-08-23T17:42:58.317+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.m.DocumentMetaMapper.selectById      : <==      Total: 1
+2026-08-23T17:42:58.318+08:00 DEBUG 26328 --- [my-chat] [mcat-handler-14] c.m.m.DocumentMetaMapper.selectList      : <==      Total: 16
+2026-08-23T17:42:58.318+08:00  INFO 26328 --- [my-chat] [          job-1] c.m.service.knowledge.DocumentService    : Processing document: P1-自定义工作目录-后期重构升级.md, kbId=9e35f762-557d-484a-a580-9bde58f11ac8, documentId=c33c40f1-09fd-47b1-b3cc-ec1981e72474
+2026-08-23T17:42:58.330+08:00  INFO 26328 --- [my-chat] [          job-1] o.s.a.transformer.splitter.TextSplitter  : Splitting up document into 6 chunks.
+2026-08-23T17:42:58.331+08:00  INFO 26328 --- [my-chat] [          job-1] c.m.service.knowledge.DocumentService    : Document 'P1-自定义工作目录-后期重构升级.md' processed into 6 segments
+2026-08-23T17:42:58.636+08:00  INFO 26328 --- [my-chat] [          job-2] c.m.service.knowledge.EmbeddingService   : Stored embedding batch 0-4 / 4
+2026-08-23T17:42:58.636+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.DocumentMetaMapper.update     : ==>  Preparing: UPDATE document_meta SET status=?,chunk_count=?,error_message=? WHERE (id = ?)
+2026-08-23T17:42:58.636+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.DocumentMetaMapper.update     : ==> Parameters: READY(String), 4(Integer), null, e5de992e-d3e2-4f70-91d0-102765d8f1ad(String)
+2026-08-23T17:42:58.637+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.DocumentMetaMapper.update     : <==    Updates: 1
+2026-08-23T17:42:58.637+08:00  INFO 26328 --- [my-chat] [          job-2] c.m.s.knowledge.DocumentIngestService    : 文档入库成功 documentId=e5de992e-d3e2-4f70-91d0-102765d8f1ad chunks=4
+2026-08-23T17:42:58.638+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.mychat.mapper.AsyncJobMapper.update    : ==>  Preparing: UPDATE async_job SET status=?,error_message=?,finished_at=?,updated_at=? WHERE (id = ?)
+2026-08-23T17:42:58.638+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.mychat.mapper.AsyncJobMapper.update    : ==> Parameters: SUCCEEDED(String), null, 2026-08-23T17:42:58.637621900(LocalDateTime), 2026-08-23T17:42:58.637621900(LocalDateTime), 45d11d05-83fc-4b47-afd7-22086664a9e9(String)
+2026-08-23T17:42:58.641+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.mychat.mapper.AsyncJobMapper.update    : <==    Updates: 1
+2026-08-23T17:42:58.642+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:58.670+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: 45d11d05-83fc-4b47-afd7-22086664a9e9(String)
+2026-08-23T17:42:58.671+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:58.671+08:00  INFO 26328 --- [my-chat] [          job-2] com.mychat.job.AsyncJobDispatcher        : 任务终态 jobId=45d11d05-83fc-4b47-afd7-22086664a9e9 status=SUCCEEDED
+2026-08-23T17:42:58.671+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:58.673+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: cffe9dd7-e0a6-47a8-a11e-e8f2ce54ad6d(String)
+2026-08-23T17:42:58.673+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:58.674+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.mychat.mapper.AsyncJobMapper.update    : ==>  Preparing: UPDATE async_job SET status=?,updated_at=? WHERE (id = ? AND status = ?)
+2026-08-23T17:42:58.674+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.mychat.mapper.AsyncJobMapper.update    : ==> Parameters: RUNNING(String), 2026-08-23T17:42:58.673045600(LocalDateTime), cffe9dd7-e0a6-47a8-a11e-e8f2ce54ad6d(String), PENDING(String)
+2026-08-23T17:42:58.679+08:00 DEBUG 26328 --- [my-chat] [mcat-handler-15] c.m.m.DocumentMetaMapper.selectList      : ==>  Preparing: SELECT id,kb_id,filename,file_size,file_type,chunk_count,status,storage_path,error_message,created_at,updated_at FROM document_meta WHERE (kb_id = ?) ORDER BY created_at DESC
+2026-08-23T17:42:58.699+08:00  INFO 26328 --- [my-chat] [          job-1] c.m.service.knowledge.EmbeddingService   : Stored embedding batch 0-6 / 6
+2026-08-23T17:42:58.779+08:00 DEBUG 26328 --- [my-chat] [mcat-handler-15] c.m.m.DocumentMetaMapper.selectList      : ==> Parameters: 9e35f762-557d-484a-a580-9bde58f11ac8(String)
+2026-08-23T17:42:58.779+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.mychat.mapper.AsyncJobMapper.update    : <==    Updates: 1
+2026-08-23T17:42:58.780+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:58.780+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: cffe9dd7-e0a6-47a8-a11e-e8f2ce54ad6d(String)
+2026-08-23T17:42:58.780+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.DocumentMetaMapper.update     : ==>  Preparing: UPDATE document_meta SET status=?,chunk_count=?,error_message=? WHERE (id = ?)
+2026-08-23T17:42:58.780+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.DocumentMetaMapper.update     : ==> Parameters: READY(String), 6(Integer), null, c33c40f1-09fd-47b1-b3cc-ec1981e72474(String)
+2026-08-23T17:42:58.780+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:58.781+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.DocumentMetaMapper.update     : <==    Updates: 1
+2026-08-23T17:42:58.782+08:00  INFO 26328 --- [my-chat] [          job-1] c.m.s.knowledge.DocumentIngestService    : 文档入库成功 documentId=c33c40f1-09fd-47b1-b3cc-ec1981e72474 chunks=6
+2026-08-23T17:42:58.782+08:00  INFO 26328 --- [my-chat] [          job-2] com.mychat.job.KbIngestJobHandler        : 开始入库 documentId=70ba5407-8c26-479f-a164-d1db55ffa0ff jobId=cffe9dd7-e0a6-47a8-a11e-e8f2ce54ad6d
+2026-08-23T17:42:58.782+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.mychat.mapper.AsyncJobMapper.update    : ==>  Preparing: UPDATE async_job SET status=?,error_message=?,finished_at=?,updated_at=? WHERE (id = ?)
+2026-08-23T17:42:58.782+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.m.DocumentMetaMapper.selectById      : ==>  Preparing: SELECT id,kb_id,filename,file_size,file_type,chunk_count,status,storage_path,error_message,created_at,updated_at FROM document_meta WHERE id=?
+2026-08-23T17:42:58.783+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.m.DocumentMetaMapper.selectById      : ==> Parameters: 70ba5407-8c26-479f-a164-d1db55ffa0ff(String)
+2026-08-23T17:42:58.783+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.mychat.mapper.AsyncJobMapper.update    : ==> Parameters: SUCCEEDED(String), null, 2026-08-23T17:42:58.782234(LocalDateTime), 2026-08-23T17:42:58.782234(LocalDateTime), 67995a78-2522-429b-8c3c-8259982366a5(String)
+2026-08-23T17:42:58.783+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.mychat.mapper.AsyncJobMapper.update    : <==    Updates: 1
+2026-08-23T17:42:58.784+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:58.784+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: 67995a78-2522-429b-8c3c-8259982366a5(String)
+2026-08-23T17:42:58.785+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:58.785+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.m.DocumentMetaMapper.selectById      : <==      Total: 1
+2026-08-23T17:42:58.785+08:00  INFO 26328 --- [my-chat] [          job-1] com.mychat.job.AsyncJobDispatcher        : 任务终态 jobId=67995a78-2522-429b-8c3c-8259982366a5 status=SUCCEEDED
+2026-08-23T17:42:58.786+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:58.786+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: 79d22219-cd13-43a5-8eaa-b881734f1103(String)
+2026-08-23T17:42:58.786+08:00  INFO 26328 --- [my-chat] [          job-2] c.m.service.knowledge.DocumentService    : Processing document: P2-7-可观测性时间线总结与思考回显规划.md, kbId=9e35f762-557d-484a-a580-9bde58f11ac8, documentId=70ba5407-8c26-479f-a164-d1db55ffa0ff
+2026-08-23T17:42:58.786+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:58.788+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.mychat.mapper.AsyncJobMapper.update    : ==>  Preparing: UPDATE async_job SET status=?,updated_at=? WHERE (id = ? AND status = ?)
+2026-08-23T17:42:58.788+08:00 DEBUG 26328 --- [my-chat] [mcat-handler-15] c.m.m.DocumentMetaMapper.selectList      : <==      Total: 16
+2026-08-23T17:42:58.788+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.mychat.mapper.AsyncJobMapper.update    : ==> Parameters: RUNNING(String), 2026-08-23T17:42:58.787791(LocalDateTime), 79d22219-cd13-43a5-8eaa-b881734f1103(String), PENDING(String)
+2026-08-23T17:42:58.790+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.mychat.mapper.AsyncJobMapper.update    : <==    Updates: 1
+2026-08-23T17:42:58.792+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:58.792+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: 79d22219-cd13-43a5-8eaa-b881734f1103(String)
+2026-08-23T17:42:58.792+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:58.794+08:00  INFO 26328 --- [my-chat] [          job-1] com.mychat.job.KbIngestJobHandler        : 开始入库 documentId=94be1f11-dc5d-4d7e-a3a3-79d16ad38dfb jobId=79d22219-cd13-43a5-8eaa-b881734f1103
+2026-08-23T17:42:58.794+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.m.DocumentMetaMapper.selectById      : ==>  Preparing: SELECT id,kb_id,filename,file_size,file_type,chunk_count,status,storage_path,error_message,created_at,updated_at FROM document_meta WHERE id=?
+2026-08-23T17:42:58.794+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.m.DocumentMetaMapper.selectById      : ==> Parameters: 94be1f11-dc5d-4d7e-a3a3-79d16ad38dfb(String)
+2026-08-23T17:42:58.796+08:00  INFO 26328 --- [my-chat] [          job-2] o.s.a.transformer.splitter.TextSplitter  : Splitting up document into 4 chunks.
+2026-08-23T17:42:58.797+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.m.DocumentMetaMapper.selectById      : <==      Total: 1
+2026-08-23T17:42:58.798+08:00 DEBUG 26328 --- [my-chat] [mcat-handler-16] c.m.m.DocumentMetaMapper.selectList      : ==>  Preparing: SELECT id,kb_id,filename,file_size,file_type,chunk_count,status,storage_path,error_message,created_at,updated_at FROM document_meta WHERE (kb_id = ?) ORDER BY created_at DESC
+2026-08-23T17:42:58.800+08:00  INFO 26328 --- [my-chat] [          job-2] c.m.service.knowledge.DocumentService    : Document 'P2-7-可观测性时间线总结与思考回显规划.md' processed into 4 segments
+2026-08-23T17:42:58.800+08:00  INFO 26328 --- [my-chat] [          job-1] c.m.service.knowledge.DocumentService    : Processing document: P0-7-工具调用和向量知识库竞争模型注意力解决方案.md, kbId=9e35f762-557d-484a-a580-9bde58f11ac8, documentId=94be1f11-dc5d-4d7e-a3a3-79d16ad38dfb
+2026-08-23T17:42:58.800+08:00 DEBUG 26328 --- [my-chat] [mcat-handler-16] c.m.m.DocumentMetaMapper.selectList      : ==> Parameters: 9e35f762-557d-484a-a580-9bde58f11ac8(String)
+2026-08-23T17:42:58.803+08:00 DEBUG 26328 --- [my-chat] [mcat-handler-16] c.m.m.DocumentMetaMapper.selectList      : <==      Total: 16
+2026-08-23T17:42:58.809+08:00  INFO 26328 --- [my-chat] [          job-1] o.s.a.transformer.splitter.TextSplitter  : Splitting up document into 4 chunks.
+2026-08-23T17:42:58.810+08:00  INFO 26328 --- [my-chat] [          job-1] c.m.service.knowledge.DocumentService    : Document 'P0-7-工具调用和向量知识库竞争模型注意力解决方案.md' processed into 4 segments
+2026-08-23T17:42:59.076+08:00  INFO 26328 --- [my-chat] [          job-1] c.m.service.knowledge.EmbeddingService   : Stored embedding batch 0-4 / 4
+2026-08-23T17:42:59.077+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.DocumentMetaMapper.update     : ==>  Preparing: UPDATE document_meta SET status=?,chunk_count=?,error_message=? WHERE (id = ?)
+2026-08-23T17:42:59.078+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.DocumentMetaMapper.update     : ==> Parameters: READY(String), 4(Integer), null, 94be1f11-dc5d-4d7e-a3a3-79d16ad38dfb(String)
+2026-08-23T17:42:59.081+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.DocumentMetaMapper.update     : <==    Updates: 1
+2026-08-23T17:42:59.081+08:00  INFO 26328 --- [my-chat] [          job-2] c.m.service.knowledge.EmbeddingService   : Stored embedding batch 0-4 / 4
+2026-08-23T17:42:59.081+08:00  INFO 26328 --- [my-chat] [          job-1] c.m.s.knowledge.DocumentIngestService    : 文档入库成功 documentId=94be1f11-dc5d-4d7e-a3a3-79d16ad38dfb chunks=4
+2026-08-23T17:42:59.082+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.DocumentMetaMapper.update     : ==>  Preparing: UPDATE document_meta SET status=?,chunk_count=?,error_message=? WHERE (id = ?)
+2026-08-23T17:42:59.082+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.mychat.mapper.AsyncJobMapper.update    : ==>  Preparing: UPDATE async_job SET status=?,error_message=?,finished_at=?,updated_at=? WHERE (id = ?)
+2026-08-23T17:42:59.082+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.DocumentMetaMapper.update     : ==> Parameters: READY(String), 4(Integer), null, 70ba5407-8c26-479f-a164-d1db55ffa0ff(String)
+2026-08-23T17:42:59.082+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.mychat.mapper.AsyncJobMapper.update    : ==> Parameters: SUCCEEDED(String), null, 2026-08-23T17:42:59.082103300(LocalDateTime), 2026-08-23T17:42:59.082103300(LocalDateTime), 79d22219-cd13-43a5-8eaa-b881734f1103(String)
+2026-08-23T17:42:59.083+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.DocumentMetaMapper.update     : <==    Updates: 1
+2026-08-23T17:42:59.083+08:00  INFO 26328 --- [my-chat] [          job-2] c.m.s.knowledge.DocumentIngestService    : 文档入库成功 documentId=70ba5407-8c26-479f-a164-d1db55ffa0ff chunks=4
+2026-08-23T17:42:59.084+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.mychat.mapper.AsyncJobMapper.update    : <==    Updates: 1
+2026-08-23T17:42:59.084+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:59.084+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: 79d22219-cd13-43a5-8eaa-b881734f1103(String)
+2026-08-23T17:42:59.085+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:59.085+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.mychat.mapper.AsyncJobMapper.update    : ==>  Preparing: UPDATE async_job SET status=?,error_message=?,finished_at=?,updated_at=? WHERE (id = ?)
+2026-08-23T17:42:59.085+08:00  INFO 26328 --- [my-chat] [          job-1] com.mychat.job.AsyncJobDispatcher        : 任务终态 jobId=79d22219-cd13-43a5-8eaa-b881734f1103 status=SUCCEEDED
+2026-08-23T17:42:59.086+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.mychat.mapper.AsyncJobMapper.update    : ==> Parameters: SUCCEEDED(String), null, 2026-08-23T17:42:59.084103500(LocalDateTime), 2026-08-23T17:42:59.084103500(LocalDateTime), cffe9dd7-e0a6-47a8-a11e-e8f2ce54ad6d(String)
+2026-08-23T17:42:59.086+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:59.086+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: 56e04bb7-d9e5-4a48-b1a8-8c633a92df80(String)
+2026-08-23T17:42:59.087+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:59.087+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.mychat.mapper.AsyncJobMapper.update    : <==    Updates: 1
+2026-08-23T17:42:59.087+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:59.088+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: cffe9dd7-e0a6-47a8-a11e-e8f2ce54ad6d(String)
+2026-08-23T17:42:59.088+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:59.088+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.mychat.mapper.AsyncJobMapper.update    : ==>  Preparing: UPDATE async_job SET status=?,updated_at=? WHERE (id = ? AND status = ?)
+2026-08-23T17:42:59.088+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.mychat.mapper.AsyncJobMapper.update    : ==> Parameters: RUNNING(String), 2026-08-23T17:42:59.088461700(LocalDateTime), 56e04bb7-d9e5-4a48-b1a8-8c633a92df80(String), PENDING(String)
+2026-08-23T17:42:59.089+08:00  INFO 26328 --- [my-chat] [          job-2] com.mychat.job.AsyncJobDispatcher        : 任务终态 jobId=cffe9dd7-e0a6-47a8-a11e-e8f2ce54ad6d status=SUCCEEDED
+2026-08-23T17:42:59.090+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:59.090+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.mychat.mapper.AsyncJobMapper.update    : <==    Updates: 1
+2026-08-23T17:42:59.090+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: 81a5a47f-8437-425a-8ebc-92f5219fb5f6(String)
+2026-08-23T17:42:59.090+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:59.090+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: 56e04bb7-d9e5-4a48-b1a8-8c633a92df80(String)
+2026-08-23T17:42:59.091+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:59.091+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:59.091+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.mychat.mapper.AsyncJobMapper.update    : ==>  Preparing: UPDATE async_job SET status=?,updated_at=? WHERE (id = ? AND status = ?)
+2026-08-23T17:42:59.091+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.mychat.mapper.AsyncJobMapper.update    : ==> Parameters: RUNNING(String), 2026-08-23T17:42:59.091334300(LocalDateTime), 81a5a47f-8437-425a-8ebc-92f5219fb5f6(String), PENDING(String)
+2026-08-23T17:42:59.091+08:00  INFO 26328 --- [my-chat] [          job-1] com.mychat.job.KbIngestJobHandler        : 开始入库 documentId=d7c311a6-66eb-43d4-b63d-0e533c0d67a3 jobId=56e04bb7-d9e5-4a48-b1a8-8c633a92df80
+2026-08-23T17:42:59.092+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.m.DocumentMetaMapper.selectById      : ==>  Preparing: SELECT id,kb_id,filename,file_size,file_type,chunk_count,status,storage_path,error_message,created_at,updated_at FROM document_meta WHERE id=?
+2026-08-23T17:42:59.092+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.m.DocumentMetaMapper.selectById      : ==> Parameters: d7c311a6-66eb-43d4-b63d-0e533c0d67a3(String)
+2026-08-23T17:42:59.092+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.mychat.mapper.AsyncJobMapper.update    : <==    Updates: 1
+2026-08-23T17:42:59.093+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.m.DocumentMetaMapper.selectById      : <==      Total: 1
+2026-08-23T17:42:59.093+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:59.093+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: 81a5a47f-8437-425a-8ebc-92f5219fb5f6(String)
+2026-08-23T17:42:59.093+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:59.093+08:00  INFO 26328 --- [my-chat] [          job-1] c.m.service.knowledge.DocumentService    : Processing document: P0-7-知识库隔离查询方案对比.md, kbId=9e35f762-557d-484a-a580-9bde58f11ac8, documentId=d7c311a6-66eb-43d4-b63d-0e533c0d67a3
+2026-08-23T17:42:59.094+08:00  INFO 26328 --- [my-chat] [          job-2] com.mychat.job.KbIngestJobHandler        : 开始入库 documentId=a7f5cf04-bdd4-484b-90c5-b01683a8302b jobId=81a5a47f-8437-425a-8ebc-92f5219fb5f6
+2026-08-23T17:42:59.094+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.m.DocumentMetaMapper.selectById      : ==>  Preparing: SELECT id,kb_id,filename,file_size,file_type,chunk_count,status,storage_path,error_message,created_at,updated_at FROM document_meta WHERE id=?
+2026-08-23T17:42:59.094+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.m.DocumentMetaMapper.selectById      : ==> Parameters: a7f5cf04-bdd4-484b-90c5-b01683a8302b(String)
+2026-08-23T17:42:59.095+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.m.DocumentMetaMapper.selectById      : <==      Total: 1
+2026-08-23T17:42:59.095+08:00  INFO 26328 --- [my-chat] [          job-2] c.m.service.knowledge.DocumentService    : Processing document: P0-RESTFUL API重构方案.md, kbId=9e35f762-557d-484a-a580-9bde58f11ac8, documentId=a7f5cf04-bdd4-484b-90c5-b01683a8302b
+2026-08-23T17:42:59.097+08:00  INFO 26328 --- [my-chat] [          job-1] o.s.a.transformer.splitter.TextSplitter  : Splitting up document into 3 chunks.
+2026-08-23T17:42:59.099+08:00  INFO 26328 --- [my-chat] [          job-1] c.m.service.knowledge.DocumentService    : Document 'P0-7-知识库隔离查询方案对比.md' processed into 3 segments
+2026-08-23T17:42:59.101+08:00  INFO 26328 --- [my-chat] [          job-2] o.s.a.transformer.splitter.TextSplitter  : Splitting up document into 5 chunks.
+2026-08-23T17:42:59.102+08:00  INFO 26328 --- [my-chat] [          job-2] c.m.service.knowledge.DocumentService    : Document 'P0-RESTFUL API重构方案.md' processed into 5 segments
+2026-08-23T17:42:59.358+08:00  INFO 26328 --- [my-chat] [          job-1] c.m.service.knowledge.EmbeddingService   : Stored embedding batch 0-3 / 3
+2026-08-23T17:42:59.359+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.DocumentMetaMapper.update     : ==>  Preparing: UPDATE document_meta SET status=?,chunk_count=?,error_message=? WHERE (id = ?)
+2026-08-23T17:42:59.359+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.DocumentMetaMapper.update     : ==> Parameters: READY(String), 3(Integer), null, d7c311a6-66eb-43d4-b63d-0e533c0d67a3(String)
+2026-08-23T17:42:59.360+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.DocumentMetaMapper.update     : <==    Updates: 1
+2026-08-23T17:42:59.360+08:00  INFO 26328 --- [my-chat] [          job-1] c.m.s.knowledge.DocumentIngestService    : 文档入库成功 documentId=d7c311a6-66eb-43d4-b63d-0e533c0d67a3 chunks=3
+2026-08-23T17:42:59.362+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.mychat.mapper.AsyncJobMapper.update    : ==>  Preparing: UPDATE async_job SET status=?,error_message=?,finished_at=?,updated_at=? WHERE (id = ?)
+2026-08-23T17:42:59.362+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.mychat.mapper.AsyncJobMapper.update    : ==> Parameters: SUCCEEDED(String), null, 2026-08-23T17:42:59.361220800(LocalDateTime), 2026-08-23T17:42:59.361220800(LocalDateTime), 56e04bb7-d9e5-4a48-b1a8-8c633a92df80(String)
+2026-08-23T17:42:59.365+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.mychat.mapper.AsyncJobMapper.update    : <==    Updates: 1
+2026-08-23T17:42:59.365+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:59.366+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: 56e04bb7-d9e5-4a48-b1a8-8c633a92df80(String)
+2026-08-23T17:42:59.367+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:59.368+08:00  INFO 26328 --- [my-chat] [          job-1] com.mychat.job.AsyncJobDispatcher        : 任务终态 jobId=56e04bb7-d9e5-4a48-b1a8-8c633a92df80 status=SUCCEEDED
+2026-08-23T17:42:59.368+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:59.369+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: e8fb31b4-551d-40c7-a1d8-f155e02128e2(String)
+2026-08-23T17:42:59.370+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:59.371+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.mychat.mapper.AsyncJobMapper.update    : ==>  Preparing: UPDATE async_job SET status=?,updated_at=? WHERE (id = ? AND status = ?)
+2026-08-23T17:42:59.372+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.mychat.mapper.AsyncJobMapper.update    : ==> Parameters: RUNNING(String), 2026-08-23T17:42:59.370074500(LocalDateTime), e8fb31b4-551d-40c7-a1d8-f155e02128e2(String), PENDING(String)
+2026-08-23T17:42:59.373+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.mychat.mapper.AsyncJobMapper.update    : <==    Updates: 1
+2026-08-23T17:42:59.373+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:59.373+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: e8fb31b4-551d-40c7-a1d8-f155e02128e2(String)
+2026-08-23T17:42:59.374+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:59.375+08:00  INFO 26328 --- [my-chat] [          job-1] com.mychat.job.KbIngestJobHandler        : 开始入库 documentId=96049dc4-57f0-4c2b-89ff-d0ce0a06c073 jobId=e8fb31b4-551d-40c7-a1d8-f155e02128e2
+2026-08-23T17:42:59.376+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.m.DocumentMetaMapper.selectById      : ==>  Preparing: SELECT id,kb_id,filename,file_size,file_type,chunk_count,status,storage_path,error_message,created_at,updated_at FROM document_meta WHERE id=?
+2026-08-23T17:42:59.376+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.m.DocumentMetaMapper.selectById      : ==> Parameters: 96049dc4-57f0-4c2b-89ff-d0ce0a06c073(String)
+2026-08-23T17:42:59.377+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.m.DocumentMetaMapper.selectById      : <==      Total: 1
+2026-08-23T17:42:59.379+08:00  INFO 26328 --- [my-chat] [          job-1] c.m.service.knowledge.DocumentService    : Processing document: P0-知识库迭代规划.md, kbId=9e35f762-557d-484a-a580-9bde58f11ac8, documentId=96049dc4-57f0-4c2b-89ff-d0ce0a06c073
+2026-08-23T17:42:59.408+08:00  INFO 26328 --- [my-chat] [          job-1] o.s.a.transformer.splitter.TextSplitter  : Splitting up document into 6 chunks.
+2026-08-23T17:42:59.410+08:00  INFO 26328 --- [my-chat] [          job-1] c.m.service.knowledge.DocumentService    : Document 'P0-知识库迭代规划.md' processed into 6 segments
+2026-08-23T17:42:59.455+08:00  INFO 26328 --- [my-chat] [          job-2] c.m.service.knowledge.EmbeddingService   : Stored embedding batch 0-5 / 5
+2026-08-23T17:42:59.457+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.DocumentMetaMapper.update     : ==>  Preparing: UPDATE document_meta SET status=?,chunk_count=?,error_message=? WHERE (id = ?)
+2026-08-23T17:42:59.457+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.DocumentMetaMapper.update     : ==> Parameters: READY(String), 5(Integer), null, a7f5cf04-bdd4-484b-90c5-b01683a8302b(String)
+2026-08-23T17:42:59.458+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.DocumentMetaMapper.update     : <==    Updates: 1
+2026-08-23T17:42:59.458+08:00  INFO 26328 --- [my-chat] [          job-2] c.m.s.knowledge.DocumentIngestService    : 文档入库成功 documentId=a7f5cf04-bdd4-484b-90c5-b01683a8302b chunks=5
+2026-08-23T17:42:59.459+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.mychat.mapper.AsyncJobMapper.update    : ==>  Preparing: UPDATE async_job SET status=?,error_message=?,finished_at=?,updated_at=? WHERE (id = ?)
+2026-08-23T17:42:59.459+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.mychat.mapper.AsyncJobMapper.update    : ==> Parameters: SUCCEEDED(String), null, 2026-08-23T17:42:59.458208200(LocalDateTime), 2026-08-23T17:42:59.458208200(LocalDateTime), 81a5a47f-8437-425a-8ebc-92f5219fb5f6(String)
+2026-08-23T17:42:59.460+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.mychat.mapper.AsyncJobMapper.update    : <==    Updates: 1
+2026-08-23T17:42:59.460+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:59.460+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: 81a5a47f-8437-425a-8ebc-92f5219fb5f6(String)
+2026-08-23T17:42:59.461+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:59.462+08:00  INFO 26328 --- [my-chat] [          job-2] com.mychat.job.AsyncJobDispatcher        : 任务终态 jobId=81a5a47f-8437-425a-8ebc-92f5219fb5f6 status=SUCCEEDED
+2026-08-23T17:42:59.462+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:59.462+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: 18a83210-d4df-4792-ab5d-e9ac2250ad9f(String)
+2026-08-23T17:42:59.463+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:59.463+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.mychat.mapper.AsyncJobMapper.update    : ==>  Preparing: UPDATE async_job SET status=?,updated_at=? WHERE (id = ? AND status = ?)
+2026-08-23T17:42:59.464+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.mychat.mapper.AsyncJobMapper.update    : ==> Parameters: RUNNING(String), 2026-08-23T17:42:59.463725(LocalDateTime), 18a83210-d4df-4792-ab5d-e9ac2250ad9f(String), PENDING(String)
+2026-08-23T17:42:59.465+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.mychat.mapper.AsyncJobMapper.update    : <==    Updates: 1
+2026-08-23T17:42:59.465+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:59.465+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: 18a83210-d4df-4792-ab5d-e9ac2250ad9f(String)
+2026-08-23T17:42:59.466+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:59.467+08:00  INFO 26328 --- [my-chat] [          job-2] com.mychat.job.KbIngestJobHandler        : 开始入库 documentId=1c4d665b-b7b2-489f-b375-577dd87fb8cb jobId=18a83210-d4df-4792-ab5d-e9ac2250ad9f
+2026-08-23T17:42:59.467+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.m.DocumentMetaMapper.selectById      : ==>  Preparing: SELECT id,kb_id,filename,file_size,file_type,chunk_count,status,storage_path,error_message,created_at,updated_at FROM document_meta WHERE id=?
+2026-08-23T17:42:59.467+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.m.DocumentMetaMapper.selectById      : ==> Parameters: 1c4d665b-b7b2-489f-b375-577dd87fb8cb(String)
+2026-08-23T17:42:59.468+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.m.DocumentMetaMapper.selectById      : <==      Total: 1
+2026-08-23T17:42:59.468+08:00  INFO 26328 --- [my-chat] [          job-2] c.m.service.knowledge.DocumentService    : Processing document: P1-7-自定义工作目录初期方案研讨.md, kbId=9e35f762-557d-484a-a580-9bde58f11ac8, documentId=1c4d665b-b7b2-489f-b375-577dd87fb8cb
+2026-08-23T17:42:59.474+08:00  INFO 26328 --- [my-chat] [          job-2] o.s.a.transformer.splitter.TextSplitter  : Splitting up document into 2 chunks.
+2026-08-23T17:42:59.474+08:00  INFO 26328 --- [my-chat] [          job-2] c.m.service.knowledge.DocumentService    : Document 'P1-7-自定义工作目录初期方案研讨.md' processed into 2 segments
+2026-08-23T17:42:59.677+08:00  INFO 26328 --- [my-chat] [          job-2] c.m.service.knowledge.EmbeddingService   : Stored embedding batch 0-2 / 2
+2026-08-23T17:42:59.679+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.DocumentMetaMapper.update     : ==>  Preparing: UPDATE document_meta SET status=?,chunk_count=?,error_message=? WHERE (id = ?)
+2026-08-23T17:42:59.680+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.DocumentMetaMapper.update     : ==> Parameters: READY(String), 2(Integer), null, 1c4d665b-b7b2-489f-b375-577dd87fb8cb(String)
+2026-08-23T17:42:59.682+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.DocumentMetaMapper.update     : <==    Updates: 1
+2026-08-23T17:42:59.682+08:00  INFO 26328 --- [my-chat] [          job-2] c.m.s.knowledge.DocumentIngestService    : 文档入库成功 documentId=1c4d665b-b7b2-489f-b375-577dd87fb8cb chunks=2
+2026-08-23T17:42:59.685+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.mychat.mapper.AsyncJobMapper.update    : ==>  Preparing: UPDATE async_job SET status=?,error_message=?,finished_at=?,updated_at=? WHERE (id = ?)
+2026-08-23T17:42:59.685+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.mychat.mapper.AsyncJobMapper.update    : ==> Parameters: SUCCEEDED(String), null, 2026-08-23T17:42:59.683214400(LocalDateTime), 2026-08-23T17:42:59.683214400(LocalDateTime), 18a83210-d4df-4792-ab5d-e9ac2250ad9f(String)
+2026-08-23T17:42:59.687+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.mychat.mapper.AsyncJobMapper.update    : <==    Updates: 1
+2026-08-23T17:42:59.688+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:59.688+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: 18a83210-d4df-4792-ab5d-e9ac2250ad9f(String)
+2026-08-23T17:42:59.690+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:59.695+08:00  INFO 26328 --- [my-chat] [          job-2] com.mychat.job.AsyncJobDispatcher        : 任务终态 jobId=18a83210-d4df-4792-ab5d-e9ac2250ad9f status=SUCCEEDED
+2026-08-23T17:42:59.696+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:59.697+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: 93a99414-db9e-4f84-ab8a-7b4339465945(String)
+2026-08-23T17:42:59.699+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:59.701+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.mychat.mapper.AsyncJobMapper.update    : ==>  Preparing: UPDATE async_job SET status=?,updated_at=? WHERE (id = ? AND status = ?)
+2026-08-23T17:42:59.702+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.mychat.mapper.AsyncJobMapper.update    : ==> Parameters: RUNNING(String), 2026-08-23T17:42:59.700136200(LocalDateTime), 93a99414-db9e-4f84-ab8a-7b4339465945(String), PENDING(String)
+2026-08-23T17:42:59.703+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.mychat.mapper.AsyncJobMapper.update    : <==    Updates: 1
+2026-08-23T17:42:59.703+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:59.704+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: 93a99414-db9e-4f84-ab8a-7b4339465945(String)
+2026-08-23T17:42:59.706+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:59.707+08:00  INFO 26328 --- [my-chat] [          job-2] com.mychat.job.KbIngestJobHandler        : 开始入库 documentId=6bbd8e26-508a-42d4-a59f-b664209c2538 jobId=93a99414-db9e-4f84-ab8a-7b4339465945
+2026-08-23T17:42:59.708+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.m.DocumentMetaMapper.selectById      : ==>  Preparing: SELECT id,kb_id,filename,file_size,file_type,chunk_count,status,storage_path,error_message,created_at,updated_at FROM document_meta WHERE id=?
+2026-08-23T17:42:59.708+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.m.DocumentMetaMapper.selectById      : ==> Parameters: 6bbd8e26-508a-42d4-a59f-b664209c2538(String)
+2026-08-23T17:42:59.710+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.m.DocumentMetaMapper.selectById      : <==      Total: 1
+2026-08-23T17:42:59.711+08:00  INFO 26328 --- [my-chat] [          job-2] c.m.service.knowledge.DocumentService    : Processing document: P1-7-自定义工作目录-中期优化摘要.md, kbId=9e35f762-557d-484a-a580-9bde58f11ac8, documentId=6bbd8e26-508a-42d4-a59f-b664209c2538
+2026-08-23T17:42:59.717+08:00  INFO 26328 --- [my-chat] [          job-2] o.s.a.transformer.splitter.TextSplitter  : Splitting up document into 2 chunks.
+2026-08-23T17:42:59.717+08:00  INFO 26328 --- [my-chat] [          job-2] c.m.service.knowledge.DocumentService    : Document 'P1-7-自定义工作目录-中期优化摘要.md' processed into 2 segments
+2026-08-23T17:42:59.798+08:00  INFO 26328 --- [my-chat] [          job-1] c.m.service.knowledge.EmbeddingService   : Stored embedding batch 0-6 / 6
+2026-08-23T17:42:59.800+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.DocumentMetaMapper.update     : ==>  Preparing: UPDATE document_meta SET status=?,chunk_count=?,error_message=? WHERE (id = ?)
+2026-08-23T17:42:59.800+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.DocumentMetaMapper.update     : ==> Parameters: READY(String), 6(Integer), null, 96049dc4-57f0-4c2b-89ff-d0ce0a06c073(String)
+2026-08-23T17:42:59.801+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.DocumentMetaMapper.update     : <==    Updates: 1
+2026-08-23T17:42:59.801+08:00  INFO 26328 --- [my-chat] [          job-1] c.m.s.knowledge.DocumentIngestService    : 文档入库成功 documentId=96049dc4-57f0-4c2b-89ff-d0ce0a06c073 chunks=6
+2026-08-23T17:42:59.802+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.mychat.mapper.AsyncJobMapper.update    : ==>  Preparing: UPDATE async_job SET status=?,error_message=?,finished_at=?,updated_at=? WHERE (id = ?)
+2026-08-23T17:42:59.802+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.mychat.mapper.AsyncJobMapper.update    : ==> Parameters: SUCCEEDED(String), null, 2026-08-23T17:42:59.801112900(LocalDateTime), 2026-08-23T17:42:59.801112900(LocalDateTime), e8fb31b4-551d-40c7-a1d8-f155e02128e2(String)
+2026-08-23T17:42:59.803+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.mychat.mapper.AsyncJobMapper.update    : <==    Updates: 1
+2026-08-23T17:42:59.803+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:59.803+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: e8fb31b4-551d-40c7-a1d8-f155e02128e2(String)
+2026-08-23T17:42:59.804+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:59.805+08:00  INFO 26328 --- [my-chat] [          job-1] com.mychat.job.AsyncJobDispatcher        : 任务终态 jobId=e8fb31b4-551d-40c7-a1d8-f155e02128e2 status=SUCCEEDED
+2026-08-23T17:42:59.805+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:59.805+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: 0f151bb2-be0d-48f8-b3e3-86b91b2b417e(String)
+2026-08-23T17:42:59.805+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:59.806+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.mychat.mapper.AsyncJobMapper.update    : ==>  Preparing: UPDATE async_job SET status=?,updated_at=? WHERE (id = ? AND status = ?)
+2026-08-23T17:42:59.806+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.mychat.mapper.AsyncJobMapper.update    : ==> Parameters: RUNNING(String), 2026-08-23T17:42:59.806589800(LocalDateTime), 0f151bb2-be0d-48f8-b3e3-86b91b2b417e(String), PENDING(String)
+2026-08-23T17:42:59.807+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.mychat.mapper.AsyncJobMapper.update    : <==    Updates: 1
+2026-08-23T17:42:59.807+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:59.807+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: 0f151bb2-be0d-48f8-b3e3-86b91b2b417e(String)
+2026-08-23T17:42:59.808+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:59.809+08:00  INFO 26328 --- [my-chat] [          job-1] com.mychat.job.KbIngestJobHandler        : 开始入库 documentId=0a673efb-2412-41fb-920d-b0602d98b738 jobId=0f151bb2-be0d-48f8-b3e3-86b91b2b417e
+2026-08-23T17:42:59.809+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.m.DocumentMetaMapper.selectById      : ==>  Preparing: SELECT id,kb_id,filename,file_size,file_type,chunk_count,status,storage_path,error_message,created_at,updated_at FROM document_meta WHERE id=?
+2026-08-23T17:42:59.809+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.m.DocumentMetaMapper.selectById      : ==> Parameters: 0a673efb-2412-41fb-920d-b0602d98b738(String)
+2026-08-23T17:42:59.810+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.m.DocumentMetaMapper.selectById      : <==      Total: 1
+2026-08-23T17:42:59.811+08:00  INFO 26328 --- [my-chat] [          job-1] c.m.service.knowledge.DocumentService    : Processing document: P1-9-会话上传文件-回顾与展望.md, kbId=9e35f762-557d-484a-a580-9bde58f11ac8, documentId=0a673efb-2412-41fb-920d-b0602d98b738
+2026-08-23T17:42:59.819+08:00  INFO 26328 --- [my-chat] [          job-1] o.s.a.transformer.splitter.TextSplitter  : Splitting up document into 6 chunks.
+2026-08-23T17:42:59.820+08:00  INFO 26328 --- [my-chat] [          job-1] c.m.service.knowledge.DocumentService    : Document 'P1-9-会话上传文件-回顾与展望.md' processed into 6 segments
+2026-08-23T17:42:59.908+08:00  INFO 26328 --- [my-chat] [          job-2] c.m.service.knowledge.EmbeddingService   : Stored embedding batch 0-2 / 2
+2026-08-23T17:42:59.909+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.DocumentMetaMapper.update     : ==>  Preparing: UPDATE document_meta SET status=?,chunk_count=?,error_message=? WHERE (id = ?)
+2026-08-23T17:42:59.909+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.DocumentMetaMapper.update     : ==> Parameters: READY(String), 2(Integer), null, 6bbd8e26-508a-42d4-a59f-b664209c2538(String)
+2026-08-23T17:42:59.910+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.DocumentMetaMapper.update     : <==    Updates: 1
+2026-08-23T17:42:59.910+08:00  INFO 26328 --- [my-chat] [          job-2] c.m.s.knowledge.DocumentIngestService    : 文档入库成功 documentId=6bbd8e26-508a-42d4-a59f-b664209c2538 chunks=2
+2026-08-23T17:42:59.911+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.mychat.mapper.AsyncJobMapper.update    : ==>  Preparing: UPDATE async_job SET status=?,error_message=?,finished_at=?,updated_at=? WHERE (id = ?)
+2026-08-23T17:42:59.911+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.mychat.mapper.AsyncJobMapper.update    : ==> Parameters: SUCCEEDED(String), null, 2026-08-23T17:42:59.910729600(LocalDateTime), 2026-08-23T17:42:59.910729600(LocalDateTime), 93a99414-db9e-4f84-ab8a-7b4339465945(String)
+2026-08-23T17:42:59.912+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.mychat.mapper.AsyncJobMapper.update    : <==    Updates: 1
+2026-08-23T17:42:59.912+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:59.912+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: 93a99414-db9e-4f84-ab8a-7b4339465945(String)
+2026-08-23T17:42:59.913+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:59.914+08:00  INFO 26328 --- [my-chat] [          job-2] com.mychat.job.AsyncJobDispatcher        : 任务终态 jobId=93a99414-db9e-4f84-ab8a-7b4339465945 status=SUCCEEDED
+2026-08-23T17:42:59.914+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:59.914+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: de77b97f-055c-42c6-95ce-ded40ed54a99(String)
+2026-08-23T17:42:59.914+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:59.916+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.mychat.mapper.AsyncJobMapper.update    : ==>  Preparing: UPDATE async_job SET status=?,updated_at=? WHERE (id = ? AND status = ?)
+2026-08-23T17:42:59.916+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.mychat.mapper.AsyncJobMapper.update    : ==> Parameters: RUNNING(String), 2026-08-23T17:42:59.916178500(LocalDateTime), de77b97f-055c-42c6-95ce-ded40ed54a99(String), PENDING(String)
+2026-08-23T17:42:59.917+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.mychat.mapper.AsyncJobMapper.update    : <==    Updates: 1
+2026-08-23T17:42:59.917+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:42:59.917+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: de77b97f-055c-42c6-95ce-ded40ed54a99(String)
+2026-08-23T17:42:59.918+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:42:59.918+08:00  INFO 26328 --- [my-chat] [          job-2] com.mychat.job.KbIngestJobHandler        : 开始入库 documentId=ad64f2e0-52c3-4b3e-8e88-99b97f47ff45 jobId=de77b97f-055c-42c6-95ce-ded40ed54a99
+2026-08-23T17:42:59.918+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.m.DocumentMetaMapper.selectById      : ==>  Preparing: SELECT id,kb_id,filename,file_size,file_type,chunk_count,status,storage_path,error_message,created_at,updated_at FROM document_meta WHERE id=?
+2026-08-23T17:42:59.919+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.m.DocumentMetaMapper.selectById      : ==> Parameters: ad64f2e0-52c3-4b3e-8e88-99b97f47ff45(String)
+2026-08-23T17:42:59.919+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.m.DocumentMetaMapper.selectById      : <==      Total: 1
+2026-08-23T17:42:59.920+08:00  INFO 26328 --- [my-chat] [          job-2] c.m.service.knowledge.DocumentService    : Processing document: P1-AI工作区上下文-技术分析.md, kbId=9e35f762-557d-484a-a580-9bde58f11ac8, documentId=ad64f2e0-52c3-4b3e-8e88-99b97f47ff45
+2026-08-23T17:42:59.945+08:00  INFO 26328 --- [my-chat] [          job-2] o.s.a.transformer.splitter.TextSplitter  : Splitting up document into 8 chunks.
+2026-08-23T17:42:59.946+08:00  INFO 26328 --- [my-chat] [          job-2] c.m.service.knowledge.DocumentService    : Document 'P1-AI工作区上下文-技术分析.md' processed into 8 segments
+2026-08-23T17:43:00.176+08:00  INFO 26328 --- [my-chat] [          job-1] c.m.service.knowledge.EmbeddingService   : Stored embedding batch 0-6 / 6
+2026-08-23T17:43:00.177+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.DocumentMetaMapper.update     : ==>  Preparing: UPDATE document_meta SET status=?,chunk_count=?,error_message=? WHERE (id = ?)
+2026-08-23T17:43:00.177+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.DocumentMetaMapper.update     : ==> Parameters: READY(String), 6(Integer), null, 0a673efb-2412-41fb-920d-b0602d98b738(String)
+2026-08-23T17:43:00.178+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.DocumentMetaMapper.update     : <==    Updates: 1
+2026-08-23T17:43:00.178+08:00  INFO 26328 --- [my-chat] [          job-1] c.m.s.knowledge.DocumentIngestService    : 文档入库成功 documentId=0a673efb-2412-41fb-920d-b0602d98b738 chunks=6
+2026-08-23T17:43:00.180+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.mychat.mapper.AsyncJobMapper.update    : ==>  Preparing: UPDATE async_job SET status=?,error_message=?,finished_at=?,updated_at=? WHERE (id = ?)
+2026-08-23T17:43:00.180+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.mychat.mapper.AsyncJobMapper.update    : ==> Parameters: SUCCEEDED(String), null, 2026-08-23T17:43:00.178704(LocalDateTime), 2026-08-23T17:43:00.178704(LocalDateTime), 0f151bb2-be0d-48f8-b3e3-86b91b2b417e(String)
+2026-08-23T17:43:00.181+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.mychat.mapper.AsyncJobMapper.update    : <==    Updates: 1
+2026-08-23T17:43:00.181+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:43:00.182+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: 0f151bb2-be0d-48f8-b3e3-86b91b2b417e(String)
+2026-08-23T17:43:00.183+08:00 DEBUG 26328 --- [my-chat] [          job-1] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:43:00.183+08:00  INFO 26328 --- [my-chat] [          job-1] com.mychat.job.AsyncJobDispatcher        : 任务终态 jobId=0f151bb2-be0d-48f8-b3e3-86b91b2b417e status=SUCCEEDED
+2026-08-23T17:43:00.383+08:00  INFO 26328 --- [my-chat] [          job-2] c.m.service.knowledge.EmbeddingService   : Stored embedding batch 0-8 / 8
+2026-08-23T17:43:00.384+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.DocumentMetaMapper.update     : ==>  Preparing: UPDATE document_meta SET status=?,chunk_count=?,error_message=? WHERE (id = ?)
+2026-08-23T17:43:00.384+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.DocumentMetaMapper.update     : ==> Parameters: READY(String), 8(Integer), null, ad64f2e0-52c3-4b3e-8e88-99b97f47ff45(String)
+2026-08-23T17:43:00.385+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.DocumentMetaMapper.update     : <==    Updates: 1
+2026-08-23T17:43:00.386+08:00  INFO 26328 --- [my-chat] [          job-2] c.m.s.knowledge.DocumentIngestService    : 文档入库成功 documentId=ad64f2e0-52c3-4b3e-8e88-99b97f47ff45 chunks=8
+2026-08-23T17:43:00.386+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.mychat.mapper.AsyncJobMapper.update    : ==>  Preparing: UPDATE async_job SET status=?,error_message=?,finished_at=?,updated_at=? WHERE (id = ?)
+2026-08-23T17:43:00.387+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.mychat.mapper.AsyncJobMapper.update    : ==> Parameters: SUCCEEDED(String), null, 2026-08-23T17:43:00.386505500(LocalDateTime), 2026-08-23T17:43:00.386505500(LocalDateTime), de77b97f-055c-42c6-95ce-ded40ed54a99(String)
+2026-08-23T17:43:00.388+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.mychat.mapper.AsyncJobMapper.update    : <==    Updates: 1
+2026-08-23T17:43:00.388+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE id=?
+2026-08-23T17:43:00.388+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : ==> Parameters: de77b97f-055c-42c6-95ce-ded40ed54a99(String)
+2026-08-23T17:43:00.389+08:00 DEBUG 26328 --- [my-chat] [          job-2] c.m.mapper.AsyncJobMapper.selectById     : <==      Total: 1
+2026-08-23T17:43:00.389+08:00  INFO 26328 --- [my-chat] [          job-2] com.mychat.job.AsyncJobDispatcher        : 任务终态 jobId=de77b97f-055c-42c6-95ce-ded40ed54a99 status=SUCCEEDED
+2026-08-23T17:43:12.810+08:00 DEBUG 26328 --- [my-chat] [mcat-handler-17] c.m.m.KnowledgeBaseMapper.selectList     : ==>  Preparing: SELECT id,name,description,created_at,updated_at FROM knowledge_base
+2026-08-23T17:43:12.810+08:00 DEBUG 26328 --- [my-chat] [mcat-handler-17] c.m.m.KnowledgeBaseMapper.selectList     : ==> Parameters: 
+2026-08-23T17:43:12.812+08:00 DEBUG 26328 --- [my-chat] [mcat-handler-17] c.m.m.KnowledgeBaseMapper.selectList     : <==      Total: 2
+2026-08-23T17:43:13.768+08:00 DEBUG 26328 --- [my-chat] [mcat-handler-18] c.m.m.DocumentMetaMapper.selectList      : ==>  Preparing: SELECT id,kb_id,filename,file_size,file_type,chunk_count,status,storage_path,error_message,created_at,updated_at FROM document_meta WHERE (kb_id = ?) ORDER BY created_at DESC
+2026-08-23T17:43:13.768+08:00 DEBUG 26328 --- [my-chat] [mcat-handler-18] c.m.m.DocumentMetaMapper.selectList      : ==> Parameters: 9e35f762-557d-484a-a580-9bde58f11ac8(String)
+2026-08-23T17:43:13.772+08:00 DEBUG 26328 --- [my-chat] [mcat-handler-18] c.m.m.DocumentMetaMapper.selectList      : <==      Total: 16
+2026-08-23T17:43:15.999+08:00 DEBUG 26328 --- [my-chat] [mcat-handler-19] c.m.m.ChatSessionsMapper.selectList      : ==>  Preparing: SELECT conversation_id,user_id,title,kb_id,created_at,work_dir,updated_at FROM chat_sessions ORDER BY created_at DESC
+2026-08-23T17:43:15.999+08:00 DEBUG 26328 --- [my-chat] [mcat-handler-19] c.m.m.ChatSessionsMapper.selectList      : ==> Parameters: 
+2026-08-23T17:43:16.001+08:00 DEBUG 26328 --- [my-chat] [mcat-handler-19] c.m.m.ChatSessionsMapper.selectList      : <==      Total: 1
+2026-08-23T17:43:16.025+08:00 DEBUG 26328 --- [my-chat] [mcat-handler-20] c.m.mapper.ChatSessionsMapper.insert     : ==>  Preparing: INSERT INTO chat_sessions ( conversation_id, title, kb_id, created_at, updated_at ) VALUES ( ?, ?, ?, ?, ? )
+2026-08-23T17:43:16.026+08:00 DEBUG 26328 --- [my-chat] [mcat-handler-20] c.m.mapper.ChatSessionsMapper.insert     : ==> Parameters: chat_1787478196009_l2t02tfyu(String), chat_1787478196009_l2t02tfyu(String), 9e35f762-557d-484a-a580-9bde58f11ac8(String), 2026-08-23T17:43:16.025176600(LocalDateTime), 2026-08-23T17:43:16.025176600(LocalDateTime)
+2026-08-23T17:43:16.036+08:00 DEBUG 26328 --- [my-chat] [mcat-handler-20] c.m.mapper.ChatSessionsMapper.insert     : <==    Updates: 1
+2026-08-23T17:44:11.633+08:00 DEBUG 26328 --- [my-chat] [mcat-handler-22] c.m.m.ChatSessionsMapper.selectById      : ==>  Preparing: SELECT conversation_id,user_id,title,kb_id,created_at,work_dir,updated_at FROM chat_sessions WHERE conversation_id=?
+2026-08-23T17:44:11.634+08:00 DEBUG 26328 --- [my-chat] [mcat-handler-22] c.m.m.ChatSessionsMapper.selectById      : ==> Parameters: chat_1787478196009_l2t02tfyu(String)
+2026-08-23T17:44:11.636+08:00 DEBUG 26328 --- [my-chat] [mcat-handler-22] c.m.m.ChatSessionsMapper.selectById      : <==      Total: 1
+2026-08-23T17:44:11.636+08:00  INFO 26328 --- [my-chat] [mcat-handler-22] com.mychat.controller.ChatController     : 会话 chat_1787478196009_l2t02tfyu 使用默认工作目录: E:\Program files\projects\My-Chat\my-chat-server\src\main\resources\workspace
+2026-08-23T17:44:11.661+08:00 DEBUG 26328 --- [my-chat] [mcat-handler-22] c.m.m.S.selectList                       : ==>  Preparing: SELECT id,conversation_id,type,content,timestamp,sequence_id FROM spring_ai_chat_memory WHERE (conversation_id = ? AND type IN (?,?,?,?)) ORDER BY sequence_id ASC,id ASC
+2026-08-23T17:44:11.661+08:00 DEBUG 26328 --- [my-chat] [mcat-handler-22] c.m.m.S.selectList                       : ==> Parameters: chat_1787478196009_l2t02tfyu(String), USER(String), ASSISTANT(String), user(String), assistant(String)
+2026-08-23T17:44:11.664+08:00 DEBUG 26328 --- [my-chat] [mcat-handler-22] c.m.m.S.selectList                       : <==      Total: 0
+2026-08-23T17:44:11.703+08:00  WARN 26328 --- [my-chat] [mcat-handler-22] s.w.s.m.m.a.RequestMappingHandlerAdapter : !!!
+Performing asynchronous handling through the default Spring MVC SimpleAsyncTaskExecutor.
+This executor is not suitable for production use under load.
+Please, configure an AsyncTaskExecutor through the WebMvc config.
+-------------------------------
+!!!
+2026-08-23T17:44:11.891+08:00 DEBUG 26328 --- [my-chat] [oundedElastic-1] o.s.a.c.c.advisor.SimpleLoggerAdvisor    : request: ChatClientRequest[prompt=Prompt{messages=[UserMessage{content='你是任务编排器（Orchestrator）。根据用户目标、近期对话与已完成步骤，决定下一步动作。
+不要自己调用工具；只输出 JSON 决策，由系统调度专用 Worker。
+
+可选 nextAction（必须是下列英文标签之一）：
+- retrieve_kb：从已绑定知识库检索并回答子问题（需要可用 kbId）
+- file：查看/创建/修改工作区文件
+- search：联网搜索、查天气或其它远程 MCP 信息
+- general：无需检索/文件/联网的一般推理或润色
+- finish：任务已完成；instruction 必须是给用户看的完整最终答复
+
+规则：
+- 复杂任务拆成多步；非 finish 时 instruction 只描述当前 Worker 要做的事。
+- 若用户追问「刚才/上一条/之前说了什么」等，必须依据「近期对话」回答，禁止声称没有历史。
+- **非 finish 的 instruction（强制指代消解）**：必须写成可独立执行的细节（具体 path、文件名、上轮结论要点、检索关键词等）；禁止只写「刚才那个文件 / 同上 / 按上次说的做」等未消解指代。Worker 虽会收到近期对话摘要，仍以你消解后的 instruction 为准。
+- 若「本回合已完成步骤」的 observation 已足够回答用户，选 finish。
+- **finish 的 instruction（强制）**：
+  1. 必须是可直接展示给用户的完整答复正文，不是「向用户完整作答 / 首先给出 / 接着提供」等提纲或元指令。
+  2. 默认使用 Markdown（标题、列表、代码块）；仅当用户明确要求纯文本/JSON 等时才改格式。
+  3. 必须把各步 observation 中的关键内容（知识库定义、案例代码、搜索结论、文件结果）写入答复；用户默认不会展开时间线。
+  4. 若某步 observation 含「已截断」提示，仍基于可见内容尽量完整作答，并可注明可能有省略。
+- **complexity（强制）**：
+  1. 明显只需一个能力档（纯闲聊、单次读/写一文件、单次检索、单次 kb 问答）→ complexity=single，并选对应 Worker。
+  2. 需跨能力接力（如 kb+search、多文件多步）→ complexity=multi。
+  3. nextAction=finish 时 complexity 可填 multi（系统会忽略）。
+- 当前是第 1 步，最多 6 步；临近上限时优先 finish。
+- 未绑定知识库时禁止选 retrieve_kb。
+
+会话上下文：
+- 已绑定知识库 kbId=9e35f762-557d-484a-a580-9bde58f11ac8，需要文档依据时可选 retrieve_kb。
+- 工作目录：E:\Program files\projects\My-Chat\my-chat-server\src\main\resources\workspace
+
+近期对话（会话级，按时间从早到晚）：
+（尚无更早的会话消息）
+
+本回合已完成步骤：
+（尚无已完成步骤）
+
+用户本轮目标：
+根据知识库回答项目的P2 — 体验增强规划有哪些内容
+
+按以下 JSON 返回（JSON 本身不要再包一层 markdown 代码块；但 finish 时 instruction 字符串内可以使用 Markdown）：
+{
+  "reasoning": "简要理由",
+  "nextAction": "retrieve_kb|file|search|general|finish",
+  "instruction": "Worker 子任务；或 finish 时的完整用户可见答复",
+  "complexity": "single|multi"
+}
+', metadata={messageType=USER}, messageType=USER}], modelOptions=org.springframework.ai.openai.OpenAiChatOptions@ce515e3f}, context={spring.ai.chat.client.output.format=Your response should be in JSON format.
+Do not include any explanations, only provide a RFC8259 compliant JSON response following this format without deviation.
+Do not include markdown code blocks in your response.
+Remove the ```json markdown from the output.
+Here is the JSON Schema instance your output must adhere to:
+```{
+  "$schema" : "https://json-schema.org/draft/2020-12/schema",
+  "type" : "object",
+  "properties" : {
+    "complexity" : {
+      "type" : "string"
+    },
+    "instruction" : {
+      "type" : "string"
+    },
+    "nextAction" : {
+      "type" : "string"
+    },
+    "reasoning" : {
+      "type" : "string"
+    }
+  },
+  "required" : [ "complexity", "instruction", "nextAction", "reasoning" ],
+  "additionalProperties" : false
+}```
+}]
+2026-08-23T17:44:13.750+08:00 DEBUG 26328 --- [my-chat] [oundedElastic-1] o.s.a.c.c.advisor.SimpleLoggerAdvisor    : response: {
+  "metadata" : {
+    "empty" : false,
+    "id" : "9c7ecaeb-a82e-4361-a482-7fd9af2e576e",
+    "model" : "deepseek-v4-flash",
+    "promptMetadata" : [ ],
+    "rateLimit" : {
+      "requestsLimit" : 0,
+      "requestsRemaining" : 0,
+      "requestsReset" : "PT0S",
+      "tokensLimit" : 0,
+      "tokensRemaining" : 0,
+      "tokensReset" : "PT0S"
+    },
+    "usage" : {
+      "promptTokens" : 1104,
+      "completionTokens" : 102,
+      "totalTokens" : 1206,
+      "cacheReadInputTokens" : 512,
+      "nativeUsage" : {
+        "completion_tokens" : 102,
+        "prompt_tokens" : 1104,
+        "total_tokens" : 1206,
+        "prompt_tokens_details" : {
+          "cached_tokens" : 512,
+          "valid" : true
+        },
+        "valid" : true,
+        "prompt_cache_miss_tokens" : 592,
+        "prompt_cache_hit_tokens" : 512
+      }
+    }
+  },
+  "result" : {
+    "metadata" : {
+      "contentFilters" : [ ],
+      "empty" : true,
+      "finishReason" : "STOP"
+    },
+    "output" : {
+      "media" : [ ],
+      "messageType" : "ASSISTANT",
+      "metadata" : {
+        "role" : "assistant",
+        "messageType" : "ASSISTANT",
+        "refusal" : "",
+        "finishReason" : "STOP",
+        "annotations" : [ { } ],
+        "index" : 0,
+        "id" : "9c7ecaeb-a82e-4361-a482-7fd9af2e576e",
+        "reasoningContent" : ""
+      },
+      "text" : "{\"reasoning\":\"用户要求根据知识库回答项目P2体验增强规划的内容，需要从已绑定知识库检索相关信息。\",\"nextAction\":\"retrieve_kb\",\"instruction\":\"在知识库（kbId=9e35f762-557d-484a-a580-9bde58f11ac8）中检索主题为'P2 — 体验增强规划'的内容，获取该规划的具体条目说明，并整理成完整回答。\",\"complexity\":\"single\"}",
+      "toolCalls" : [ ]
+    }
+  },
+  "results" : [ {
+    "metadata" : {
+      "contentFilters" : [ ],
+      "empty" : true,
+      "finishReason" : "STOP"
+    },
+    "output" : {
+      "media" : [ ],
+      "messageType" : "ASSISTANT",
+      "metadata" : {
+        "role" : "assistant",
+        "messageType" : "ASSISTANT",
+        "refusal" : "",
+        "finishReason" : "STOP",
+        "annotations" : [ { } ],
+        "index" : 0,
+        "id" : "9c7ecaeb-a82e-4361-a482-7fd9af2e576e",
+        "reasoningContent" : ""
+      },
+      "text" : "{\"reasoning\":\"用户要求根据知识库回答项目P2体验增强规划的内容，需要从已绑定知识库检索相关信息。\",\"nextAction\":\"retrieve_kb\",\"instruction\":\"在知识库（kbId=9e35f762-557d-484a-a580-9bde58f11ac8）中检索主题为'P2 — 体验增强规划'的内容，获取该规划的具体条目说明，并整理成完整回答。\",\"complexity\":\"single\"}",
+      "toolCalls" : [ ]
+    }
+  } ]
+}
+2026-08-23T17:44:13.754+08:00  INFO 26328 --- [my-chat] [oundedElastic-1] c.m.s.agent.AgentOrchestratorService     : Orchestrator step=1/6 action=retrieve_kb complexity=single reasoning=用户要求根据知识库回答项目P2体验增强规划的内容，需要从已绑定知识库检索相关信息。
+2026-08-23T17:44:13.906+08:00 DEBUG 26328 --- [my-chat] [oundedElastic-1] o.s.a.c.c.advisor.SimpleLoggerAdvisor    : request: ChatClientRequest[prompt=Prompt{messages=[SystemMessage{textContent='你是知识库问答助手。请严格基于系统提供的检索上下文回答问题。
+如果上下文中没有足够信息，请明确告知用户"知识库中未找到相关信息"，不要编造。
+不要尝试调用任何外部工具或命令。
+', messageType=SYSTEM, metadata={messageType=SYSTEM}}, UserMessage{content='【会话上下文｜只读参考，用于消解「刚才/那个文件」等指代；不要复述整段历史】
+（无）
+
+【本步任务】
+在知识库（kbId=9e35f762-557d-484a-a580-9bde58f11ac8）中检索主题为'P2 — 体验增强规划'的内容，获取该规划的具体条目说明，并整理成完整回答。
+', metadata={messageType=USER}, messageType=USER}], modelOptions=org.springframework.ai.openai.OpenAiChatOptions@ce515e3f}, context={chat_memory_conversation_id=orch-kb-5a5867e4-c6b1-4991-9343-0771085fb94b}]
+2026-08-23T17:44:17.073+08:00 DEBUG 26328 --- [my-chat] [oundedElastic-1] o.s.a.c.c.advisor.SimpleLoggerAdvisor    : response: {
+  "metadata" : {
+    "empty" : false,
+    "id" : "da3019ba-8bd8-4b69-b9fd-0617edd81e6f",
+    "model" : "deepseek-v4-flash",
+    "promptMetadata" : [ ],
+    "rateLimit" : {
+      "requestsLimit" : 0,
+      "requestsRemaining" : 0,
+      "requestsReset" : "PT0S",
+      "tokensLimit" : 0,
+      "tokensRemaining" : 0,
+      "tokensReset" : "PT0S"
+    },
+    "usage" : {
+      "promptTokens" : 3062,
+      "completionTokens" : 555,
+      "totalTokens" : 3617,
+      "cacheReadInputTokens" : 0,
+      "nativeUsage" : {
+        "completion_tokens" : 555,
+        "prompt_tokens" : 3062,
+        "total_tokens" : 3617,
+        "prompt_tokens_details" : {
+          "cached_tokens" : 0,
+          "valid" : true
+        },
+        "valid" : true,
+        "prompt_cache_miss_tokens" : 3062,
+        "prompt_cache_hit_tokens" : 0
+      }
+    }
+  },
+  "result" : {
+    "metadata" : {
+      "contentFilters" : [ ],
+      "empty" : true,
+      "finishReason" : "STOP"
+    },
+    "output" : {
+      "media" : [ ],
+      "messageType" : "ASSISTANT",
+      "metadata" : {
+        "role" : "assistant",
+        "messageType" : "ASSISTANT",
+        "refusal" : "",
+        "finishReason" : "STOP",
+        "annotations" : [ { } ],
+        "index" : 0,
+        "id" : "da3019ba-8bd8-4b69-b9fd-0617edd81e6f",
+        "reasoningContent" : ""
+      },
+      "text" : "根据知识库中的检索结果，**P2 — 体验增强规划**的具体条目说明如下：\n\n| # | 功能 | 说明 | 进度 |\n|---|---|---|---|\n| 1 | **分片参数可配置** | 知识库级别自定义 chunkSize / chunkOverlap / topK，调参无需改代码 | |\n| 2 | **文档标签/分类** | 给文档打标签 el-tag，支持按标签筛选 | |\n| 3 | **知识库统计仪表盘** | 文档数、分片数、预估 token 用量、向量占用空间 | |\n| 4 | **重新向量化** | 已上传文档的\"重新索引\"按钮，适用于修改分片参数后刷新 | |\n| 5 | **嵌入模型可切换** | 当前 embedding model 在 application.yaml 硬编码 `text-embedding-v4`，做成可选的 | |\n| 6 | **Web 爬虫导入** | 输入 URL 自动抓取页面内容并向量化（路线图中的\"全自动网络数据采集\"） | |\n| 7 | **全面升级前端聊天交互渲染（初步实现）** | 结构化输出和时间线 | |\n| 8 | **RAG回答太死板** | 让AI总结知识库，它直接拿这句话搜相关文档，但是搜出来的结果相关性太低，全部被过滤，AI误以为无结果，回答\"找不到相关信息\" | |\n| 9 | **接入MCP协议（初步实现）** | 详见 `./P2-9-mcp协议规划.md`、`./P2-9-接入第三方MCP服务行动方案.md` | |\n| 10 | **agents开发（初步实现）** | 详见 `./P2-10-agents开发规划.md` | |\n| 11 | 异步任务 + 消息通知机制 | | 初步实现 |\n\n另外，在**上传体验改进**范畴中，P2 体验增强还包括：\n\n| # | 改进 | 说明 |\n|---|---|---|\n| 7 | **AI 直接读工作目录** | 如果已设置工作目录，AI 可通过 FileTools 直接读取文件，无需上传 |\n| 8 | **文件名自动补全** | 输入框中 @ 触发工作目录文件列表，自动补全路径 |\n| 9 | **文件版本管理** | 同一文件多次上传保留历史版本 |\n| 10 | **文件关联知识库** | 上传文件时可选同时加入知识库，一次操作完成对话 + 知识沉淀 |\n\n以上即为知识库中 P2 — 体验增强规划的全部条目内容。",
+      "toolCalls" : [ ]
+    }
+  },
+  "results" : [ {
+    "metadata" : {
+      "contentFilters" : [ ],
+      "empty" : true,
+      "finishReason" : "STOP"
+    },
+    "output" : {
+      "media" : [ ],
+      "messageType" : "ASSISTANT",
+      "metadata" : {
+        "role" : "assistant",
+        "messageType" : "ASSISTANT",
+        "refusal" : "",
+        "finishReason" : "STOP",
+        "annotations" : [ { } ],
+        "index" : 0,
+        "id" : "da3019ba-8bd8-4b69-b9fd-0617edd81e6f",
+        "reasoningContent" : ""
+      },
+      "text" : "根据知识库中的检索结果，**P2 — 体验增强规划**的具体条目说明如下：\n\n| # | 功能 | 说明 | 进度 |\n|---|---|---|---|\n| 1 | **分片参数可配置** | 知识库级别自定义 chunkSize / chunkOverlap / topK，调参无需改代码 | |\n| 2 | **文档标签/分类** | 给文档打标签 el-tag，支持按标签筛选 | |\n| 3 | **知识库统计仪表盘** | 文档数、分片数、预估 token 用量、向量占用空间 | |\n| 4 | **重新向量化** | 已上传文档的\"重新索引\"按钮，适用于修改分片参数后刷新 | |\n| 5 | **嵌入模型可切换** | 当前 embedding model 在 application.yaml 硬编码 `text-embedding-v4`，做成可选的 | |\n| 6 | **Web 爬虫导入** | 输入 URL 自动抓取页面内容并向量化（路线图中的\"全自动网络数据采集\"） | |\n| 7 | **全面升级前端聊天交互渲染（初步实现）** | 结构化输出和时间线 | |\n| 8 | **RAG回答太死板** | 让AI总结知识库，它直接拿这句话搜相关文档，但是搜出来的结果相关性太低，全部被过滤，AI误以为无结果，回答\"找不到相关信息\" | |\n| 9 | **接入MCP协议（初步实现）** | 详见 `./P2-9-mcp协议规划.md`、`./P2-9-接入第三方MCP服务行动方案.md` | |\n| 10 | **agents开发（初步实现）** | 详见 `./P2-10-agents开发规划.md` | |\n| 11 | 异步任务 + 消息通知机制 | | 初步实现 |\n\n另外，在**上传体验改进**范畴中，P2 体验增强还包括：\n\n| # | 改进 | 说明 |\n|---|---|---|\n| 7 | **AI 直接读工作目录** | 如果已设置工作目录，AI 可通过 FileTools 直接读取文件，无需上传 |\n| 8 | **文件名自动补全** | 输入框中 @ 触发工作目录文件列表，自动补全路径 |\n| 9 | **文件版本管理** | 同一文件多次上传保留历史版本 |\n| 10 | **文件关联知识库** | 上传文件时可选同时加入知识库，一次操作完成对话 + 知识沉淀 |\n\n以上即为知识库中 P2 — 体验增强规划的全部条目内容。",
+      "toolCalls" : [ ]
+    }
+  } ]
+}
+2026-08-23T17:44:17.084+08:00  INFO 26328 --- [my-chat] [oundedElastic-1] c.m.s.agent.AgentOrchestratorService     : Orchestrator single-shot auto-finish after step=1 action=retrieve_kb
+2026-08-23T17:44:17.084+08:00 DEBUG 26328 --- [my-chat] [oundedElastic-1] c.m.s.agent.AgentOrchestratorService     : streamFinalAnswer promptChars=2295 draftChars=1102
+2026-08-23T17:44:17.114+08:00 DEBUG 26328 --- [my-chat] [oundedElastic-1] o.s.a.c.c.advisor.SimpleLoggerAdvisor    : request: ChatClientRequest[prompt=Prompt{messages=[SystemMessage{textContent='你是面向用户的助手。根据「用户目标」「参考材料」和「答复草稿」，直接输出最终答复正文。
+要求：
+1. 默认 Markdown（标题、列表、代码块）；用户另有格式要求时除外。
+2. 把材料中的关键内容写进答复；不要只给「向用户作答 / 首先给出…」这类提纲或元指令。
+3. 草稿若已完整，可润色后输出；若草稿偏弱，必须基于材料写完整答复。
+4. 只输出用户可见正文，不要前言、不要解释你在流式输出。
+', messageType=SYSTEM, metadata={messageType=SYSTEM}}, UserMessage{content='用户目标：
+根据知识库回答项目的P2 — 体验增强规划有哪些内容
+
+会话上下文（只读参考，含摘要+近期原文；不要复述整段历史）：
+（无）
+
+参考材料（各 Worker observation，可能截断）：
+### 知识库要点（step 1）
+根据知识库中的检索结果，**P2 — 体验增强规划**的具体条目说明如下：
+
+| # | 功能 | 说明 | 进度 |
+|---|---|---|---|
+| 1 | **分片参数可配置** | 知识库级别自定义 chunkSize / chunkOverlap / topK，调参无需改代码 | |
+| 2 | **文档标签/分类** | 给文档打标签 el-tag，支持按标签筛选 | |
+| 3 | **知识库统计仪表盘** | 文档数、分片数、预估 token 用量、向量占用空间 | |
+| 4 | **重新向量化** | 已上传文档的"重新索引"按钮，适用于修改分片参数后刷新 | |
+| 5 | **嵌入模型可切换** | 当前 embedding model 在 application.yaml 硬编码 `text-embedding-v4`，做成可选的 | |
+| 6 | **Web 爬虫导入** | 输入 URL 自动抓取页面内容并向量化（路线图中的"全自动网络数据采集"） | |
+| 7 | **全面升级前端聊天交互渲染（初步实现）** | 结构化输出和时间线 | |
+| 8 | **RAG回答太死板** | 让AI总结知识库，它直接拿这句话搜相关文档，但是搜出来的结果相关性太低，全部被过滤，AI误以为无结果，回答"找不到相关信息" | |
+| 9 | **接入MCP协议（初步实现）** | 详见 `./P2-9-mcp协议规划.md`、`./P2-9-接入第三方MCP服务行动方案.md` | |
+| 10 | **agents开发（初步实现）** | 详见 `./P2-10-agents开发规划.md` | |
+| 11 | 异步任务 + 消息通知机制 | | 初步实现 |
+
+另外，在**上传体验改进**范畴中，P2 体验增强还包括：
+
+| # | 改进 | 说明 |
+|---|---|---|
+| 7 | **AI 直接读工作目录** | 如果已设置工作目录，AI 可通过 FileTools 直接读取文件，无需上传 |
+| 8 | **文件名自动补全** | 输入框中 @ 触发工作目录文件列表，自动补全路径 |
+| 9 | **文件版本管理** | 同一文件多次上传保留历史版本 |
+| 10 | **文件关联知识库** | 上传文件时可选同时加入知识库，一次操作完成对话 + 知识沉淀 |
+
+以上即为知识库中 P2 — 体验增强规划的全部条目内容。
+
+
+
+答复草稿：
+针对你的问题「根据知识库回答项目的P2 — 体验增强规划有哪些内容」，整理如下：
+
+## 知识库要点
+
+根据知识库中的检索结果，**P2 — 体验增强规划**的具体条目说明如下：
+
+| # | 功能 | 说明 | 进度 |
+|---|---|---|---|
+| 1 | **分片参数可配置** | 知识库级别自定义 chunkSize / chunkOverlap / topK，调参无需改代码 | |
+| 2 | **文档标签/分类** | 给文档打标签 el-tag，支持按标签筛选 | |
+| 3 | **知识库统计仪表盘** | 文档数、分片数、预估 token 用量、向量占用空间 | |
+| 4 | **重新向量化** | 已上传文档的"重新索引"按钮，适用于修改分片参数后刷新 | |
+| 5 | **嵌入模型可切换** | 当前 embedding model 在 application.yaml 硬编码 `text-embedding-v4`，做成可选的 | |
+| 6 | **Web 爬虫导入** | 输入 URL 自动抓取页面内容并向量化（路线图中的"全自动网络数据采集"） | |
+| 7 | **全面升级前端聊天交互渲染（初步实现）** | 结构化输出和时间线 | |
+| 8 | **RAG回答太死板** | 让AI总结知识库，它直接拿这句话搜相关文档，但是搜出来的结果相关性太低，全部被过滤，AI误以为无结果，回答"找不到相关信息" | |
+| 9 | **接入MCP协议（初步实现）** | 详见 `./P2-9-mcp协议规划.md`、`./P2-9-接入第三方MCP服务行动方案.md` | |
+| 10 | **agents开发（初步实现）** | 详见 `./P2-10-agents开发规划.md` | |
+| 11 | 异步任务 + 消息通知机制 | | 初步实现 |
+
+另外，在**上传体验改进**范畴中，P2 体验增强还包括：
+
+| # | 改进 | 说明 |
+|---|---|---|
+| 7 | **AI 直接读工作目录** | 如果已设置工作目录，AI 可通过 FileTools 直接读取文件，无需上传 |
+| 8 | **文件名自动补全** | 输入框中 @ 触发工作目录文件列表，自动补全路径 |
+| 9 | **文件版本管理** | 同一文件多次上传保留历史版本 |
+| 10 | **文件关联知识库** | 上传文件时可选同时加入知识库，一次操作完成对话 + 知识沉淀 |
+
+以上即为知识库中 P2 — 体验增强规划的全部条目内容。
+
+请直接输出最终答复：', metadata={messageType=USER}, messageType=USER}], modelOptions=org.springframework.ai.openai.OpenAiChatOptions@ce515e3f}, context={}]
+2026-08-23T17:44:20.677+08:00 DEBUG 26328 --- [my-chat] [ndedElastic-301] o.s.a.c.c.advisor.SimpleLoggerAdvisor    : response: {
+  "metadata" : {
+    "empty" : true,
+    "id" : "a5a08838-74c6-42bd-87ea-8d3625e51bfd",
+    "model" : "deepseek-v4-flash",
+    "promptMetadata" : [ ],
+    "rateLimit" : {
+      "requestsLimit" : 0,
+      "requestsRemaining" : 0,
+      "requestsReset" : "PT0S",
+      "tokensLimit" : 0,
+      "tokensRemaining" : 0,
+      "tokensReset" : "PT0S"
+    },
+    "usage" : {
+      "promptTokens" : 1343,
+      "completionTokens" : 590,
+      "totalTokens" : 1933,
+      "cacheReadInputTokens" : null,
+      "cacheWriteInputTokens" : null,
+      "nativeUsage" : {
+        "promptTokens" : 1343,
+        "totalTokens" : 1933,
+        "completionTokens" : 590
+      }
+    }
+  },
+  "result" : {
+    "metadata" : {
+      "contentFilters" : [ ],
+      "empty" : true,
+      "finishReason" : "STOP"
+    },
+    "output" : {
+      "media" : [ ],
+      "messageType" : "ASSISTANT",
+      "metadata" : {
+        "role" : "assistant",
+        "messageType" : "ASSISTANT",
+        "refusal" : "",
+        "finishReason" : "STOP",
+        "annotations" : [ ],
+        "index" : 0,
+        "id" : "a5a08838-74c6-42bd-87ea-8d3625e51bfd",
+        "reasoningContent" : ""
+      },
+      "text" : "根据知识库的检索结果，**P2 — 体验增强规划**包含以下 11 项核心功能，以及 4 项上传体验改进：\n\n## 核心功能（共 11 项）\n\n| # | 功能 | 说明 | 进度 |\n|---|---|---|---|\n| 1 | **分片参数可配置** | 知识库级别自定义 chunkSize / chunkOverlap / topK，调参无需改代码 | — |\n| 2 | **文档标签/分类** | 给文档打标签 el-tag，支持按标签筛选 | — |\n| 3 | **知识库统计仪表盘** | 文档数、分片数、预估 token 用量、向量占用空间 | — |\n| 4 | **重新向量化** | 已上传文档的“重新索引”按钮，适用于修改分片参数后刷新 | — |\n| 5 | **嵌入模型可切换** | 当前 embedding model 在 application.yaml 硬编码 `text-embedding-v4`，做成可选的 | — |\n| 6 | **Web 爬虫导入** | 输入 URL 自动抓取页面内容并向量化（路线图中的“全自动网络数据采集”） | — |\n| 7 | **全面升级前端聊天交互渲染** | 结构化输出和时间线 | 初步实现 |\n| 8 | **RAG 回答太死板** | 让 AI 总结知识库时，若检索结果相关性过低会被过滤，AI 误以为无结果而回复“找不到相关信息”——需优化检索相关性 | — |\n| 9 | **接入 MCP 协议** | 详见 `./P2-9-mcp协议规划.md`、`./P2-9-接入第三方MCP服务行动方案.md` | 初步实现 |\n| 10 | **agents 开发** | 详见 `./P2-10-agents开发规划.md` | 初步实现 |\n| 11 | **异步任务 + 消息通知机制** | — | 初步实现 |\n\n## 上传体验改进（4 项）\n\n在**上传体验改进**范畴内，P2 还包括：\n\n| # | 改进 | 说明 |\n|---|---|---|\n| 1 | **AI 直接读工作目录** | 已设置工作目录时，AI 可通过 FileTools 直接读取文件，无需上传 |\n| 2 | **文件名自动补全** | 输入框中输入 @ 触发工作目录文件列表，自动补全路径 |\n| 3 | **文件版本管理** | 同一文件多次上传保留历史版本 |\n| 4 | **文件关联知识库** | 上传文件时可选择同时加入知识库，一次操作完成对话 + 知识沉淀 |\n\n以上即为知识库中 P2 — 体验增强规划的全部条目内容。",
+      "toolCalls" : [ ]
+    }
+  },
+  "results" : [ {
+    "metadata" : {
+      "contentFilters" : [ ],
+      "empty" : true,
+      "finishReason" : "STOP"
+    },
+    "output" : {
+      "media" : [ ],
+      "messageType" : "ASSISTANT",
+      "metadata" : {
+        "role" : "assistant",
+        "messageType" : "ASSISTANT",
+        "refusal" : "",
+        "finishReason" : "STOP",
+        "annotations" : [ ],
+        "index" : 0,
+        "id" : "a5a08838-74c6-42bd-87ea-8d3625e51bfd",
+        "reasoningContent" : ""
+      },
+      "text" : "根据知识库的检索结果，**P2 — 体验增强规划**包含以下 11 项核心功能，以及 4 项上传体验改进：\n\n## 核心功能（共 11 项）\n\n| # | 功能 | 说明 | 进度 |\n|---|---|---|---|\n| 1 | **分片参数可配置** | 知识库级别自定义 chunkSize / chunkOverlap / topK，调参无需改代码 | — |\n| 2 | **文档标签/分类** | 给文档打标签 el-tag，支持按标签筛选 | — |\n| 3 | **知识库统计仪表盘** | 文档数、分片数、预估 token 用量、向量占用空间 | — |\n| 4 | **重新向量化** | 已上传文档的“重新索引”按钮，适用于修改分片参数后刷新 | — |\n| 5 | **嵌入模型可切换** | 当前 embedding model 在 application.yaml 硬编码 `text-embedding-v4`，做成可选的 | — |\n| 6 | **Web 爬虫导入** | 输入 URL 自动抓取页面内容并向量化（路线图中的“全自动网络数据采集”） | — |\n| 7 | **全面升级前端聊天交互渲染** | 结构化输出和时间线 | 初步实现 |\n| 8 | **RAG 回答太死板** | 让 AI 总结知识库时，若检索结果相关性过低会被过滤，AI 误以为无结果而回复“找不到相关信息”——需优化检索相关性 | — |\n| 9 | **接入 MCP 协议** | 详见 `./P2-9-mcp协议规划.md`、`./P2-9-接入第三方MCP服务行动方案.md` | 初步实现 |\n| 10 | **agents 开发** | 详见 `./P2-10-agents开发规划.md` | 初步实现 |\n| 11 | **异步任务 + 消息通知机制** | — | 初步实现 |\n\n## 上传体验改进（4 项）\n\n在**上传体验改进**范畴内，P2 还包括：\n\n| # | 改进 | 说明 |\n|---|---|---|\n| 1 | **AI 直接读工作目录** | 已设置工作目录时，AI 可通过 FileTools 直接读取文件，无需上传 |\n| 2 | **文件名自动补全** | 输入框中输入 @ 触发工作目录文件列表，自动补全路径 |\n| 3 | **文件版本管理** | 同一文件多次上传保留历史版本 |\n| 4 | **文件关联知识库** | 上传文件时可选择同时加入知识库，一次操作完成对话 + 知识沉淀 |\n\n以上即为知识库中 P2 — 体验增强规划的全部条目内容。",
+      "toolCalls" : [ ]
+    }
+  } ]
+}
+2026-08-23T17:44:20.683+08:00  WARN 26328 --- [my-chat] [ndedElastic-302] c.m.s.a.ChatOrchestrateStreamService     : qualityLoop=true 但未解析到 write 路径，已跳过质量环 turnId=chat_1787478196009_l2t02tfyu-c8622577-d836-4ed0-ba78-546f1548ad75
+2026-08-23T17:44:20.712+08:00 DEBUG 26328 --- [my-chat] [ndedElastic-303] c.m.m.C.selectList                       : ==>  Preparing: SELECT id,conversation_id,turn_id,assistant_ordinal,assistant_text,thinking,parts,created_at FROM chat_assistant_turns WHERE (conversation_id = ?) ORDER BY assistant_ordinal DESC LIMIT 1
+2026-08-23T17:44:20.712+08:00 DEBUG 26328 --- [my-chat] [ndedElastic-303] c.m.m.C.selectList                       : ==> Parameters: chat_1787478196009_l2t02tfyu(String)
+2026-08-23T17:44:20.724+08:00 DEBUG 26328 --- [my-chat] [ndedElastic-303] c.m.m.C.selectList                       : <==      Total: 0
+2026-08-23T17:44:20.727+08:00 DEBUG 26328 --- [my-chat] [ndedElastic-303] c.m.m.C.selectList                       : ==>  Preparing: SELECT id,conversation_id,turn_id,assistant_ordinal,assistant_text,thinking,parts,created_at FROM chat_assistant_turns WHERE (conversation_id = ? AND turn_id = ?)
+2026-08-23T17:44:20.727+08:00 DEBUG 26328 --- [my-chat] [ndedElastic-303] c.m.m.C.selectList                       : ==> Parameters: chat_1787478196009_l2t02tfyu(String), chat_1787478196009_l2t02tfyu-c8622577-d836-4ed0-ba78-546f1548ad75(String)
+2026-08-23T17:44:20.730+08:00 DEBUG 26328 --- [my-chat] [ndedElastic-303] c.m.m.C.selectList                       : <==      Total: 0
+2026-08-23T17:44:20.735+08:00 DEBUG 26328 --- [my-chat] [ndedElastic-303] c.m.m.ChatAssistantTurnMapper.insert     : ==>  Preparing: INSERT INTO chat_assistant_turns ( conversation_id, turn_id, assistant_ordinal, assistant_text, parts ) VALUES ( ?, ?, ?, ?, ? )
+2026-08-23T17:44:20.740+08:00 DEBUG 26328 --- [my-chat] [ndedElastic-303] c.m.m.ChatAssistantTurnMapper.insert     : ==> Parameters: chat_1787478196009_l2t02tfyu(String), chat_1787478196009_l2t02tfyu-c8622577-d836-4ed0-ba78-546f1548ad75(String), 0(Integer), 根据知识库的检索结果，**P2 — 体验增强规划**包含以下 11 项核心功能，以及 4 项上传体验改进：
+
+## 核心功能（共 11 项）
+
+| # | 功能 | 说明 | 进度 |
+|---|---|---|---|
+| 1 | **分片参数可配置** | 知识库级别自定义 chunkSize / chunkOverlap / topK，调参无需改代码 | — |
+| 2 | **文档标签/分类** | 给文档打标签 el-tag，支持按标签筛选 | — |
+| 3 | **知识库统计仪表盘** | 文档数、分片数、预估 token 用量、向量占用空间 | — |
+| 4 | **重新向量化** | 已上传文档的“重新索引”按钮，适用于修改分片参数后刷新 | — |
+| 5 | **嵌入模型可切换** | 当前 embedding model 在 application.yaml 硬编码 `text-embedding-v4`，做成可选的 | — |
+| 6 | **Web 爬虫导入** | 输入 URL 自动抓取页面内容并向量化（路线图中的“全自动网络数据采集”） | — |
+| 7 | **全面升级前端聊天交互渲染** | 结构化输出和时间线 | 初步实现 |
+| 8 | **RAG 回答太死板** | 让 AI 总结知识库时，若检索结果相关性过低会被过滤，AI 误以为无结果而回复“找不到相关信息”——需优化检索相关性 | — |
+| 9 | **接入 MCP 协议** | 详见 `./P2-9-mcp协议规划.md`、`./P2-9-接入第三方MCP服务行动方案.md` | 初步实现 |
+| 10 | **agents 开发** | 详见 `./P2-10-agents开发规划.md` | 初步实现 |
+| 11 | **异步任务 + 消息通知机制** | — | 初步实现 |
+
+## 上传体验改进（4 项）
+
+在**上传体验改进**范畴内，P2 还包括：
+
+| # | 改进 | 说明 |
+|---|---|---|
+| 1 | **AI 直接读工作目录** | 已设置工作目录时，AI 可通过 FileTools 直接读取文件，无需上传 |
+| 2 | **文件名自动补全** | 输入框中输入 @ 触发工作目录文件列表，自动补全路径 |
+| 3 | **文件版本管理** | 同一文件多次上传保留历史版本 |
+| 4 | **文件关联知识库** | 上传文件时可选择同时加入知识库，一次操作完成对话 + 知识沉淀 |
+
+以上即为知识库中 P2 — 体验增强规划的全部条目内容。(String), [{"type":"route","id":"route-4537714b-284e-4406-8b10-d80c90fdff02","name":"orchestrate","status":"done","resultPreview":"主聊天默认多步编排（Orchestrator-Workers），跨能力 Worker 接力"},{"type":"step","id":"step-1","name":"retrieve_kb","args":{"stepIndex":1,"instruction":"在知识库（kbId=9e35f762-557d-484a-a580-9bde58f11ac8）中检索主题为'P2 — 体验增强规划'的内容，获取该规划的具体条目说明，并整理成完整回答。"},"status":"done","resultPreview":"用户要求根据知识库回答项目P2体验增强规划的内容，需要从已绑定知识库检索相关信息。\n---\n根据知识库中的检索结果，**P2 — 体验增强规划**的具体条目说明如下：\n\n| # | 功能 | 说明 | 进度 |\n|---|---|---|---|\n| 1 | **分片参数可配置** | 知识库级别自定义 chunkSize / chunkOverlap / topK，调参无需改代码 | |\n| 2 | **文档标签/分类** | 给文档打标签 el-tag，支持按标签筛选 | |\n| 3 | **知识库统计仪表盘** | 文档数、分片数、预估 token 用量、向量占用空间 | |\n| 4 | **重新向量化** | 已上传文档的\"重新索引\"按钮，适用于修改分片参数后刷新 | |\n| 5 | **嵌入模型可切换** | 当前 embedding model 在 application.yaml 硬编码 `text-embedding-v4`，做成可选的 | |\n| 6 | **Web 爬虫导入** | 输入 URL 自动抓取页面内容并向量化（路线图中的\"全自动网络数据采集\"） | |\n| 7 | **全面升级前端聊天交互渲染（初步实现）** | 结构化输出和时间线 | |\n| 8 | **RAG回答太死板** | 让AI总结知识库，它直接拿这句话搜相关文档，但是搜出来的结果相关性太低，全部被过滤，AI误以为无结果，回答\"找不到相关信息\" | |\n| 9 | **接入MCP协议（初步实现）** | 详见 `./P2-9-mcp协议规划.md`、`./P2-9-接入第三方MCP服务行动方案.md` | |\n| 10 | **agents开发（初步实现）** | 详见 `./P2-10-agents开发规划.md` | |\n| 11 | 异步任务 + 消息通知机制 | | 初步实现 |\n\n另外，在**上传体验改进**范畴中，P2 体验增强还包括：\n\n| # | 改进 | 说明 |\n|---|---|---|\n| 7 | **AI 直接读工作目录** | 如果已设置工作目录，AI 可通过 FileTools 直接读取文件，无需上传 |\n| 8 | **文件名自动补全** | 输入框中 @ 触发工作目录文件列表，自动补全路径 |\n| 9 | **文件版本管理** | 同一文件多次上传保留历史版本 |\n| 10 | **文件关联知识库** | 上传文件时可选同时加入知识库，一次操作完成对话 + 知识沉淀 |\n\n以上即为知识库中 P2 — 体验增强规划的全部条目内容。","truncated":false},{"type":"step","id":"step-2","name":"finish","args":{"stepIndex":2,"instruction":""},"status":"done","resultPreview":"single-shot: complexity=single，Worker 观察已足够作答\n---\n针对你的问题「根据知识库回答项目的P2 — 体验增强规划有哪些内容」，整理如下：\n\n## 知识库要点\n\n根据知识库中的检索结果，**P2 — 体验增强规划**的具体条目说明如下：\n\n| # | 功能 | 说明 | 进度 |\n|---|---|---|---|\n| 1 | **分片参数可配置** | 知识库级别自定义 chunkSize / chunkOverlap / topK，调参无需改代码 | |\n| 2 | **文档标签/分类** | 给文档打标签 el-tag，支持按标签筛选 | |\n| 3 | **知识库统计仪表盘** | 文档数、分片数、预估 token 用量、向量占用空间 | |\n| 4 | **重新向量化** | 已上传文档的\"重新索引\"按钮，适用于修改分片参数后刷新 | |\n| 5 | **嵌入模型可切换** | 当前 embedding model 在 application.yaml 硬编码 `text-embedding-v4`，做成可选的 | |\n| 6 | **Web 爬虫导入** | 输入 URL 自动抓取页面内容并向量化（路线图中的\"全自动网络数据采集\"） | |\n| 7 | **全面升级前端聊天交互渲染（初步实现）** | 结构化输出和时间线 | |\n| 8 | **RAG回答太死板** | 让AI总结知识库，它直接拿这句话搜相关文档，但是搜出来的结果相关性太低，全部被过滤，AI误以为无结果，回答\"找不到相关信息\" | |\n| 9 | **接入MCP协议（初步实现）** | 详见 `./P2-9-mcp协议规划.md`、`./P2-9-接入第三方MCP服务行动方案.md` | |\n| 10 | **agents开发（初步实现）** | 详见 `./P2-10-agents开发规划.md` | |\n| 11 | 异步任务 + 消息通知机制 | | 初步实现 |\n\n另外，在**上传体验改进**范畴中，P2 体验增强还包括：\n\n| # | 改进 | 说明 |\n|---|---|---|\n| 7 | **AI 直接读工作目录** | 如果已设置工作目录，AI 可通过 FileTools 直接读取文件，无需上传 |\n| 8 | **文件名自动补全** | 输入框中 @ 触发工作目录文件列表，自动补全路径 |\n| 9 | **文件版本管理** | 同一文件多次上传保留历史版本 |\n| 10 | **文件关联知识库** | 上传文件时可选同时加入知识库，一次操作完成对话 + 知识沉淀 |\n\n以上即为知识库中 P2 — 体验增强规划的全部条目内容。","truncated":false}](PGobject)
+2026-08-23T17:44:20.761+08:00 DEBUG 26328 --- [my-chat] [ndedElastic-303] c.m.m.ChatAssistantTurnMapper.insert     : <==    Updates: 1

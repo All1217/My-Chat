@@ -20,6 +20,7 @@ public class KbIngestJobHandler implements JobHandler {
         this.documentIngestService = documentIngestService;
     }
 
+    // 自报家门：我专门处理哪种类型的 job
     @Override
     public String type() {
         return DocumentIngestService.JOB_TYPE;

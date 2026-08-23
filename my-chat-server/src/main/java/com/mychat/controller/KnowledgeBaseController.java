@@ -2,8 +2,10 @@ package com.mychat.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.mychat.common.result.Result;
+import com.mychat.entity.dto.KnowledgeBaseUpdateRequest;
 import com.mychat.entity.po.DocumentMeta;
 import com.mychat.entity.po.KnowledgeBase;
+import com.mychat.entity.po.KnowledgeBaseSettings;
 import com.mychat.mapper.DocumentMetaMapper;
 import com.mychat.service.knowledge.DocumentIngestService;
 import com.mychat.service.knowledge.KnowledgeBaseService;
@@ -16,6 +18,9 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * 知识库与文档元数据 API：列表、创建、更新参数、删除、批量入库。
+ */
 @Slf4j
 @RestController
 @RequestMapping("/ai/knowledge-base")
@@ -36,9 +41,23 @@ public class KnowledgeBaseController {
         kb.setId(UUID.randomUUID().toString());
         kb.setName(name);
         kb.setDescription(description);
+        KnowledgeBaseSettings.applyDefaults(kb);
+        KnowledgeBaseSettings.validate(kb);
         knowledgeBaseService.save(kb);
         log.info("Created knowledge base: {} ({})", kb.getId(), kb.getName());
         return Result.ok(kb);
+    }
+
+    /**
+     * 更新名称/描述与切分、检索参数。切分变更只影响之后新上传的文档。
+     */
+    @PostMapping("/update")
+    public Result<KnowledgeBase> update(@RequestBody KnowledgeBaseUpdateRequest request) {
+        try {
+            return Result.ok(knowledgeBaseService.updateKb(request));
+        } catch (IllegalArgumentException e) {
+            return Result.fail(400, e.getMessage());
+        }
     }
 
     @PostMapping("/delete")

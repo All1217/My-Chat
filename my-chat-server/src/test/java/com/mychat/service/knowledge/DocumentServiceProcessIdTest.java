@@ -7,6 +7,7 @@ import java.nio.charset.StandardCharsets;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DocumentServiceProcessIdTest {
 
@@ -27,5 +28,29 @@ class DocumentServiceProcessIdTest {
         assertEquals(
                 EmbeddingService.buildSegmentIds(documentId, first.segments().size()),
                 first.segments().stream().map(org.springframework.ai.document.Document::getId).toList());
+    }
+
+    @Test
+    void overlapZeroMatchesDefaultChunkCount() {
+        DocumentService svc = new DocumentService();
+        String text = "知识库入库测试段落。".repeat(80);
+        byte[] bytes = text.getBytes(StandardCharsets.UTF_8);
+        var defaults = svc.processDocument(new ByteArrayInputStream(bytes), "a.txt", "kb1", "doc-a");
+        var explicit = svc.processDocument(
+                new ByteArrayInputStream(bytes), "a.txt", "kb1", "doc-a", 800, 0);
+        assertEquals(defaults.segments().size(), explicit.segments().size());
+    }
+
+    @Test
+    void smallerChunkSizeYieldsMoreSegments() {
+        DocumentService svc = new DocumentService();
+        String text = "知识库入库测试段落。".repeat(80);
+        byte[] bytes = text.getBytes(StandardCharsets.UTF_8);
+        var coarse = svc.processDocument(
+                new ByteArrayInputStream(bytes), "a.txt", "kb1", "doc-a", 800, 0);
+        var fine = svc.processDocument(
+                new ByteArrayInputStream(bytes), "a.txt", "kb1", "doc-a", 64, 0);
+        assertFalse(fine.segments().isEmpty());
+        assertTrue(fine.segments().size() >= coarse.segments().size());
     }
 }

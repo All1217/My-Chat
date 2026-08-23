@@ -23,6 +23,22 @@ public class KnowledgeBase {
     @TableField(value = "description")
     private String description;
 
+    @Schema(description = "入库切分目标 token 数")
+    @TableField(value = "chunk_size")
+    private Integer chunkSize = KnowledgeBaseSettings.DEFAULT_CHUNK_SIZE;
+
+    @Schema(description = "相邻分片重叠 token 数")
+    @TableField(value = "chunk_overlap")
+    private Integer chunkOverlap = KnowledgeBaseSettings.DEFAULT_CHUNK_OVERLAP;
+
+    @Schema(description = "检索返回片段上限")
+    @TableField(value = "top_k")
+    private Integer topK = KnowledgeBaseSettings.DEFAULT_TOP_K;
+
+    @Schema(description = "检索相似度下限 0~1")
+    @TableField(value = "similarity_threshold")
+    private Double similarityThreshold = KnowledgeBaseSettings.DEFAULT_SIMILARITY_THRESHOLD;
+
     @Schema(description = "创建时间")
     @TableField(value = "created_at", fill = FieldFill.INSERT)
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")

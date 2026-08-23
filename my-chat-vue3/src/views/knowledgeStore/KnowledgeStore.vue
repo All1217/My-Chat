@@ -22,6 +22,9 @@
         <span class="current-kb-title" v-if="currentKb">{{ currentKb.name }}</span>
         <span v-else class="current-kb-title">请选择一个知识库</span>
         <div class="top-actions">
+          <el-button :icon="Setting" :disabled="!currentKb" @click="openSettings">
+            设置
+          </el-button>
           <el-button type="primary" :icon="Upload" :disabled="!currentKb"
             @click="showUploadDialog = true">
             上传文档
@@ -86,6 +89,45 @@
       </template>
     </el-dialog>
 
+    <el-dialog v-model="showSettingsDialog" title="知识库设置" width="520px">
+      <el-form :model="settingsForm" label-width="120px">
+        <el-form-item label="名称">
+          <el-input v-model="settingsForm.name" placeholder="知识库名称" />
+        </el-form-item>
+        <el-form-item label="描述">
+          <el-input v-model="settingsForm.description" type="textarea" :rows="2" placeholder="可选描述" />
+        </el-form-item>
+        <el-divider content-position="left">入库切分</el-divider>
+        <p class="settings-hint">单位为 token。修改后只影响之后新上传的文档。</p>
+        <el-form-item label="切分大小">
+          <el-input-number v-model="settingsForm.chunkSize" :min="64" :max="4000" :step="64" />
+        </el-form-item>
+        <el-form-item label="重叠大小">
+          <el-input-number v-model="settingsForm.chunkOverlap" :min="0" :max="Math.max(0, settingsForm.chunkSize - 1)" />
+        </el-form-item>
+        <el-alert
+          v-if="splitParamsChanged && docList.length > 0"
+          type="warning"
+          :closable="false"
+          show-icon
+          title="已入库文档不会自动按新切分重嵌，需后续「重新向量化」。"
+          class="settings-alert"
+        />
+        <el-divider content-position="left">检索</el-divider>
+        <p class="settings-hint">立刻影响问答，无需重传文档。</p>
+        <el-form-item label="返回条数 topK">
+          <el-input-number v-model="settingsForm.topK" :min="1" :max="20" />
+        </el-form-item>
+        <el-form-item label="相似度阈值">
+          <el-input-number v-model="settingsForm.similarityThreshold" :min="0" :max="1" :step="0.05" :precision="2" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showSettingsDialog = false">取消</el-button>
+        <el-button type="primary" :loading="savingSettings" @click="handleSaveSettings">保存</el-button>
+      </template>
+    </el-dialog>
+
     <el-dialog v-model="showCreateDialog" title="新建知识库" width="400px">
       <el-form :model="createForm" label-width="80px">
         <el-form-item label="名称">
@@ -107,7 +149,7 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { UploadUserFile } from 'element-plus'
-import { Plus, Upload, UploadFilled, Delete, House, ArrowLeft, ChatDotRound } from '@element-plus/icons-vue'
+import { Plus, Upload, UploadFilled, Delete, House, ArrowLeft, ChatDotRound, Setting } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { knowledgeApi } from '@/api/knowledge'
 import { useNotifyStore } from '@/stores/notify'
@@ -118,15 +160,29 @@ const notifyStore = useNotifyStore()
 
 const submitting = ref(false)
 const creating = ref(false)
+const savingSettings = ref(false)
 const showCreateDialog = ref(false)
 const showUploadDialog = ref(false)
+const showSettingsDialog = ref(false)
 const fileList = ref<UploadUserFile[]>([])
 const activeKbId = ref('')
 const kbList = ref<KnowledgeBase[]>([])
 const docList = ref<DocumentMeta[]>([])
 const createForm = ref({ name: '', description: '' })
+const settingsForm = ref({
+  name: '',
+  description: '',
+  chunkSize: 800,
+  chunkOverlap: 0,
+  topK: 5,
+  similarityThreshold: 0.5,
+})
+const settingsSnapshot = ref({ chunkSize: 800, chunkOverlap: 0 })
 
 const currentKb = computed(() => kbList.value.find(kb => kb.id === activeKbId.value))
+const splitParamsChanged = computed(() =>
+  settingsForm.value.chunkSize !== settingsSnapshot.value.chunkSize
+  || settingsForm.value.chunkOverlap !== settingsSnapshot.value.chunkOverlap)
 
 function statusType(status: string) {
   if (status === 'READY') return 'success'
@@ -157,6 +213,53 @@ async function fetchDocList() {
 function handleSelectKb(id: string) {
   activeKbId.value = id
   fetchDocList()
+}
+
+function openSettings() {
+  const kb = currentKb.value
+  if (!kb) return
+  settingsForm.value = {
+    name: kb.name,
+    description: kb.description ?? '',
+    chunkSize: kb.chunkSize ?? 800,
+    chunkOverlap: kb.chunkOverlap ?? 0,
+    topK: kb.topK ?? 5,
+    similarityThreshold: kb.similarityThreshold ?? 0.5,
+  }
+  settingsSnapshot.value = {
+    chunkSize: settingsForm.value.chunkSize,
+    chunkOverlap: settingsForm.value.chunkOverlap,
+  }
+  showSettingsDialog.value = true
+}
+
+async function handleSaveSettings() {
+  if (!currentKb.value) return
+  if (!settingsForm.value.name.trim()) {
+    ElMessage.warning('请输入知识库名称')
+    return
+  }
+  if (settingsForm.value.chunkOverlap >= settingsForm.value.chunkSize) {
+    ElMessage.warning('重叠 token 数须小于切分大小')
+    return
+  }
+  savingSettings.value = true
+  try {
+    const updated = await knowledgeApi.update({
+      id: currentKb.value.id,
+      name: settingsForm.value.name.trim(),
+      description: settingsForm.value.description,
+      chunkSize: settingsForm.value.chunkSize,
+      chunkOverlap: settingsForm.value.chunkOverlap,
+      topK: settingsForm.value.topK,
+      similarityThreshold: settingsForm.value.similarityThreshold,
+    })
+    const idx = kbList.value.findIndex(k => k.id === updated.id)
+    if (idx >= 0) kbList.value[idx] = updated
+    showSettingsDialog.value = false
+    ElMessage.success('已保存')
+  } catch { /* 已 toast */ }
+  savingSettings.value = false
 }
 
 /** 跳转到聊天页面，并携带当前选中的知识库信息 */
@@ -363,5 +466,16 @@ onUnmounted(() => {
       }
     }
   }
+}
+
+.settings-hint {
+  margin: 0 0 12px 120px;
+  font-size: 12px;
+  color: #909399;
+  line-height: 1.5;
+}
+
+.settings-alert {
+  margin: 0 0 16px 120px;
 }
 </style>

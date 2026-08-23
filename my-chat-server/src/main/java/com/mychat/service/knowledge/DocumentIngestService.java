@@ -8,6 +8,7 @@ import com.mychat.config.IngestProperties;
 import com.mychat.entity.po.AsyncJob;
 import com.mychat.entity.po.DocumentMeta;
 import com.mychat.entity.po.KnowledgeBase;
+import com.mychat.entity.po.KnowledgeBaseSettings;
 import com.mychat.job.AsyncJobService;
 import com.mychat.mapper.AsyncJobMapper;
 import com.mychat.mapper.DocumentMetaMapper;
@@ -117,10 +118,14 @@ public class DocumentIngestService {
             throw new IllegalStateException("落盘文件丢失: " + path);
         }
 
+        KnowledgeBase kb = knowledgeBaseMapper.selectById(meta.getKbId());
+        int chunkSize = KnowledgeBaseSettings.chunkSizeOrDefault(kb != null ? kb.getChunkSize() : null);
+        int chunkOverlap = KnowledgeBaseSettings.chunkOverlapOrDefault(kb != null ? kb.getChunkOverlap() : null);
+
         int written = 0;
         try (InputStream in = Files.newInputStream(path)) {
             DocumentService.ProcessedDocument processed = documentService.processDocument(
-                    in, meta.getFilename(), meta.getKbId(), documentId);
+                    in, meta.getFilename(), meta.getKbId(), documentId, chunkSize, chunkOverlap);
             written = embeddingService.storeSegmentsBatched(
                     processed.segments(), ingestProperties.getEmbedBatchSize());
             markReady(documentId, written);

@@ -1,5 +1,5 @@
 import { ragClient } from '@/utils/http'
-import type { KnowledgeBase, DocumentMeta } from '@/types/knowledgeStore/types'
+import type { KnowledgeBase, KnowledgeBaseUpdate, DocumentMeta } from '@/types/knowledgeStore/types'
 
 export const knowledgeApi = {
   list: () => ragClient.get<KnowledgeBase[]>('/ai/knowledge-base/list'),
@@ -8,9 +8,12 @@ export const knowledgeApi = {
     ragClient.get<DocumentMeta[]>('/ai/knowledge-base/documents', { params: { kbId } }),
 
   create: (name: string, description: string) =>
-    ragClient.post<void>('/ai/knowledge-base/create', null, {
+    ragClient.post<KnowledgeBase>('/ai/knowledge-base/create', null, {
       params: { name, description },
     }),
+
+  update: (payload: KnowledgeBaseUpdate) =>
+    ragClient.post<KnowledgeBase>('/ai/knowledge-base/update', payload),
 
   remove: (id: string) =>
     ragClient.post<void>('/ai/knowledge-base/delete', null, { params: { id } }),

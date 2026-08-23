@@ -1,5 +1,6 @@
 package com.mychat.service.knowledge;
 
+import com.mychat.entity.po.KnowledgeBaseSettings;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
@@ -26,23 +27,42 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+/**
+ * 解析上传文件并按知识库切分参数切成向量段。
+ */
 @Slf4j
 @Service
 public class DocumentService {
-    private static final TokenTextSplitter splitter = TokenTextSplitter.builder().build();
 
     public ProcessedDocument processDocument(InputStream inputStream, String filename, String kbId) {
         return processDocument(inputStream, filename, kbId, UUID.randomUUID().toString());
     }
 
     /**
-     * 按已有文档 ID 切段（异步入库必须用先插入的 document_meta.id，否则失败时清不掉向量）。
+     * 按已有文档 ID 切段，切分参数用平台默认（800 / 0）。
      */
     public ProcessedDocument processDocument(InputStream inputStream, String filename, String kbId, String documentId) {
+        return processDocument(
+                inputStream, filename, kbId, documentId,
+                KnowledgeBaseSettings.DEFAULT_CHUNK_SIZE,
+                KnowledgeBaseSettings.DEFAULT_CHUNK_OVERLAP);
+    }
+
+    /**
+     * 按已有文档 ID 与指定切分参数切段（异步入库必须用先插入的 document_meta.id）。
+     */
+    public ProcessedDocument processDocument(
+            InputStream inputStream,
+            String filename,
+            String kbId,
+            String documentId,
+            int chunkSize,
+            int chunkOverlap) {
         if (!StringUtils.hasText(documentId)) {
             throw new IllegalArgumentException("documentId 不能为空");
         }
-        log.info("Processing document: {}, kbId={}, documentId={}", filename, kbId, documentId);
+        log.info("Processing document: {}, kbId={}, documentId={}, chunkSize={}, overlap={}",
+                filename, kbId, documentId, chunkSize, chunkOverlap);
         try {
             String ext = filename.contains(".")
                     ? filename.substring(filename.lastIndexOf('.') + 1).toLowerCase()
@@ -57,8 +77,7 @@ public class DocumentService {
             if (kbId != null && !kbId.isEmpty()) {
                 metadata.put("kbId", kbId);
             }
-            Document document = new Document(documentId, content, metadata);
-            List<Document> rawSegments = splitter.split(document);
+            List<Document> rawSegments = splitIntoSegments(content, metadata, documentId, chunkSize, chunkOverlap);
             List<Document> segments = new ArrayList<>(rawSegments.size());
             for (int i = 0; i < rawSegments.size(); i++) {
                 Document seg = rawSegments.get(i);
@@ -68,10 +87,37 @@ public class DocumentService {
             }
             log.info("Document '{}' processed into {} segments", filename, segments.size());
             return new ProcessedDocument(documentId, filename, segments);
+        } catch (RuntimeException e) {
+            log.error("Failed to process document: {}", filename, e);
+            throw e;
         } catch (Exception e) {
             log.error("Failed to process document: {}", filename, e);
             throw new RuntimeException("Document processing failed: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * overlap=0 走 Spring AI TokenTextSplitter（与现网一致）；overlap&gt;0 走滑动窗口。
+     */
+    private List<Document> splitIntoSegments(
+            String content,
+            Map<String, Object> metadata,
+            String documentId,
+            int chunkSize,
+            int chunkOverlap) {
+        if (chunkOverlap <= 0) {
+            TokenTextSplitter splitter = TokenTextSplitter.builder()
+                    .withChunkSize(chunkSize)
+                    .build();
+            Document document = new Document(documentId, content, metadata);
+            return splitter.split(document);
+        }
+        List<String> texts = TokenSlidingSplitter.split(content, chunkSize, chunkOverlap);
+        List<Document> segments = new ArrayList<>(texts.size());
+        for (String text : texts) {
+            segments.add(new Document(UUID.randomUUID().toString(), text, new HashMap<>(metadata)));
+        }
+        return segments;
     }
 
     private String parseByExtension(InputStream inputStream, String ext) throws Exception {

@@ -121,18 +121,32 @@ CREATE INDEX IF NOT EXISTS idx_vector_store_embedding
 -- knowledge_base（知识库）
 CREATE TABLE IF NOT EXISTS knowledge_base
 (
-    id          VARCHAR(64) PRIMARY KEY,
-    name        VARCHAR(200) NOT NULL,
-    description TEXT,
-    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    id                     VARCHAR(64) PRIMARY KEY,
+    name                   VARCHAR(200) NOT NULL,
+    description            TEXT,
+    chunk_size             INT                   DEFAULT 800  NOT NULL,
+    chunk_overlap          INT                   DEFAULT 0    NOT NULL,
+    top_k                  INT                   DEFAULT 5    NOT NULL,
+    similarity_threshold   DOUBLE PRECISION      DEFAULT 0.5  NOT NULL,
+    created_at             TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at             TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 COMMENT ON TABLE knowledge_base IS '知识库基础信息';
 COMMENT ON COLUMN knowledge_base.id IS '知识库唯一ID';
 COMMENT ON COLUMN knowledge_base.name IS '知识库名称';
 COMMENT ON COLUMN knowledge_base.description IS '知识库描述';
+COMMENT ON COLUMN knowledge_base.chunk_size IS '入库切分目标 token 数';
+COMMENT ON COLUMN knowledge_base.chunk_overlap IS '相邻分片重叠 token 数，须小于 chunk_size';
+COMMENT ON COLUMN knowledge_base.top_k IS '检索返回片段上限';
+COMMENT ON COLUMN knowledge_base.similarity_threshold IS '检索相似度下限 0~1';
 COMMENT ON COLUMN knowledge_base.created_at IS '创建时间';
 COMMENT ON COLUMN knowledge_base.updated_at IS '更新时间（应用层维护）';
+
+-- 已有库 CREATE IF NOT EXISTS 不会加列
+ALTER TABLE knowledge_base ADD COLUMN IF NOT EXISTS chunk_size INT NOT NULL DEFAULT 800;
+ALTER TABLE knowledge_base ADD COLUMN IF NOT EXISTS chunk_overlap INT NOT NULL DEFAULT 0;
+ALTER TABLE knowledge_base ADD COLUMN IF NOT EXISTS top_k INT NOT NULL DEFAULT 5;
+ALTER TABLE knowledge_base ADD COLUMN IF NOT EXISTS similarity_threshold DOUBLE PRECISION NOT NULL DEFAULT 0.5;
 
 -- document_meta（文档元数据）
 CREATE TABLE IF NOT EXISTS document_meta

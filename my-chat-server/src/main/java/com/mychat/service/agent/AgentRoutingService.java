@@ -1,6 +1,9 @@
 package com.mychat.service.agent;
 
 import com.mychat.entity.dto.RouteRequest;
+import com.mychat.entity.po.KnowledgeBase;
+import com.mychat.entity.po.KnowledgeBaseSettings;
+import com.mychat.mapper.KnowledgeBaseMapper;
 import com.mychat.vo.RouteResultVO;
 import com.mychat.common.RoutingWorkflow;
 import com.mychat.config.WorkspaceContext;
@@ -38,18 +41,21 @@ public class AgentRoutingService {
     private final ChatClient agentWorkflowChatClient;
     private final VectorStore vectorStore;
     private final WorkspaceUtil workspaceUtil;
+    private final KnowledgeBaseMapper knowledgeBaseMapper;
 
     public AgentRoutingService(
             @Qualifier("agentWorkflowChatClient") ChatClient agentWorkflowChatClient,
             @Qualifier("toolChatClient") ChatClient toolChatClient,
             @Qualifier("ragChatClient") ChatClient ragChatClient,
             VectorStore vectorStore,
-            WorkspaceUtil workspaceUtil) {
+            WorkspaceUtil workspaceUtil,
+            KnowledgeBaseMapper knowledgeBaseMapper) {
         this.agentWorkflowChatClient = agentWorkflowChatClient;
         this.toolChatClient = toolChatClient;
         this.ragChatClient = ragChatClient;
         this.vectorStore = vectorStore;
         this.workspaceUtil = workspaceUtil;
+        this.knowledgeBaseMapper = knowledgeBaseMapper;
         // 分类器必须用无工具 Client，避免「分类阶段就去 ls/搜网」
         this.routingWorkflow = new RoutingWorkflow(agentWorkflowChatClient);
     }
@@ -105,13 +111,22 @@ public class AgentRoutingService {
     }
 
     /**
-     * 构建按 kbId 过滤的 {@link QuestionAnswerAdvisor}（主聊天 kb 路由复用）。
+     * 构建按 kbId 过滤的 {@link QuestionAnswerAdvisor}；topK / 阈值取自该知识库。
      */
     public QuestionAnswerAdvisor buildKbAdvisor(String kbId) {
+        int topK = KnowledgeBaseSettings.DEFAULT_TOP_K;
+        double threshold = KnowledgeBaseSettings.DEFAULT_SIMILARITY_THRESHOLD;
+        if (StringUtils.hasText(kbId)) {
+            KnowledgeBase kb = knowledgeBaseMapper.selectById(kbId.trim());
+            if (kb != null) {
+                topK = KnowledgeBaseSettings.topKOrDefault(kb.getTopK());
+                threshold = KnowledgeBaseSettings.thresholdOrDefault(kb.getSimilarityThreshold());
+            }
+        }
         return QuestionAnswerAdvisor.builder(vectorStore)
                 .searchRequest(SearchRequest.builder()
-                        .topK(5)
-                        .similarityThreshold(0.5)
+                        .topK(topK)
+                        .similarityThreshold(threshold)
                         .filterExpression("kbId == '" + kbId + "'")
                         .build())
                 .build();

@@ -1,4 +1,4 @@
-package com.mychat.service;
+package com.mychat.service.knowledge;
 
 import com.mychat.entity.po.DocumentMeta;
 import lombok.extern.slf4j.Slf4j;

@@ -1,4 +1,4 @@
-package com.mychat.service;
+package com.mychat.job;
 
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.mychat.entity.po.AsyncJob;

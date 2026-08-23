@@ -1,9 +1,10 @@
-package com.mychat.service;
+package com.mychat.service.agent;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.mychat.entity.po.ChatSessionSummary;
 import com.mychat.entity.po.SpringAiChatMemory;
 import com.mychat.mapper.SpringAiChatMemoryMapper;
+import com.mychat.service.chat.ChatSessionSummaryService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Qualifier;

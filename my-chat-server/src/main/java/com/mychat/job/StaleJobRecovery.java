@@ -1,6 +1,6 @@
 package com.mychat.job;
 
-import com.mychat.service.AsyncJobService;
+import com.mychat.job.AsyncJobService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;

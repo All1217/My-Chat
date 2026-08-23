@@ -1,8 +1,8 @@
 package com.mychat.controller;
 
 import com.mychat.config.WorkspaceContext;
-import com.mychat.service.ChatOrchestrateStreamService;
-import com.mychat.service.ChatSessionsService;
+import com.mychat.service.agent.ChatOrchestrateStreamService;
+import com.mychat.service.chat.ChatSessionsService;
 import com.mychat.utils.WorkspaceUtil;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;

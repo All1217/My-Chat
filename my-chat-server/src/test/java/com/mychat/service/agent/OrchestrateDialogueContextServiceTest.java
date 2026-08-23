@@ -1,4 +1,4 @@
-package com.mychat.service;
+package com.mychat.service.agent;
 
 import com.mychat.entity.po.SpringAiChatMemory;
 import org.junit.jupiter.api.Test;

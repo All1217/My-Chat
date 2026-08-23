@@ -1,4 +1,4 @@
-package com.mychat.service;
+package com.mychat.service.chat;
 
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.mychat.entity.po.SpringAiChatMemory;

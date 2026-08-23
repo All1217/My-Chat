@@ -1,6 +1,8 @@
-package com.mychat.service;
+package com.mychat.service.agent;
 
 import com.mychat.common.ChatStreamEvent;
+import com.mychat.service.chat.ChatAssistantTurnService;
+import com.mychat.service.knowledge.DocumentService;
 import com.mychat.config.WorkspaceContext;
 import com.mychat.entity.dto.EvaluateOptimizeRequest;
 import com.mychat.entity.dto.OrchestrateRequest;

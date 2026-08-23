@@ -5,7 +5,7 @@ import com.mychat.common.result.Result;
 import com.mychat.entity.po.DocumentMeta;
 import com.mychat.entity.po.KnowledgeBase;
 import com.mychat.mapper.DocumentMetaMapper;
-import com.mychat.service.KnowledgeBaseService;
+import com.mychat.service.knowledge.KnowledgeBaseService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;

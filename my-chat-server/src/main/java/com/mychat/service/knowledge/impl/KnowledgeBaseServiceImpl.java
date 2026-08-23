@@ -1,4 +1,4 @@
-package com.mychat.service.impl;
+package com.mychat.service.knowledge.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -6,8 +6,8 @@ import com.mychat.entity.po.DocumentMeta;
 import com.mychat.entity.po.KnowledgeBase;
 import com.mychat.mapper.DocumentMetaMapper;
 import com.mychat.mapper.KnowledgeBaseMapper;
-import com.mychat.service.EmbeddingService;
-import com.mychat.service.KnowledgeBaseService;
+import com.mychat.service.knowledge.EmbeddingService;
+import com.mychat.service.knowledge.KnowledgeBaseService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

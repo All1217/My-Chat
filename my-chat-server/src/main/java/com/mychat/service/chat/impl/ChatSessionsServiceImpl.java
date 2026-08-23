@@ -1,4 +1,4 @@
-package com.mychat.service.impl;
+package com.mychat.service.chat.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -9,9 +9,9 @@ import com.mychat.entity.po.SpringAiChatMemory;
 import com.mychat.vo.ChatSessionVO;
 import com.mychat.mapper.ChatSessionsMapper;
 import com.mychat.mapper.SpringAiChatMemoryMapper;
-import com.mychat.service.ChatAssistantTurnService;
-import com.mychat.service.ChatSessionSummaryService;
-import com.mychat.service.ChatSessionsService;
+import com.mychat.service.chat.ChatAssistantTurnService;
+import com.mychat.service.chat.ChatSessionSummaryService;
+import com.mychat.service.chat.ChatSessionsService;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

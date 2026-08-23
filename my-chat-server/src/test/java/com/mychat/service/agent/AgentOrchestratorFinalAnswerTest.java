@@ -1,4 +1,4 @@
-package com.mychat.service;
+package com.mychat.service.agent;
 
 import com.mychat.common.OrchestratorWorkflow;
 import com.mychat.vo.OrchestrateStepVO;
@@ -78,7 +78,7 @@ class AgentOrchestratorFinalAnswerTest {
         assertTrue(prompt.contains("README.md"));
         assertTrue(prompt.contains("答复草稿："));
         assertTrue(prompt.contains("请直接输出最终答复："));
-        assertTrue(prompt.contains("近期对话"));
+        assertTrue(prompt.contains("近期原文"));
         assertTrue(prompt.contains("（无）"));
     }
 
@@ -90,7 +90,7 @@ class AgentOrchestratorFinalAnswerTest {
         String prompt = AgentOrchestratorService.buildFinalAnswerStreamUserPrompt(
                 "在刚才那个文件末尾加一行", "草稿", steps,
                 "USER: 把备注写入 notes/todo.md\nASSISTANT: 已写入");
-        assertTrue(prompt.contains("近期对话"));
+        assertTrue(prompt.contains("近期原文"));
         assertTrue(prompt.contains("notes/todo.md"));
     }
 

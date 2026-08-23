@@ -2,7 +2,7 @@ package com.mychat.controller;
 
 import com.mychat.common.result.Result;
 import com.mychat.job.JobEventHub;
-import com.mychat.service.AsyncJobService;
+import com.mychat.job.AsyncJobService;
 import com.mychat.vo.AsyncJobVO;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;

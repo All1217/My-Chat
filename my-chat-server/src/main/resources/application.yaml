@@ -81,6 +81,7 @@ app:
     # 启动时把超过此时长仍为 PENDING/RUNNING 的任务标 FAILED
     stale-minutes: 10
   ingest:
+    # 知识库源文件存档目录，生产环境换成磁盘其他目录
     # 与 workspace 分开，避免 Agent 文件工具摸到用户原文
     root: ./src/main/resources/ingest
     max-file-size-mb: 50

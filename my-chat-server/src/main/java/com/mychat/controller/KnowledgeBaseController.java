@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * 知识库与文档元数据 API：列表、创建、更新参数、删除、批量入库。
+ * 知识库与文档元数据 API：列表、创建、更新参数、删除、批量入库、文档级重新向量化。
  */
 @Slf4j
 @RestController
@@ -49,7 +49,7 @@ public class KnowledgeBaseController {
     }
 
     /**
-     * 更新名称/描述与切分、检索参数。切分变更只影响之后新上传的文档。
+     * 更新名称/描述与切分、检索参数。切分变更只影响之后新上传的文档，已入库文档需重新向量化。
      */
     @PostMapping("/update")
     public Result<KnowledgeBase> update(@RequestBody KnowledgeBaseUpdateRequest request) {
@@ -64,6 +64,21 @@ public class KnowledgeBaseController {
     public Result<Void> delete(@RequestParam String id) {
         knowledgeBaseService.deleteKb(id);
         return Result.ok();
+    }
+
+    /**
+     * 文档级重新向量化：读落盘原文，按当前切分参数重切。立刻返回。
+     */
+    @PostMapping("/documents/reindex")
+    public Result<DocumentMeta> reindexDocument(@RequestParam("id") String id) {
+        try {
+            return Result.ok(documentIngestService.submitReindex(id));
+        } catch (IllegalArgumentException e) {
+            return Result.fail(400, e.getMessage());
+        } catch (Exception e) {
+            log.error("重新向量化提交失败 id={}", id, e);
+            return Result.fail(500, e.getMessage() != null ? e.getMessage() : "提交失败");
+        }
     }
 
     /**

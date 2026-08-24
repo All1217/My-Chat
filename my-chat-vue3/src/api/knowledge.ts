@@ -29,6 +29,11 @@ export const knowledgeApi = {
     })
   },
 
+  reindexDocument: (id: string) =>
+    ragClient.post<DocumentMeta>('/ai/knowledge-base/documents/reindex', null, {
+      params: { id },
+    }),
+
   deleteDocument: (id: string) =>
     ragClient.post<void>('/ai/file/delete', { id }),
 }

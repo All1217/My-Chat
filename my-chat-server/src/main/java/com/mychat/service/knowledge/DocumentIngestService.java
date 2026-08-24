@@ -31,7 +31,7 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * 知识库入库：HTTP 只落盘 + 插 PROCESSING + 提交 Job；向量化在 {@link #ingest}。
+ * 知识库入库与文档级重新向量化：HTTP 只落盘/校验并提交 Job；切段与 embedding 在 {@link #ingest}。
  */
 @Slf4j
 @Service
@@ -98,7 +98,7 @@ public class DocumentIngestService {
     }
 
     /**
-     * Job 线程：读盘 → 按已有 id 切段 → 分批 embedding → READY / FAILED。
+     * Job 线程：清旧向量 → 读盘按当前切分参数切段 → 分批 embedding → READY / FAILED。
      */
     public void ingest(String documentId) throws Exception {
         if (!StringUtils.hasText(documentId)) {
@@ -118,12 +118,18 @@ public class DocumentIngestService {
             throw new IllegalStateException("落盘文件丢失: " + path);
         }
 
+        // 删旧向量：重跑时避免新旧切段并存；首次入库 chunkCount=0 为空操作
+        int oldChunks = meta.getChunkCount() != null ? meta.getChunkCount() : 0;
+        embeddingService.deleteByDocumentId(documentId, oldChunks);
+        clearChunkCount(documentId);
+
         KnowledgeBase kb = knowledgeBaseMapper.selectById(meta.getKbId());
         int chunkSize = KnowledgeBaseSettings.chunkSizeOrDefault(kb != null ? kb.getChunkSize() : null);
         int chunkOverlap = KnowledgeBaseSettings.chunkOverlapOrDefault(kb != null ? kb.getChunkOverlap() : null);
 
         int written = 0;
         try (InputStream in = Files.newInputStream(path)) {
+            // 切段写入：按该库当前 chunkSize / overlap
             DocumentService.ProcessedDocument processed = documentService.processDocument(
                     in, meta.getFilename(), meta.getKbId(), documentId, chunkSize, chunkOverlap);
             written = embeddingService.storeSegmentsBatched(
@@ -131,12 +137,14 @@ public class DocumentIngestService {
             markReady(documentId, written);
             log.info("文档入库成功 documentId={} chunks={}", documentId, written);
         } catch (EmbeddingService.PartialEmbedException e) {
+            // 失败回滚：只删本轮已写入的段
             written = e.written();
             embeddingService.deleteByDocumentId(documentId, written);
             String msg = truncateError(e.getMessage());
             markFailed(documentId, msg);
             throw e;
         } catch (Exception e) {
+            // 失败回滚：只删本轮已写入的段
             if (written > 0) {
                 embeddingService.deleteByDocumentId(documentId, written);
             }
@@ -144,6 +152,41 @@ public class DocumentIngestService {
             markFailed(documentId, msg);
             throw e;
         }
+    }
+
+    /**
+     * 同步：校验已有文档与落盘文件，提交 kb_ingest 重新向量化。不解析、不 embedding。
+     */
+    public DocumentMeta submitReindex(String documentId) {
+        if (!StringUtils.hasText(documentId)) {
+            throw new IllegalArgumentException("documentId 不能为空");
+        }
+        DocumentMeta meta = documentMetaMapper.selectById(documentId.trim());
+        if (meta == null) {
+            throw new IllegalArgumentException("文档不存在");
+        }
+        if (DocumentMeta.STATUS_PROCESSING.equals(meta.getStatus())) {
+            throw new IllegalArgumentException("文档正在处理中");
+        }
+        if (!DocumentMeta.STATUS_READY.equals(meta.getStatus())
+                && !DocumentMeta.STATUS_FAILED.equals(meta.getStatus())) {
+            throw new IllegalArgumentException("文档正在处理中");
+        }
+        if (!StringUtils.hasText(meta.getStoragePath())) {
+            throw new IllegalArgumentException("落盘文件丢失，请重新上传");
+        }
+        Path path = Path.of(meta.getStoragePath());
+        if (!Files.isRegularFile(path)) {
+            throw new IllegalArgumentException("落盘文件丢失，请重新上传");
+        }
+        if (hasActiveIngestJob(meta.getId())) {
+            throw new IllegalArgumentException("文档正在处理中");
+        }
+
+        markProcessing(meta.getId());
+        String payload = toPayload(meta.getKbId(), meta.getId(), meta.getStoragePath(), meta.getFilename());
+        asyncJobService.submit(JOB_TYPE, "重新向量化：" + meta.getFilename(), meta.getId(), payload);
+        return documentMetaMapper.selectById(meta.getId());
     }
 
     public void deleteDocument(String id) {
@@ -275,6 +318,33 @@ public class DocumentIngestService {
             }
         }
         return out;
+    }
+
+    /** 是否已有未结束的 kb_ingest（防连点双任务）。 */
+    private boolean hasActiveIngestJob(String documentId) {
+        LambdaQueryWrapper<AsyncJob> q = new LambdaQueryWrapper<>();
+        q.eq(AsyncJob::getJobType, JOB_TYPE)
+                .eq(AsyncJob::getRefId, documentId)
+                .in(AsyncJob::getStatus, AsyncJob.STATUS_PENDING, AsyncJob.STATUS_RUNNING);
+        Long n = asyncJobMapper.selectCount(q);
+        return n != null && n > 0;
+    }
+
+    /** 标 PROCESSING 并清空失败信息，保留 chunk_count 直到 Job 删旧向量。 */
+    private void markProcessing(String documentId) {
+        LambdaUpdateWrapper<DocumentMeta> u = new LambdaUpdateWrapper<>();
+        u.eq(DocumentMeta::getId, documentId)
+                .set(DocumentMeta::getStatus, DocumentMeta.STATUS_PROCESSING)
+                .set(DocumentMeta::getErrorMessage, null);
+        documentMetaMapper.update(null, u);
+    }
+
+    /** 旧向量已删，分片数归零，避免 FAILED 后列表仍显示旧值。 */
+    private void clearChunkCount(String documentId) {
+        LambdaUpdateWrapper<DocumentMeta> u = new LambdaUpdateWrapper<>();
+        u.eq(DocumentMeta::getId, documentId)
+                .set(DocumentMeta::getChunkCount, 0);
+        documentMetaMapper.update(null, u);
     }
 
     private void markReady(String documentId, int chunkCount) {

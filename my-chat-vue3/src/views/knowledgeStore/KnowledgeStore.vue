@@ -60,8 +60,12 @@
             </template>
           </el-table-column>
           <el-table-column prop="createdAt" label="上传时间" width="180" />
-          <el-table-column label="操作" width="100" fixed="right">
+          <el-table-column label="操作" width="200" fixed="right">
             <template #default="{ row }">
+              <el-button link type="primary" size="small" :icon="RefreshRight"
+                :disabled="row.status === 'PROCESSING'" @click="handleReindexDoc(row)">
+                重新向量化
+              </el-button>
               <el-button link type="danger" size="small" :icon="Delete" @click="handleDeleteDoc(row.id)" />
             </template>
           </el-table-column>
@@ -104,7 +108,7 @@
             :max="Math.max(0, settingsForm.chunkSize - 1)" />
         </el-form-item>
         <el-alert v-if="splitParamsChanged && docList.length > 0" type="warning" :closable="false" show-icon
-          title="已入库文档不会自动按新切分重嵌，需后续「重新向量化」。" class="settings-alert" />
+          title="已入库文档不会自动按新切分重嵌，请在文档列表点击「重新向量化」。" class="settings-alert" />
         <el-divider content-position="left">检索</el-divider>
         <p class="settings-hint">立刻影响问答，无需重传文档。</p>
         <el-form-item label="返回条数 topK">
@@ -141,7 +145,7 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { UploadUserFile } from 'element-plus'
-import { Plus, Upload, UploadFilled, Delete, House, ArrowLeft, ChatDotRound, Setting } from '@element-plus/icons-vue'
+import { Plus, Upload, UploadFilled, Delete, House, ArrowLeft, ChatDotRound, Setting, RefreshRight } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { knowledgeApi } from '@/api/knowledge'
 import { useNotifyStore } from '@/stores/notify'
@@ -338,6 +342,21 @@ async function handleDeleteDoc(id: string) {
   } catch { return }
   try {
     await knowledgeApi.deleteDocument(id)
+    await fetchDocList()
+  } catch { /* 已 toast */ }
+}
+
+async function handleReindexDoc(row: DocumentMeta) {
+  try {
+    await ElMessageBox.confirm(
+      '将按当前知识库切分参数重新切段并覆盖向量，无需重新上传。',
+      '重新向量化',
+      { type: 'warning' },
+    )
+  } catch { return }
+  try {
+    await knowledgeApi.reindexDocument(row.id)
+    ElMessage.success('已提交重新向量化')
     await fetchDocList()
   } catch { /* 已 toast */ }
 }

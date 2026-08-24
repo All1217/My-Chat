@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 /**
- * 知识库单文档向量化。HTTP 已落盘并插入 PROCESSING；本 Handler 只读盘切段。
+ * 知识库单文档向量化（首次入库与重新向量化共用）。HTTP 已落盘或校验；本 Handler 只读盘切段。
  */
 @Slf4j
 @Component

@@ -25,8 +25,7 @@
           <el-button :icon="Setting" :disabled="!currentKb" @click="openSettings">
             设置
           </el-button>
-          <el-button type="primary" :icon="Upload" :disabled="!currentKb"
-            @click="showUploadDialog = true">
+          <el-button type="primary" :icon="Upload" :disabled="!currentKb" @click="showUploadDialog = true">
             上传文档
           </el-button>
           <el-button type="success" :icon="ChatDotRound" :disabled="!currentKb" @click="goChat">
@@ -53,7 +52,8 @@
           <el-table-column prop="chunkCount" label="分片数" width="80" />
           <el-table-column prop="status" label="状态" width="120">
             <template #default="{ row }">
-              <el-tooltip v-if="row.status === 'FAILED' && row.errorMessage" :content="row.errorMessage" placement="top">
+              <el-tooltip v-if="row.status === 'FAILED' && row.errorMessage" :content="row.errorMessage"
+                placement="top">
                 <el-tag type="danger" size="small">{{ row.status }}</el-tag>
               </el-tooltip>
               <el-tag v-else :type="statusType(row.status)" size="small">{{ row.status }}</el-tag>
@@ -71,14 +71,11 @@
     </main>
 
     <el-dialog v-model="showUploadDialog" title="上传文档" width="520px" @closed="fileList = []">
-      <el-upload
-        drag
-        multiple
-        :auto-upload="false"
-        accept=".pdf,.docx,.xlsx,.html,.htm,.txt,.md"
-        v-model:file-list="fileList"
-      >
-        <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
+      <el-upload drag multiple :auto-upload="false" accept=".pdf,.docx,.xlsx,.html,.htm,.txt,.md"
+        v-model:file-list="fileList">
+        <el-icon class="el-icon--upload">
+          <UploadFilled />
+        </el-icon>
         <div class="el-upload__text">拖拽文件到此处，或<em>点击选择</em>（最多 20 个）</div>
       </el-upload>
       <template #footer>
@@ -103,16 +100,11 @@
           <el-input-number v-model="settingsForm.chunkSize" :min="64" :max="4000" :step="64" />
         </el-form-item>
         <el-form-item label="重叠大小">
-          <el-input-number v-model="settingsForm.chunkOverlap" :min="0" :max="Math.max(0, settingsForm.chunkSize - 1)" />
+          <el-input-number v-model="settingsForm.chunkOverlap" :min="0"
+            :max="Math.max(0, settingsForm.chunkSize - 1)" />
         </el-form-item>
-        <el-alert
-          v-if="splitParamsChanged && docList.length > 0"
-          type="warning"
-          :closable="false"
-          show-icon
-          title="已入库文档不会自动按新切分重嵌，需后续「重新向量化」。"
-          class="settings-alert"
-        />
+        <el-alert v-if="splitParamsChanged && docList.length > 0" type="warning" :closable="false" show-icon
+          title="已入库文档不会自动按新切分重嵌，需后续「重新向量化」。" class="settings-alert" />
         <el-divider content-position="left">检索</el-divider>
         <p class="settings-hint">立刻影响问答，无需重传文档。</p>
         <el-form-item label="返回条数 topK">

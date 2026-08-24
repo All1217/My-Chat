@@ -32,3 +32,25 @@ export interface DocumentMeta {
   errorMessage?: string | null
   createdAt: string
 }
+
+/** 召回测试请求；topK/阈值不传则用知识库已存值 */
+export interface KnowledgeRetrieveTestRequest {
+  kbId: string
+  query: string
+  topK?: number
+  similarityThreshold?: number
+}
+
+export interface KnowledgeRetrieveHit {
+  text: string
+  score: number | null
+  filename?: string | null
+  documentId?: string | null
+}
+
+export interface KnowledgeRetrieveTestResponse {
+  kbId: string
+  topK: number
+  similarityThreshold: number
+  hits: KnowledgeRetrieveHit[]
+}

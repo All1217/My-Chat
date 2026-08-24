@@ -4,6 +4,7 @@ import com.mychat.entity.dto.RouteRequest;
 import com.mychat.entity.po.KnowledgeBase;
 import com.mychat.entity.po.KnowledgeBaseSettings;
 import com.mychat.mapper.KnowledgeBaseMapper;
+import com.mychat.service.knowledge.KbSearchRequests;
 import com.mychat.vo.RouteResultVO;
 import com.mychat.common.RoutingWorkflow;
 import com.mychat.config.WorkspaceContext;
@@ -12,7 +13,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.vectorstore.QuestionAnswerAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
-import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
@@ -124,11 +124,7 @@ public class AgentRoutingService {
             }
         }
         return QuestionAnswerAdvisor.builder(vectorStore)
-                .searchRequest(SearchRequest.builder()
-                        .topK(topK)
-                        .similarityThreshold(threshold)
-                        .filterExpression("kbId == '" + kbId + "'")
-                        .build())
+                .searchRequest(KbSearchRequests.filtered(kbId, topK, threshold).build())
                 .build();
     }
 

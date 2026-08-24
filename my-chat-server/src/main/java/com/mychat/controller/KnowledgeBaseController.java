@@ -3,12 +3,15 @@ package com.mychat.controller;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.mychat.common.result.Result;
 import com.mychat.entity.dto.KnowledgeBaseUpdateRequest;
+import com.mychat.entity.dto.KnowledgeRetrieveTestRequest;
+import com.mychat.entity.dto.KnowledgeRetrieveTestResponse;
 import com.mychat.entity.po.DocumentMeta;
 import com.mychat.entity.po.KnowledgeBase;
 import com.mychat.entity.po.KnowledgeBaseSettings;
 import com.mychat.mapper.DocumentMetaMapper;
 import com.mychat.service.knowledge.DocumentIngestService;
 import com.mychat.service.knowledge.KnowledgeBaseService;
+import com.mychat.service.knowledge.KnowledgeRetrievalService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
@@ -19,7 +22,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * 知识库与文档元数据 API：列表、创建、更新参数、删除、批量入库、文档级重新向量化。
+ * 知识库与文档元数据 API：列表、创建、更新参数、删除、批量入库、重新向量化、召回测试。
  */
 @Slf4j
 @RestController
@@ -29,6 +32,7 @@ public class KnowledgeBaseController {
     private final KnowledgeBaseService knowledgeBaseService;
     private final DocumentMetaMapper documentMetaMapper;
     private final DocumentIngestService documentIngestService;
+    private final KnowledgeRetrievalService knowledgeRetrievalService;
 
     @GetMapping("/list")
     public Result<List<KnowledgeBase>> list() {
@@ -64,6 +68,21 @@ public class KnowledgeBaseController {
     public Result<Void> delete(@RequestParam String id) {
         knowledgeBaseService.deleteKb(id);
         return Result.ok();
+    }
+
+    /**
+     * 召回测试：只检索命中片段，不调用生成模型。topK/阈值可临时覆盖且不写库。
+     */
+    @PostMapping("/documents/retrieve-test")
+    public Result<KnowledgeRetrieveTestResponse> retrieveTest(@RequestBody KnowledgeRetrieveTestRequest request) {
+        try {
+            return Result.ok(knowledgeRetrievalService.retrieveTest(request));
+        } catch (IllegalArgumentException e) {
+            return Result.fail(400, e.getMessage());
+        } catch (Exception e) {
+            log.error("召回测试失败", e);
+            return Result.fail(500, e.getMessage() != null ? e.getMessage() : "召回测试失败");
+        }
     }
 
     /**

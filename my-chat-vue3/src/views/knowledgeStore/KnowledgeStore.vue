@@ -25,6 +25,10 @@
           <el-button :icon="Setting" :disabled="!currentKb" @click="openSettings">
             设置
           </el-button>
+          <el-button :icon="Search" :disabled="!currentKb" :type="mainView === 'retrieve' ? 'primary' : 'default'"
+            @click="toggleRetrieveTest">
+            召回测试
+          </el-button>
           <el-button type="primary" :icon="Upload" :disabled="!currentKb" @click="showUploadDialog = true">
             上传文档
           </el-button>
@@ -41,7 +45,40 @@
       </div>
 
       <div class="content-area">
-        <el-table :data="docList" v-if="currentKb" stripe style="width: 100%" empty-text="暂无文档，点击上方上传">
+        <template v-if="currentKb && mainView === 'retrieve'">
+          <div class="retrieve-panel">
+            <p class="retrieve-hint">模拟用户提问，只看检索命中的片段和分数，不调用模型。topK / 阈值仅本次有效，不保存到设置。</p>
+            <div class="retrieve-form">
+              <el-input v-model="retrieveQuery" type="textarea" :rows="3" maxlength="1000" show-word-limit
+                placeholder="输入要检索的问题，例如：Java 三大特性" @keydown.ctrl.enter="runRetrieveTest" />
+              <div class="retrieve-params">
+                <span>topK</span>
+                <el-input-number v-model="retrieveTopK" :min="1" :max="20" />
+                <span>相似度阈值</span>
+                <el-input-number v-model="retrieveThreshold" :min="0" :max="1" :step="0.05" :precision="2" />
+                <el-button type="primary" :loading="retrieveLoading" :disabled="!retrieveQuery.trim()"
+                  @click="runRetrieveTest">
+                  测试
+                </el-button>
+              </div>
+            </div>
+            <el-empty v-if="retrieveRan && retrieveHits.length === 0" description="无命中片段，可降低相似度阈值后再试" />
+            <ul v-else-if="retrieveHits.length > 0" class="retrieve-hits">
+              <li v-for="(hit, idx) in retrieveHits" :key="idx" class="retrieve-hit">
+                <div class="hit-meta">
+                  <el-tag size="small" type="success">{{ formatScore(hit.score) }}</el-tag>
+                  <span class="hit-file">{{ hit.filename || '未知文件' }}</span>
+                </div>
+                <p class="hit-text" :class="{ expanded: expandedHits.has(idx) }">{{ hit.text }}</p>
+                <el-button v-if="(hit.text || '').length > 180" link type="primary" size="small"
+                  @click="toggleHitExpand(idx)">
+                  {{ expandedHits.has(idx) ? '收起' : '展开' }}
+                </el-button>
+              </li>
+            </ul>
+          </div>
+        </template>
+        <el-table :data="docList" v-else-if="currentKb" stripe style="width: 100%" empty-text="暂无文档，点击上方上传">
           <el-table-column prop="filename" label="文件名" min-width="200" />
           <el-table-column prop="fileType" label="类型" width="80" />
           <el-table-column prop="fileSize" label="大小" width="100">
@@ -145,11 +182,11 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { UploadUserFile } from 'element-plus'
-import { Plus, Upload, UploadFilled, Delete, House, ArrowLeft, ChatDotRound, Setting, RefreshRight } from '@element-plus/icons-vue'
+import { Plus, Upload, UploadFilled, Delete, House, ArrowLeft, ChatDotRound, Setting, RefreshRight, Search } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { knowledgeApi } from '@/api/knowledge'
 import { useNotifyStore } from '@/stores/notify'
-import type { KnowledgeBase, DocumentMeta } from '@/types/knowledgeStore/types'
+import type { KnowledgeBase, DocumentMeta, KnowledgeRetrieveHit } from '@/types/knowledgeStore/types'
 
 const router = useRouter()
 const notifyStore = useNotifyStore()
@@ -174,6 +211,14 @@ const settingsForm = ref({
   similarityThreshold: 0.5,
 })
 const settingsSnapshot = ref({ chunkSize: 800, chunkOverlap: 0 })
+const mainView = ref<'docs' | 'retrieve'>('docs')
+const retrieveQuery = ref('')
+const retrieveTopK = ref(5)
+const retrieveThreshold = ref(0.5)
+const retrieveHits = ref<KnowledgeRetrieveHit[]>([])
+const retrieveLoading = ref(false)
+const retrieveRan = ref(false)
+const expandedHits = ref(new Set<number>())
 
 const currentKb = computed(() => kbList.value.find(kb => kb.id === activeKbId.value))
 const splitParamsChanged = computed(() =>
@@ -208,7 +253,61 @@ async function fetchDocList() {
 
 function handleSelectKb(id: string) {
   activeKbId.value = id
+  mainView.value = 'docs'
+  resetRetrievePanel()
   fetchDocList()
+}
+
+function resetRetrievePanel() {
+  retrieveQuery.value = ''
+  retrieveHits.value = []
+  retrieveRan.value = false
+  expandedHits.value = new Set()
+}
+
+function toggleRetrieveTest() {
+  if (!currentKb.value) return
+  if (mainView.value === 'retrieve') {
+    mainView.value = 'docs'
+    return
+  }
+  retrieveTopK.value = currentKb.value.topK ?? 5
+  retrieveThreshold.value = currentKb.value.similarityThreshold ?? 0.5
+  mainView.value = 'retrieve'
+}
+
+function formatScore(score: number | null | undefined) {
+  if (score == null || Number.isNaN(score)) return '-'
+  return score.toFixed(4)
+}
+
+function toggleHitExpand(idx: number) {
+  const next = new Set(expandedHits.value)
+  if (next.has(idx)) next.delete(idx)
+  else next.add(idx)
+  expandedHits.value = next
+}
+
+async function runRetrieveTest() {
+  if (!currentKb.value) return
+  const query = retrieveQuery.value.trim()
+  if (!query) {
+    ElMessage.warning('请输入要检索的问题')
+    return
+  }
+  retrieveLoading.value = true
+  try {
+    const result = await knowledgeApi.retrieveTest({
+      kbId: currentKb.value.id,
+      query,
+      topK: retrieveTopK.value,
+      similarityThreshold: retrieveThreshold.value,
+    })
+    retrieveHits.value = result.hits ?? []
+    retrieveRan.value = true
+    expandedHits.value = new Set()
+  } catch { /* 已 toast */ }
+  retrieveLoading.value = false
 }
 
 function openSettings() {
@@ -285,7 +384,12 @@ async function handleDeleteKb(id: string) {
   } catch { return }
   try {
     await knowledgeApi.remove(id)
-    if (activeKbId.value === id) { activeKbId.value = ''; docList.value = [] }
+    if (activeKbId.value === id) {
+      activeKbId.value = ''
+      docList.value = []
+      mainView.value = 'docs'
+      resetRetrievePanel()
+    }
     await fetchKbList()
   } catch { /* 已 toast */ }
 }
@@ -488,5 +592,79 @@ onUnmounted(() => {
 
 .settings-alert {
   margin: 0 0 16px 120px;
+}
+
+.retrieve-panel {
+  max-width: 840px;
+}
+
+.retrieve-hint {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: #909399;
+  line-height: 1.5;
+}
+
+.retrieve-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.retrieve-params {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #606266;
+}
+
+.retrieve-hits {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.retrieve-hit {
+  border: 1px solid #ebeef5;
+  border-radius: 8px;
+  padding: 12px 16px;
+  background: #fafafa;
+}
+
+.hit-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.hit-file {
+  font-size: 13px;
+  color: #606266;
+}
+
+.hit-text {
+  margin: 0;
+  font-size: 14px;
+  color: #303133;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.hit-text.expanded {
+  display: block;
+  -webkit-line-clamp: unset;
+  overflow: visible;
 }
 </style>

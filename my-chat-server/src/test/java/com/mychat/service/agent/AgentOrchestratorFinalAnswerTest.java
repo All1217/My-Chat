@@ -159,4 +159,33 @@ class AgentOrchestratorFinalAnswerTest {
         assertFalse(AgentOrchestratorService.shouldAutoFinishAfterWorker("single", "  "));
     }
 
+    /** 检索 query 用用户原问，不含会话历史与 Worker 任务拼装。 */
+    @Test
+    void kbSearchQueryUsesUserGoalNotHistory() {
+        String query = AgentOrchestratorService.kbSearchQuery(
+                "这个知识库总体而言讲了些什么？",
+                "总结整体内容框架和主要章节");
+        assertEquals("这个知识库总体而言讲了些什么？", query);
+        assertFalse(query.contains("会话上下文"));
+        assertFalse(query.contains("Java"));
+    }
+
+    @Test
+    void kbSearchQueryFallsBackToInstruction() {
+        assertEquals("总结文档", AgentOrchestratorService.kbSearchQuery("  ", "总结文档"));
+    }
+
+    @Test
+    void kbWorkerPromptKeepsHistoryOutOfSearchAndAppendsContext() {
+        String workerMsg = AgentOrchestratorService.buildWorkerUserMessage(
+                "USER: Java 三大特性是什么\nASSISTANT: 封装继承多态",
+                "总结整体内容");
+        String prompt = AgentOrchestratorService.buildKbWorkerUserPrompt(workerMsg, "【文档目录】Java基础.md");
+        assertTrue(prompt.contains("封装继承多态"));
+        assertTrue(prompt.contains("【检索上下文】"));
+        assertTrue(prompt.contains("文档目录"));
+        assertEquals("这个知识库总体而言讲了些什么？",
+                AgentOrchestratorService.kbSearchQuery("这个知识库总体而言讲了些什么？", "总结整体内容"));
+    }
+
 }

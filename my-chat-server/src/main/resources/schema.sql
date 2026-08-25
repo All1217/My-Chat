@@ -73,8 +73,8 @@ CREATE TABLE IF NOT EXISTS public.vector_store
 );
 COMMENT ON TABLE vector_store IS '向量存储主表';
 COMMENT ON COLUMN vector_store.id IS '主键，UUID自动生成';
-COMMENT ON COLUMN vector_store.content IS '待检索的原始文本内容';
-COMMENT ON COLUMN vector_store.metadata IS '文档附加元数据（JSONB格式）';
+COMMENT ON COLUMN vector_store.content IS '待检索文本：有摘要时为「【摘要】…【原文】…」，否则为切段原文';
+COMMENT ON COLUMN vector_store.metadata IS 'JSONB：kbId、documentId、filename 必填；可选 summary（chunk 摘要）、original（未拼接的原文）';
 COMMENT ON COLUMN vector_store.embedding IS '1536维向量嵌入值';
 
 CREATE INDEX IF NOT EXISTS idx_vector_store_embedding

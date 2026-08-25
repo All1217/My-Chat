@@ -48,6 +48,7 @@ public class DocumentIngestService {
     private final AsyncJobService asyncJobService;
     private final DocumentService documentService;
     private final EmbeddingService embeddingService;
+    private final ChunkSummaryService chunkSummaryService;
     /** Spring Boot 4 只注册 Jackson 3 Bean，Jackson 2 Mapper 需自建（与 ChatStreamEventWriter 一致） */
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -58,7 +59,8 @@ public class DocumentIngestService {
             AsyncJobMapper asyncJobMapper,
             @Lazy AsyncJobService asyncJobService,
             DocumentService documentService,
-            EmbeddingService embeddingService) {
+            EmbeddingService embeddingService,
+            ChunkSummaryService chunkSummaryService) {
         this.ingestProperties = ingestProperties;
         this.knowledgeBaseMapper = knowledgeBaseMapper;
         this.documentMetaMapper = documentMetaMapper;
@@ -66,6 +68,7 @@ public class DocumentIngestService {
         this.asyncJobService = asyncJobService;
         this.documentService = documentService;
         this.embeddingService = embeddingService;
+        this.chunkSummaryService = chunkSummaryService;
     }
 
     /**
@@ -132,8 +135,10 @@ public class DocumentIngestService {
             // 切段写入：按该库当前 chunkSize / overlap
             DocumentService.ProcessedDocument processed = documentService.processDocument(
                     in, meta.getFilename(), meta.getKbId(), documentId, chunkSize, chunkOverlap);
+            // 摘要：每块 LLM 短摘要拼进 content，失败则该块仍用原文
+            var segments = chunkSummaryService.enrich(processed.segments());
             written = embeddingService.storeSegmentsBatched(
-                    processed.segments(), ingestProperties.getEmbedBatchSize());
+                    segments, ingestProperties.getEmbedBatchSize());
             markReady(documentId, written);
             log.info("文档入库成功 documentId={} chunks={}", documentId, written);
         } catch (EmbeddingService.PartialEmbedException e) {

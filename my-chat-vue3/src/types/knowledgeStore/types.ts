@@ -46,6 +46,7 @@ export interface KnowledgeRetrieveHit {
   score: number | null
   filename?: string | null
   documentId?: string | null
+  summary?: string | null
 }
 
 export interface KnowledgeRetrieveTestResponse {

@@ -4,6 +4,7 @@ import com.mychat.common.ChatStreamEvent;
 import com.mychat.common.OrchestratorWorkflow;
 import com.mychat.config.WorkspaceContext;
 import com.mychat.entity.dto.OrchestrateRequest;
+import com.mychat.service.knowledge.KnowledgeRetrievalService;
 import com.mychat.utils.SearchSystemPrompts;
 import com.mychat.utils.WorkspacePromptBuilder;
 import com.mychat.utils.WorkspaceUtil;
@@ -11,7 +12,6 @@ import com.mychat.vo.OrchestrateResultVO;
 import com.mychat.vo.OrchestrateStepVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.client.advisor.vectorstore.QuestionAnswerAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
@@ -95,7 +95,7 @@ public class AgentOrchestratorService {
     private final ChatClient toolChatClient;
     private final ChatClient ragChatClient;
     private final ChatClient agentWorkflowChatClient;
-    private final AgentRoutingService agentRoutingService;
+    private final KnowledgeRetrievalService knowledgeRetrievalService;
     private final WorkspaceUtil workspaceUtil;
     private final WorkspacePromptBuilder workspacePromptBuilder;
 
@@ -103,13 +103,13 @@ public class AgentOrchestratorService {
             @Qualifier("agentWorkflowChatClient") ChatClient agentWorkflowChatClient,
             @Qualifier("toolChatClient") ChatClient toolChatClient,
             @Qualifier("ragChatClient") ChatClient ragChatClient,
-            AgentRoutingService agentRoutingService,
+            KnowledgeRetrievalService knowledgeRetrievalService,
             WorkspaceUtil workspaceUtil,
             WorkspacePromptBuilder workspacePromptBuilder) {
         this.agentWorkflowChatClient = agentWorkflowChatClient;
         this.toolChatClient = toolChatClient;
         this.ragChatClient = ragChatClient;
-        this.agentRoutingService = agentRoutingService;
+        this.knowledgeRetrievalService = knowledgeRetrievalService;
         this.workspaceUtil = workspaceUtil;
         this.workspacePromptBuilder = workspacePromptBuilder;
         this.orchestratorWorkflow = new OrchestratorWorkflow(agentWorkflowChatClient);
@@ -175,7 +175,7 @@ public class AgentOrchestratorService {
 
             String observation;
             try {
-                observation = runWorker(action, instruction, kbId, workDir, dialogueHistory);
+                observation = runWorker(action, instruction, kbId, workDir, dialogueHistory, userGoal);
             } catch (Exception e) {
                 log.warn("Orchestrator Worker 失败 action={}: {}", action, e.getMessage());
                 observation = "[Worker 错误] " + (e.getMessage() != null
@@ -236,11 +236,14 @@ public class AgentOrchestratorService {
         return !t.startsWith("[约束]") && !t.startsWith("[Worker 错误]");
     }
 
+    /**
+     * 按 action 调用对应 Worker。retrieve_kb 的检索 query 用用户原问，不用历史拼装消息。
+     */
     private String runWorker(
-            String action, String instruction, String kbId, String workDir, String dialogueHistory) {
+            String action, String instruction, String kbId, String workDir, String dialogueHistory, String userGoal) {
         String task = buildWorkerUserMessage(dialogueHistory, instruction);
         return switch (action) {
-            case "retrieve_kb" -> workerKb(task, kbId);
+            case "retrieve_kb" -> workerKb(task, kbId, userGoal, instruction);
             case "file" -> workerFile(task, workDir);
             case "search" -> workerSearch(task, workDir);
             case "general" -> workerGeneral(task);
@@ -293,13 +296,34 @@ public class AgentOrchestratorService {
         return t.substring(0, WORKER_DIALOGUE_HISTORY_MAX_CHARS) + "\n…[会话摘要已截断]";
     }
 
-    private String workerKb(String userMessage, String kbId) {
+    /**
+     * 知识库检索 query：只用用户原问，避免把会话历史拿去 embedding。
+     */
+    static String kbSearchQuery(String userGoal, String instruction) {
+        if (StringUtils.hasText(userGoal)) {
+            return userGoal.trim();
+        }
+        return StringUtils.hasText(instruction) ? instruction.trim() : "";
+    }
+
+    /**
+     * 生成侧 user：会话任务 + 已检索上下文（不再交给 QuestionAnswerAdvisor）。
+     */
+    static String buildKbWorkerUserPrompt(String workerUserMessage, String ragContext) {
+        return KnowledgeRetrievalService.wrapUserWithContext(workerUserMessage, ragContext);
+    }
+
+    /**
+     * kb：自行 similaritySearch（query=用户原问），再交给 ragChatClient 生成。
+     */
+    private String workerKb(String userMessage, String kbId, String userGoal, String instruction) {
         String conversationId = "orch-kb-" + UUID.randomUUID();
-        QuestionAnswerAdvisor qaAdvisor = agentRoutingService.buildKbAdvisor(kbId);
+        String searchQuery = kbSearchQuery(userGoal, instruction);
+        KnowledgeRetrievalService.RagContext rag = knowledgeRetrievalService.buildRagContext(kbId, searchQuery);
+        String prompt = buildKbWorkerUserPrompt(userMessage, rag.promptBlock());
         String content = ragChatClient.prompt()
-                .advisors(qaAdvisor)
                 .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationId))
-                .user(userMessage)
+                .user(prompt)
                 .call()
                 .content();
         return content != null ? content : "";

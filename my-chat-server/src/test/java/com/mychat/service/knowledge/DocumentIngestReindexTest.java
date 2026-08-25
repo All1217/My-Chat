@@ -44,6 +44,7 @@ class DocumentIngestReindexTest {
     private AsyncJobMapper asyncJobMapper;
     private AsyncJobService asyncJobService;
     private EmbeddingService embeddingService;
+    private ChunkSummaryService chunkSummaryService;
     private DocumentIngestService service;
 
     /** 无 Spring 时手动登记实体，供 LambdaUpdateWrapper 使用。 */
@@ -63,6 +64,8 @@ class DocumentIngestReindexTest {
         asyncJobMapper = mock(AsyncJobMapper.class);
         asyncJobService = mock(AsyncJobService.class);
         embeddingService = mock(EmbeddingService.class);
+        chunkSummaryService = mock(ChunkSummaryService.class);
+        when(chunkSummaryService.enrich(anyList())).thenAnswer(inv -> inv.getArgument(0));
         service = new DocumentIngestService(
                 ingestProperties,
                 knowledgeBaseMapper,
@@ -70,7 +73,8 @@ class DocumentIngestReindexTest {
                 asyncJobMapper,
                 asyncJobService,
                 new DocumentService(),
-                embeddingService);
+                embeddingService,
+                chunkSummaryService);
         when(knowledgeBaseMapper.selectById(any())).thenReturn(null);
         when(embeddingService.storeSegmentsBatched(anyList(), anyInt())).thenAnswer(inv -> {
             List<?> segments = inv.getArgument(0);
@@ -92,6 +96,7 @@ class DocumentIngestReindexTest {
         InOrder order = inOrder(embeddingService);
         order.verify(embeddingService).deleteByDocumentId("doc-1", 5);
         order.verify(embeddingService).storeSegmentsBatched(anyList(), eq(32));
+        verify(chunkSummaryService).enrich(anyList());
     }
 
     /** PROCESSING 文档不可再提交重跑。 */

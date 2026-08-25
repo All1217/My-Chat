@@ -5,6 +5,7 @@ import com.mychat.entity.po.KnowledgeBase;
 import com.mychat.entity.po.KnowledgeBaseSettings;
 import com.mychat.mapper.KnowledgeBaseMapper;
 import com.mychat.service.knowledge.KbSearchRequests;
+import com.mychat.service.knowledge.KnowledgeRetrievalService;
 import com.mychat.vo.RouteResultVO;
 import com.mychat.common.RoutingWorkflow;
 import com.mychat.config.WorkspaceContext;
@@ -42,6 +43,7 @@ public class AgentRoutingService {
     private final VectorStore vectorStore;
     private final WorkspaceUtil workspaceUtil;
     private final KnowledgeBaseMapper knowledgeBaseMapper;
+    private final KnowledgeRetrievalService knowledgeRetrievalService;
 
     public AgentRoutingService(
             @Qualifier("agentWorkflowChatClient") ChatClient agentWorkflowChatClient,
@@ -49,13 +51,15 @@ public class AgentRoutingService {
             @Qualifier("ragChatClient") ChatClient ragChatClient,
             VectorStore vectorStore,
             WorkspaceUtil workspaceUtil,
-            KnowledgeBaseMapper knowledgeBaseMapper) {
+            KnowledgeBaseMapper knowledgeBaseMapper,
+            KnowledgeRetrievalService knowledgeRetrievalService) {
         this.agentWorkflowChatClient = agentWorkflowChatClient;
         this.toolChatClient = toolChatClient;
         this.ragChatClient = ragChatClient;
         this.vectorStore = vectorStore;
         this.workspaceUtil = workspaceUtil;
         this.knowledgeBaseMapper = knowledgeBaseMapper;
+        this.knowledgeRetrievalService = knowledgeRetrievalService;
         // 分类器必须用无工具 Client，避免「分类阶段就去 ls/搜网」
         this.routingWorkflow = new RoutingWorkflow(agentWorkflowChatClient);
     }
@@ -168,16 +172,15 @@ public class AgentRoutingService {
     }
 
     /**
-     * kb：ragChatClient + 按 kbId 过滤的 QuestionAnswerAdvisor（同步 call）
+     * kb：先按用户原问检索（总览走目录），再交给 ragChatClient 生成。
      */
     private String handleKb(String input, String kbId) {
         String conversationId = "agent-route-kb-" + UUID.randomUUID();
-        QuestionAnswerAdvisor qaAdvisor = buildKbAdvisor(kbId);
-
+        KnowledgeRetrievalService.RagContext rag = knowledgeRetrievalService.buildRagContext(kbId, input);
+        String userMessage = KnowledgeRetrievalService.wrapUserWithContext(input, rag.promptBlock());
         return ragChatClient.prompt()
-                .advisors(qaAdvisor)
                 .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationId))
-                .user(input)
+                .user(userMessage)
                 .call()
                 .content();
     }

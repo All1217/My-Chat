@@ -4,6 +4,7 @@ import com.mychat.common.ChatStreamEvent;
 import com.mychat.common.RoutingWorkflow;
 import com.mychat.config.WorkspaceContext;
 import com.mychat.entity.dto.RouteRequest;
+import com.mychat.service.knowledge.KnowledgeRetrievalService;
 import com.mychat.utils.ChatStreamEventWriter;
 import com.mychat.utils.NdjsonStreamSupport;
 import com.mychat.utils.ObservabilityStreamAdvisor;
@@ -51,6 +52,7 @@ public class AgentRouteDemoStreamService {
     private final ChatClient toolChatClient;
     private final ChatClient ragChatClient;
     private final AgentRoutingService agentRoutingService;
+    private final KnowledgeRetrievalService knowledgeRetrievalService;
     private final WorkspaceUtil workspaceUtil;
     private final WorkspacePromptBuilder workspacePromptBuilder;
     private final ChatStreamEventWriter eventWriter;
@@ -59,12 +61,14 @@ public class AgentRouteDemoStreamService {
             @Qualifier("toolChatClient") ChatClient toolChatClient,
             @Qualifier("ragChatClient") ChatClient ragChatClient,
             AgentRoutingService agentRoutingService,
+            KnowledgeRetrievalService knowledgeRetrievalService,
             WorkspaceUtil workspaceUtil,
             WorkspacePromptBuilder workspacePromptBuilder,
             ChatStreamEventWriter eventWriter) {
         this.toolChatClient = toolChatClient;
         this.ragChatClient = ragChatClient;
         this.agentRoutingService = agentRoutingService;
+        this.knowledgeRetrievalService = knowledgeRetrievalService;
         this.workspaceUtil = workspaceUtil;
         this.workspacePromptBuilder = workspacePromptBuilder;
         this.eventWriter = eventWriter;
@@ -149,11 +153,13 @@ public class AgentRouteDemoStreamService {
                             .stream()
                             .chatResponse();
                 }
+                KnowledgeRetrievalService.RagContext rag =
+                        knowledgeRetrievalService.buildRagContext(kbId, userText);
+                String kbUser = KnowledgeRetrievalService.wrapUserWithContext(userText, rag.promptBlock());
                 yield ragChatClient.prompt()
-                        .advisors(agentRoutingService.buildKbAdvisor(kbId))
                         .advisors(obs)
                         .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, chatId))
-                        .user(userText)
+                        .user(kbUser)
                         .stream()
                         .chatResponse();
             }

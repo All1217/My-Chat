@@ -1,12 +1,14 @@
 package com.mychat.service.knowledge;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.mychat.entity.dto.KnowledgeRetrieveHit;
 import com.mychat.entity.dto.KnowledgeRetrieveTestRequest;
 import com.mychat.entity.dto.KnowledgeRetrieveTestResponse;
+import com.mychat.entity.po.DocumentMeta;
 import com.mychat.entity.po.KnowledgeBase;
 import com.mychat.entity.po.KnowledgeBaseSettings;
+import com.mychat.mapper.DocumentMetaMapper;
 import com.mychat.mapper.KnowledgeBaseMapper;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SearchRequest;
@@ -19,18 +21,38 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 知识库召回测试：只做向量检索，不调用生成模型。
+ * 知识库检索：召回测试、问答上下文拼装（总览走目录，具体问走向量）。
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class KnowledgeRetrievalService {
 
     /** 模拟问题字数上限，避免超长 embedding */
     public static final int MAX_QUERY_CHARS = 1000;
 
     private final KnowledgeBaseMapper knowledgeBaseMapper;
+    private final DocumentMetaMapper documentMetaMapper;
     private final VectorStore vectorStore;
+
+    public KnowledgeRetrievalService(
+            KnowledgeBaseMapper knowledgeBaseMapper,
+            DocumentMetaMapper documentMetaMapper,
+            VectorStore vectorStore) {
+        this.knowledgeBaseMapper = knowledgeBaseMapper;
+        this.documentMetaMapper = documentMetaMapper;
+        this.vectorStore = vectorStore;
+    }
+
+    /**
+     * 问答用检索上下文：总览或 0 hit 时注入文档目录，否则注入命中片段。
+     */
+    public record RagContext(String promptBlock, boolean catalogUsed, int chunkHits) {
+        /** 空上下文占位。 */
+        public static RagContext empty(String message) {
+            String text = StringUtils.hasText(message) ? message : "【检索上下文为空】";
+            return new RagContext(text, false, 0);
+        }
+    }
 
     /**
      * 按 kbId 过滤检索；topK / 阈值未传则用该库已存值，不写库。
@@ -67,17 +89,11 @@ public class KnowledgeRetrievalService {
                 topK,
                 threshold);
 
-        // 检索：与问答 Advisor 同一套 kbId 过滤
-        SearchRequest searchRequest = KbSearchRequests.filtered(kbId, topK, threshold)
-                .query(query)
-                .build();
-        List<Document> docs = vectorStore.similaritySearch(searchRequest);
-        if (docs == null) {
-            docs = List.of();
-        }
+        // 检索：召回测试仍走向量，便于对照分数；问答路径见 buildRagContext
+        List<Document> docs = searchChunks(kbId, query, topK, threshold);
         log.info("召回测试 kbId={} topK={} threshold={} hits={}", kbId, topK, threshold, docs.size());
 
-        // 映射 hits：分数与来源 metadata
+        // 映射 hits：优先 original，并带上 summary
         KnowledgeRetrieveTestResponse response = new KnowledgeRetrieveTestResponse();
         response.setKbId(kbId);
         response.setTopK(topK);
@@ -90,17 +106,166 @@ public class KnowledgeRetrievalService {
         return response;
     }
 
-    /** 把 VectorStore 文档转成前端可读的命中项。 */
-    private static KnowledgeRetrieveHit toHit(Document doc) {
+    /**
+     * 为 RAG 生成拼装好的上下文。总览问跳过向量；0 hit 且有就绪文档则改用目录。
+     */
+    public RagContext buildRagContext(String kbId, String query) {
+        if (!StringUtils.hasText(kbId)) {
+            return RagContext.empty("【检索上下文为空】未绑定知识库。");
+        }
+        String id = kbId.trim();
+        String q = query == null ? "" : query.trim();
+        KnowledgeBase kb = knowledgeBaseMapper.selectById(id);
+        List<DocumentMeta> readyDocs = listReadyDocs(id);
+
+        if (isOverviewQuery(q)) {
+            log.info("总览问走文档目录 kbId={} docs={}", id, readyDocs.size());
+            return new RagContext(formatCatalog(kb, readyDocs, true), true, 0);
+        }
+
+        int topK = KnowledgeBaseSettings.topKOrDefault(kb != null ? kb.getTopK() : null);
+        double threshold = KnowledgeBaseSettings.thresholdOrDefault(
+                kb != null ? kb.getSimilarityThreshold() : null);
+        List<Document> hits = StringUtils.hasText(q)
+                ? searchChunks(id, q, topK, threshold)
+                : List.of();
+        if (hits.isEmpty()) {
+            if (!readyDocs.isEmpty()) {
+                log.info("向量 0 hit，改用文档目录 kbId={}", id);
+                return new RagContext(formatCatalog(kb, readyDocs, false), true, 0);
+            }
+            return RagContext.empty("【检索上下文为空】该知识库尚无已就绪文档。");
+        }
+        return new RagContext(formatChunks(hits), false, hits.size());
+    }
+
+    /**
+     * 把用户问题与检索上下文拼成生成侧 user 消息。
+     */
+    public static String wrapUserWithContext(String userText, String ragContext) {
+        String question = userText != null ? userText : "";
+        String ctx = StringUtils.hasText(ragContext) ? ragContext : "（无）";
+        return question + "\n\n【检索上下文】\n" + ctx;
+    }
+
+    /**
+     * 是否为库级总览问（「总体而言讲了什么」），具体知识点仍走向量。
+     */
+    public static boolean isOverviewQuery(String query) {
+        if (!StringUtils.hasText(query)) {
+            return false;
+        }
+        String q = query.trim();
+        if (q.contains("总体")
+                || q.contains("整体而言")
+                || q.contains("讲了些什么")
+                || q.contains("有哪些文档")
+                || q.contains("有哪些资料")
+                || q.contains("关于什么内容")) {
+            return true;
+        }
+        if (q.contains("这个知识库") && (q.contains("讲了") || q.contains("关于") || q.contains("哪些"))) {
+            return true;
+        }
+        return q.contains("讲了什么") && q.length() <= 40;
+    }
+
+    /**
+     * 按知识库设置做向量检索。
+     */
+    List<Document> searchChunks(String kbId, String query, int topK, double threshold) {
+        SearchRequest searchRequest = KbSearchRequests.filtered(kbId, topK, threshold)
+                .query(query)
+                .build();
+        List<Document> docs = vectorStore.similaritySearch(searchRequest);
+        return docs != null ? docs : List.of();
+    }
+
+    /**
+     * 列出该库已就绪文档，供目录兜底。
+     */
+    List<DocumentMeta> listReadyDocs(String kbId) {
+        LambdaQueryWrapper<DocumentMeta> q = new LambdaQueryWrapper<>();
+        q.eq(DocumentMeta::getKbId, kbId)
+                .eq(DocumentMeta::getStatus, DocumentMeta.STATUS_READY)
+                .orderByAsc(DocumentMeta::getCreatedAt);
+        List<DocumentMeta> docs = documentMetaMapper.selectList(q);
+        return docs != null ? docs : List.of();
+    }
+
+    /**
+     * 把 VectorStore 文档转成前端可读的命中项。
+     */
+    static KnowledgeRetrieveHit toHit(Document doc) {
         KnowledgeRetrieveHit hit = new KnowledgeRetrieveHit();
-        hit.setText(doc.getText());
-        hit.setScore(scoreOf(doc));
         Map<String, Object> meta = doc.getMetadata();
+        String original = meta != null ? stringMeta(meta, ChunkSummaryService.META_ORIGINAL) : null;
+        hit.setText(StringUtils.hasText(original) ? original : doc.getText());
+        hit.setScore(scoreOf(doc));
         if (meta != null) {
             hit.setFilename(stringMeta(meta, "filename"));
             hit.setDocumentId(stringMeta(meta, "documentId"));
+            String summary = stringMeta(meta, ChunkSummaryService.META_SUMMARY);
+            hit.setSummary(StringUtils.hasText(summary) ? summary : null);
         }
         return hit;
+    }
+
+    /**
+     * 拼文档目录。emptyHits 表示因 0 hit 而来，需提示换具体问题。
+     */
+    static String formatCatalog(KnowledgeBase kb, List<DocumentMeta> docs, boolean overviewIntent) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("【文档目录｜这是知识库内已就绪文档的清单，不是检索到的全部正文。");
+        sb.append("禁止根据下列条目声称「知识库仅有 N 个章节」或把目录当成全文。】\n");
+        if (kb != null && StringUtils.hasText(kb.getName())) {
+            sb.append("知识库：").append(kb.getName()).append('\n');
+        }
+        if (kb != null && StringUtils.hasText(kb.getDescription())) {
+            sb.append("描述：").append(kb.getDescription()).append('\n');
+        }
+        if (docs == null || docs.isEmpty()) {
+            sb.append("（尚无已就绪文档）\n");
+            return sb.toString();
+        }
+        int i = 1;
+        for (DocumentMeta doc : docs) {
+            int chunks = doc.getChunkCount() != null ? doc.getChunkCount() : 0;
+            sb.append(i++).append(". ")
+                    .append(doc.getFilename() != null ? doc.getFilename() : "未命名")
+                    .append("（").append(chunks).append(" 个分片）\n");
+        }
+        if (overviewIntent) {
+            sb.append("请根据上述文档清单概括库里有哪些资料，并请用户换一个具体问题（如某文档中的概念）。\n");
+        } else {
+            sb.append("当前问题未检索到足够相似的正文片段。请提示用户换更具体的问题（例如 Java 多态 / 操作系统）。\n");
+        }
+        return sb.toString();
+    }
+
+    /**
+     * 拼向量命中片段，并声明这不是全集。
+     */
+    static String formatChunks(List<Document> hits) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("【检索片段｜以下只是相似度最高的若干片段，不是知识库的全部内容。禁止说「仅覆盖这些章节」。】\n");
+        int i = 1;
+        for (Document doc : hits) {
+            Map<String, Object> meta = doc.getMetadata();
+            String filename = meta != null ? stringMeta(meta, "filename") : null;
+            sb.append("---\n片段 ").append(i++).append('\n');
+            if (StringUtils.hasText(filename)) {
+                sb.append("来源：").append(filename).append('\n');
+            }
+            String summary = meta != null ? stringMeta(meta, ChunkSummaryService.META_SUMMARY) : null;
+            if (StringUtils.hasText(summary)) {
+                sb.append("摘要：").append(summary).append('\n');
+            }
+            String original = meta != null ? stringMeta(meta, ChunkSummaryService.META_ORIGINAL) : null;
+            String body = StringUtils.hasText(original) ? original : doc.getText();
+            sb.append(body != null ? body : "").append('\n');
+        }
+        return sb.toString();
     }
 
     private static Double scoreOf(Document doc) {

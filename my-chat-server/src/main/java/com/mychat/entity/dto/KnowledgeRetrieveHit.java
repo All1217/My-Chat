@@ -3,7 +3,7 @@ package com.mychat.entity.dto;
 import lombok.Data;
 
 /**
- * 召回测试的单条命中：正文、分数、来源文档。
+ * 召回测试的单条命中：摘要、正文、分数、来源文档。
  */
 @Data
 public class KnowledgeRetrieveHit {
@@ -19,4 +19,7 @@ public class KnowledgeRetrieveHit {
 
     /** 文档元数据 ID */
     private String documentId;
+
+    /** 入库时生成的 chunk 摘要；旧向量可能为空 */
+    private String summary;
 }

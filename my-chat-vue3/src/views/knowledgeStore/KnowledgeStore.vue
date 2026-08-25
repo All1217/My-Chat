@@ -69,6 +69,14 @@
                   <el-tag size="small" type="success">{{ formatScore(hit.score) }}</el-tag>
                   <span class="hit-file">{{ hit.filename || '未知文件' }}</span>
                 </div>
+                <div v-if="hit.summary" class="hit-summary-block">
+                  <div class="hit-summary-label">摘要</div>
+                  <p class="hit-summary" :class="{ expanded: expandedSummaries.has(idx) }">{{ hit.summary }}</p>
+                  <el-button v-if="(hit.summary || '').length > 80" link type="primary" size="small"
+                    @click="toggleSummaryExpand(idx)">
+                    {{ expandedSummaries.has(idx) ? '收起摘要' : '展开摘要' }}
+                  </el-button>
+                </div>
                 <p class="hit-text" :class="{ expanded: expandedHits.has(idx) }">{{ hit.text }}</p>
                 <el-button v-if="(hit.text || '').length > 180" link type="primary" size="small"
                   @click="toggleHitExpand(idx)">
@@ -219,6 +227,7 @@ const retrieveHits = ref<KnowledgeRetrieveHit[]>([])
 const retrieveLoading = ref(false)
 const retrieveRan = ref(false)
 const expandedHits = ref(new Set<number>())
+const expandedSummaries = ref(new Set<number>())
 
 const currentKb = computed(() => kbList.value.find(kb => kb.id === activeKbId.value))
 const splitParamsChanged = computed(() =>
@@ -263,6 +272,7 @@ function resetRetrievePanel() {
   retrieveHits.value = []
   retrieveRan.value = false
   expandedHits.value = new Set()
+  expandedSummaries.value = new Set()
 }
 
 function toggleRetrieveTest() {
@@ -288,6 +298,13 @@ function toggleHitExpand(idx: number) {
   expandedHits.value = next
 }
 
+function toggleSummaryExpand(idx: number) {
+  const next = new Set(expandedSummaries.value)
+  if (next.has(idx)) next.delete(idx)
+  else next.add(idx)
+  expandedSummaries.value = next
+}
+
 async function runRetrieveTest() {
   if (!currentKb.value) return
   const query = retrieveQuery.value.trim()
@@ -306,6 +323,7 @@ async function runRetrieveTest() {
     retrieveHits.value = result.hits ?? []
     retrieveRan.value = true
     expandedHits.value = new Set()
+    expandedSummaries.value = new Set()
   } catch { /* 已 toast */ }
   retrieveLoading.value = false
 }
@@ -647,6 +665,35 @@ onUnmounted(() => {
 .hit-file {
   font-size: 13px;
   color: #606266;
+}
+
+.hit-summary-block {
+  margin-bottom: 8px;
+}
+
+.hit-summary-label {
+  font-size: 12px;
+  color: #909399;
+  margin-bottom: 4px;
+}
+
+.hit-summary {
+  margin: 0;
+  font-size: 13px;
+  color: #606266;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.hit-summary.expanded {
+  display: block;
+  -webkit-line-clamp: unset;
+  overflow: visible;
 }
 
 .hit-text {

@@ -18,6 +18,7 @@
                             </el-collapse>
                         </div>
                         <MarkdownRenderer v-if="msg.text" :content="msg.text" />
+                        <KbCitationTags :citations="uniqueKbCitations(msg.parts)" />
                     </div>
                     <div class="tool">
                         <div class="tool-item" title="复制文本" @click="copyText(msg.text)">
@@ -37,6 +38,7 @@
                             </el-collapse>
                         </div>
                         <MarkdownRenderer v-if="streamingContent" :content="streamingContent" />
+                        <KbCitationTags :citations="uniqueKbCitations(streamingParts)" />
                     </div>
                     <div class="tool">
                         <div class="tool-item" title="停止生成" @click="stopStreaming">
@@ -106,7 +108,9 @@
 <script setup lang="ts">
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
 import AgentActivityTimeline from '@/components/AgentActivityTimeline.vue'
+import KbCitationTags from '@/components/KbCitationTags.vue'
 import { MessageType } from '@/types/AiModule/enums'
+import { uniqueKbCitations } from '@/types/AiModule/streamEvents'
 import { watch, nextTick } from 'vue'
 import { useChatStore } from '@/stores/chat'
 import { useRouter } from 'vue-router'

@@ -147,6 +147,7 @@ class KnowledgeRetrievalServiceTest {
     @Test
     void overviewQueryUsesCatalogNotVector() {
         DocumentMeta doc = new DocumentMeta();
+        doc.setId("doc-java");
         doc.setFilename("Java基础.md");
         doc.setChunkCount(12);
         doc.setStatus(DocumentMeta.STATUS_READY);
@@ -160,6 +161,10 @@ class KnowledgeRetrievalServiceTest {
         assertTrue(ctx.promptBlock().contains("文档目录"));
         assertTrue(ctx.promptBlock().contains("Java基础.md"));
         assertTrue(ctx.promptBlock().contains("禁止根据下列条目声称"));
+        assertEquals(1, ctx.citations().size());
+        assertEquals("Java基础.md", ctx.citations().get(0).getFilename());
+        assertEquals("doc-java", ctx.citations().get(0).getDocumentId());
+        assertEquals(KnowledgeRetrieveHit.KIND_CATALOG, ctx.citations().get(0).getKind());
         verify(vectorStore, never()).similaritySearch(any(SearchRequest.class));
     }
 
@@ -167,6 +172,7 @@ class KnowledgeRetrievalServiceTest {
     @Test
     void emptyHitsFallBackToCatalog() {
         DocumentMeta doc = new DocumentMeta();
+        doc.setId("doc-cs");
         doc.setFilename("计算机基础.pdf");
         doc.setChunkCount(8);
         when(documentMetaMapper.selectList(any())).thenReturn(List.of(doc));
@@ -176,6 +182,9 @@ class KnowledgeRetrievalServiceTest {
         assertTrue(ctx.catalogUsed());
         assertTrue(ctx.promptBlock().contains("计算机基础.pdf"));
         assertTrue(ctx.promptBlock().contains("未检索到足够相似"));
+        assertEquals(1, ctx.citations().size());
+        assertEquals("计算机基础.pdf", ctx.citations().get(0).getFilename());
+        assertEquals(KnowledgeRetrieveHit.KIND_CATALOG, ctx.citations().get(0).getKind());
         verify(vectorStore).similaritySearch(any(SearchRequest.class));
     }
 
@@ -185,6 +194,37 @@ class KnowledgeRetrievalServiceTest {
         assertTrue(KnowledgeRetrievalService.isOverviewQuery("库里有哪些文档"));
         assertFalse(KnowledgeRetrievalService.isOverviewQuery("Java 三大特性是什么"));
         assertFalse(KnowledgeRetrievalService.isOverviewQuery("这个知识库里的多态怎么实现"));
+    }
+
+    /** 向量命中填入 citations，正文截到 200 字。 */
+    @Test
+    void vectorHitsFillChunkCitationsAndTruncateText() {
+        Map<String, Object> meta = new HashMap<>();
+        meta.put("filename", "Java基础.md");
+        meta.put("documentId", "doc-1");
+        meta.put("score", 0.91);
+        meta.put("original", "甲".repeat(250));
+        Document doc = new Document("seg-1", "body", meta);
+        when(vectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(List.of(doc));
+
+        KnowledgeRetrievalService.RagContext ctx = service.buildRagContext("kb-1", "Java 封装");
+
+        assertFalse(ctx.catalogUsed());
+        assertEquals(1, ctx.chunkHits());
+        assertEquals(1, ctx.citations().size());
+        KnowledgeRetrieveHit c = ctx.citations().get(0);
+        assertEquals("Java基础.md", c.getFilename());
+        assertEquals("doc-1", c.getDocumentId());
+        assertEquals(KnowledgeRetrieveHit.KIND_CHUNK, c.getKind());
+        assertEquals(0.91, c.getScore());
+        assertEquals(KnowledgeRetrievalService.CITATION_SNIPPET_MAX_CHARS, c.getText().length());
+    }
+
+    /** 未绑定知识库时 citations 为空，不伪造文件名。 */
+    @Test
+    void emptyKbIdYieldsEmptyCitations() {
+        KnowledgeRetrievalService.RagContext ctx = service.buildRagContext(" ", "hello");
+        assertTrue(ctx.citations().isEmpty());
     }
 
     private SearchRequest captureSearch() {

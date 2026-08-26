@@ -169,7 +169,7 @@ COMMENT ON TABLE chat_assistant_turns IS '每轮 ASSISTANT 的 UI parts/thinking
 COMMENT ON COLUMN chat_assistant_turns.conversation_id IS '逻辑外键，对应 chat_sessions.conversation_id';
 COMMENT ON COLUMN chat_assistant_turns.turn_id IS '与流式 NDJSON 的 turnId 一致（chatId-UUID）';
 COMMENT ON COLUMN chat_assistant_turns.assistant_ordinal IS '该会话内 ASSISTANT 消息序号（0-based），用于与 Memory 对齐';
-COMMENT ON COLUMN chat_assistant_turns.parts IS '归约后的 MessagePart[] JSON，与前端 ToolMessagePart 同构';
+COMMENT ON COLUMN chat_assistant_turns.parts IS '归约后的 MessagePart[] JSON，与前端 ToolMessagePart 同构。type=step 且 name=retrieve_kb 时，args.citations 为来源列表（filename / documentId / score / kind / 可选短摘录）';
 
 -- 编排读路径：长对话滚动摘要（与 spring_ai_chat_memory 配合；不替代 Memory 明细）
 CREATE TABLE IF NOT EXISTS chat_session_summary

@@ -18,6 +18,7 @@
             <el-tag size="small" type="warning" effect="plain">编排</el-tag>
           </span>
           <div v-if="part.reasoning" class="route-reason">{{ part.reasoning }}</div>
+          <KbCitationTags v-if="part.action === 'retrieve_kb'" :citations="part.citations" />
           <el-collapse v-if="hasStepDetail(part)">
             <el-collapse-item title="查看指令 / 观察" :name="part.id">
               <div v-if="part.instruction" class="detail-block">
@@ -70,6 +71,7 @@ import type {
   ToolMessagePart,
 } from '@/types/AiModule/streamEvents'
 import { toolDisplayName } from '@/utils/toolDisplayNames'
+import KbCitationTags from '@/components/KbCitationTags.vue'
 
 const props = defineProps<{
   parts?: MessagePart[] | null

@@ -1,15 +1,16 @@
 package com.mychat.vo;
 
-import lombok.AllArgsConstructor;
+import com.mychat.entity.dto.KnowledgeRetrieveHit;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 /**
- * Orchestrator 单步执行记录（调试回传 / 后续可映射为 NDJSON step）。
+ * Orchestrator 单步执行记录（调试回传 / 主聊天映射为 NDJSON step）。
  */
 @Data
 @NoArgsConstructor
-@AllArgsConstructor
 public class OrchestrateStepVO {
 
     /** 从 1 开始的步号 */
@@ -29,4 +30,22 @@ public class OrchestrateStepVO {
      * （与主气泡 / Memory 一致，可能由 observation 合成兜底产生）。
      */
     private String observation;
+
+    /**
+     * 知识库检索步的结构化来源（文件名等）；其它 action 为空。
+     * 经 NDJSON {@code step.args.citations} 落入 parts，供气泡引用标签回放。
+     */
+    private List<KnowledgeRetrieveHit> citations;
+
+    /**
+     * 五参构造：保持现有调用点不变，citations 用 setter 另设。
+     */
+    public OrchestrateStepVO(
+            int index, String action, String reasoning, String instruction, String observation) {
+        this.index = index;
+        this.action = action;
+        this.reasoning = reasoning;
+        this.instruction = instruction;
+        this.observation = observation;
+    }
 }

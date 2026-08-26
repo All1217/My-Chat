@@ -7,6 +7,7 @@ import { ElMessage } from 'element-plus'
 import { MessageType } from '@/types/AiModule/enums'
 import type { Message } from '@/types/AiModule/types'
 import type { ChatStreamEvent, MessagePart, ToolMessagePart, StepMessagePart } from '@/types/AiModule/streamEvents'
+import { parseKbCitations } from '@/types/AiModule/streamEvents'
 
 /**
  * 聊天消息流式处理 — 发送 / 接收 / 历史加载 / NDJSON 事件归约
@@ -117,7 +118,11 @@ export function useChatStream(
                 break
             }
             case 'step': {
-                const args = (event.args ?? {}) as { stepIndex?: number; instruction?: string }
+                const args = (event.args ?? {}) as {
+                    stepIndex?: number
+                    instruction?: string
+                    citations?: unknown
+                }
                 const stepIndex = typeof args.stepIndex === 'number'
                     ? args.stepIndex
                     : Number(String(event.id ?? '').replace(/^step-/, '')) || event.seq
@@ -129,6 +134,7 @@ export function useChatStream(
                     reasoning: event.text,
                     instruction: args.instruction,
                     observation: event.preview,
+                    citations: parseKbCitations(args.citations),
                 } satisfies StepMessagePart)
                 break
             }
@@ -322,7 +328,7 @@ export function useChatStream(
                     const raw = p as unknown as {
                         id?: string
                         name?: string
-                        args?: { stepIndex?: number; instruction?: string }
+                        args?: { stepIndex?: number; instruction?: string; citations?: unknown }
                         resultPreview?: string
                     }
                     const stepIndex = typeof raw.args?.stepIndex === 'number'
@@ -336,6 +342,7 @@ export function useChatStream(
                         reasoning: raw.resultPreview,
                         instruction: raw.args?.instruction,
                         observation: undefined,
+                        citations: parseKbCitations(raw.args?.citations),
                     }
                 }
                 return p

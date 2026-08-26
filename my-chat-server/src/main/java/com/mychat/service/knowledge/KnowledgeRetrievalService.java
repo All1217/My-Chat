@@ -21,7 +21,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 知识库检索：召回测试、问答上下文拼装（总览走目录，具体问走向量）。
+ * 知识库检索：召回测试、问答上下文拼装，以及聊天引用（来源文件名）装配。
  */
 @Slf4j
 @Service
@@ -43,14 +43,26 @@ public class KnowledgeRetrievalService {
         this.vectorStore = vectorStore;
     }
 
+    /** 聊天引用摘录上限，控制 NDJSON 体积（对齐 Dify retriever_resources.content 截短） */
+    public static final int CITATION_SNIPPET_MAX_CHARS = 200;
+
     /**
-     * 问答用检索上下文：总览或 0 hit 时注入文档目录，否则注入命中片段。
+     * 问答用检索上下文：prompt 给模型，citations 给 UI 来源文件名。
+     *
+     * @param promptBlock 注入生成侧的检索文本
+     * @param catalogUsed 是否走了文档目录而非向量片段
+     * @param chunkHits   向量命中条数（目录路径为 0）
+     * @param citations   结构化来源（文件名等），空库为空列表
      */
-    public record RagContext(String promptBlock, boolean catalogUsed, int chunkHits) {
-        /** 空上下文占位。 */
+    public record RagContext(
+            String promptBlock,
+            boolean catalogUsed,
+            int chunkHits,
+            List<KnowledgeRetrieveHit> citations) {
+        /** 空上下文占位，无引用来源。 */
         public static RagContext empty(String message) {
             String text = StringUtils.hasText(message) ? message : "【检索上下文为空】";
-            return new RagContext(text, false, 0);
+            return new RagContext(text, false, 0, List.of());
         }
     }
 
@@ -120,7 +132,8 @@ public class KnowledgeRetrievalService {
 
         if (isOverviewQuery(q)) {
             log.info("总览问走文档目录 kbId={} docs={}", id, readyDocs.size());
-            return new RagContext(formatCatalog(kb, readyDocs, true), true, 0);
+            return new RagContext(
+                    formatCatalog(kb, readyDocs, true), true, 0, catalogCitations(readyDocs));
         }
 
         int topK = KnowledgeBaseSettings.topKOrDefault(kb != null ? kb.getTopK() : null);
@@ -132,11 +145,12 @@ public class KnowledgeRetrievalService {
         if (hits.isEmpty()) {
             if (!readyDocs.isEmpty()) {
                 log.info("向量 0 hit，改用文档目录 kbId={}", id);
-                return new RagContext(formatCatalog(kb, readyDocs, false), true, 0);
+                return new RagContext(
+                        formatCatalog(kb, readyDocs, false), true, 0, catalogCitations(readyDocs));
             }
             return RagContext.empty("【检索上下文为空】该知识库尚无已就绪文档。");
         }
-        return new RagContext(formatChunks(hits), false, hits.size());
+        return new RagContext(formatChunks(hits), false, hits.size(), chunkCitations(hits));
     }
 
     /**
@@ -209,6 +223,68 @@ public class KnowledgeRetrievalService {
             hit.setSummary(StringUtils.hasText(summary) ? summary : null);
         }
         return hit;
+    }
+
+    /**
+     * 向量命中转聊天引用：截断正文与摘要。
+     */
+    static List<KnowledgeRetrieveHit> chunkCitations(List<Document> docs) {
+        if (docs == null || docs.isEmpty()) {
+            return List.of();
+        }
+        List<KnowledgeRetrieveHit> list = new ArrayList<>(docs.size());
+        for (Document doc : docs) {
+            list.add(forCitation(toHit(doc), KnowledgeRetrieveHit.KIND_CHUNK));
+        }
+        return list;
+    }
+
+    /**
+     * 就绪文档目录转聊天引用（无相似度分数）。
+     */
+    static List<KnowledgeRetrieveHit> catalogCitations(List<DocumentMeta> docs) {
+        if (docs == null || docs.isEmpty()) {
+            return List.of();
+        }
+        List<KnowledgeRetrieveHit> list = new ArrayList<>(docs.size());
+        for (DocumentMeta doc : docs) {
+            KnowledgeRetrieveHit hit = new KnowledgeRetrieveHit();
+            hit.setFilename(doc.getFilename());
+            hit.setDocumentId(doc.getId());
+            hit.setKind(KnowledgeRetrieveHit.KIND_CATALOG);
+            list.add(hit);
+        }
+        return list;
+    }
+
+    /**
+     * 复制命中并截短摘录，供 NDJSON args.citations 使用。
+     */
+    static KnowledgeRetrieveHit forCitation(KnowledgeRetrieveHit hit, String kind) {
+        KnowledgeRetrieveHit copy = new KnowledgeRetrieveHit();
+        if (hit != null) {
+            copy.setFilename(hit.getFilename());
+            copy.setDocumentId(hit.getDocumentId());
+            copy.setScore(hit.getScore());
+            copy.setText(truncateSnippet(hit.getText()));
+            copy.setSummary(truncateSnippet(hit.getSummary()));
+        }
+        copy.setKind(kind);
+        return copy;
+    }
+
+    /**
+     * 截到 {@link #CITATION_SNIPPET_MAX_CHARS}；空串视为无摘录。
+     */
+    static String truncateSnippet(String raw) {
+        if (!StringUtils.hasText(raw)) {
+            return null;
+        }
+        String t = raw.trim();
+        if (t.length() <= CITATION_SNIPPET_MAX_CHARS) {
+            return t;
+        }
+        return t.substring(0, CITATION_SNIPPET_MAX_CHARS);
     }
 
     /**

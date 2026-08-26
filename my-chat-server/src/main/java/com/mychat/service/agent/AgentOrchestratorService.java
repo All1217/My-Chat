@@ -3,6 +3,7 @@ package com.mychat.service.agent;
 import com.mychat.common.ChatStreamEvent;
 import com.mychat.common.OrchestratorWorkflow;
 import com.mychat.config.WorkspaceContext;
+import com.mychat.entity.dto.KnowledgeRetrieveHit;
 import com.mychat.entity.dto.OrchestrateRequest;
 import com.mychat.service.knowledge.KnowledgeRetrievalService;
 import com.mychat.utils.SearchSystemPrompts;
@@ -173,18 +174,21 @@ public class AgentOrchestratorService {
                 continue;
             }
 
-            String observation;
+            WorkerOutcome outcome;
             try {
-                observation = runWorker(action, instruction, kbId, workDir, dialogueHistory, userGoal);
+                outcome = runWorker(action, instruction, kbId, workDir, dialogueHistory, userGoal);
             } catch (Exception e) {
                 log.warn("Orchestrator Worker 失败 action={}: {}", action, e.getMessage());
-                observation = "[Worker 错误] " + (e.getMessage() != null
+                outcome = WorkerOutcome.text("[Worker 错误] " + (e.getMessage() != null
                         ? e.getMessage()
-                        : e.getClass().getSimpleName());
+                        : e.getClass().getSimpleName()));
             }
             // 编排历史保留更长正文；UI 预览由 ChatStreamEvent.step 再截断
-            observation = truncateForHistory(observation);
+            String observation = truncateForHistory(outcome.observation());
             OrchestrateStepVO step = appendStep(steps, history, i, action, reasoning, instruction, observation);
+            if (outcome.citations() != null && !outcome.citations().isEmpty()) {
+                step.setCitations(outcome.citations());
+            }
             notifyListener(listener, step);
 
             // 单步快路径：明显单能力任务跑完一个成功 Worker 后直接 finish，不再二次 decide
@@ -237,17 +241,27 @@ public class AgentOrchestratorService {
     }
 
     /**
+     * Worker 观察及可选知识库引用来源。
+     */
+    private record WorkerOutcome(String observation, List<KnowledgeRetrieveHit> citations) {
+        /** 无引用的纯文本观察。 */
+        static WorkerOutcome text(String observation) {
+            return new WorkerOutcome(observation != null ? observation : "", null);
+        }
+    }
+
+    /**
      * 按 action 调用对应 Worker。retrieve_kb 的检索 query 用用户原问，不用历史拼装消息。
      */
-    private String runWorker(
+    private WorkerOutcome runWorker(
             String action, String instruction, String kbId, String workDir, String dialogueHistory, String userGoal) {
         String task = buildWorkerUserMessage(dialogueHistory, instruction);
         return switch (action) {
             case "retrieve_kb" -> workerKb(task, kbId, userGoal, instruction);
-            case "file" -> workerFile(task, workDir);
-            case "search" -> workerSearch(task, workDir);
-            case "general" -> workerGeneral(task);
-            default -> "[约束] 未实现的 Worker: " + action;
+            case "file" -> WorkerOutcome.text(workerFile(task, workDir));
+            case "search" -> WorkerOutcome.text(workerSearch(task, workDir));
+            case "general" -> WorkerOutcome.text(workerGeneral(task));
+            default -> WorkerOutcome.text("[约束] 未实现的 Worker: " + action);
         };
     }
 
@@ -316,17 +330,20 @@ public class AgentOrchestratorService {
     /**
      * kb：自行 similaritySearch（query=用户原问），再交给 ragChatClient 生成。
      */
-    private String workerKb(String userMessage, String kbId, String userGoal, String instruction) {
+    private WorkerOutcome workerKb(String userMessage, String kbId, String userGoal, String instruction) {
         String conversationId = "orch-kb-" + UUID.randomUUID();
+        // 1. 检索：query=用户原问，产出 prompt 与结构化来源
         String searchQuery = kbSearchQuery(userGoal, instruction);
         KnowledgeRetrievalService.RagContext rag = knowledgeRetrievalService.buildRagContext(kbId, searchQuery);
         String prompt = buildKbWorkerUserPrompt(userMessage, rag.promptBlock());
+        // 2. 生成：临时 conversationId，不写会话 Memory
         String content = ragChatClient.prompt()
                 .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationId))
                 .user(prompt)
                 .call()
                 .content();
-        return content != null ? content : "";
+        // 3. 带回 citations，供 step.args 落入气泡引用
+        return new WorkerOutcome(content != null ? content : "", rag.citations());
     }
 
     private String workerFile(String userMessage, String workDir) {

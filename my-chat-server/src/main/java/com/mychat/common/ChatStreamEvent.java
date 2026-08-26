@@ -1,7 +1,10 @@
 package com.mychat.common;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.mychat.entity.dto.KnowledgeRetrieveHit;
 
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -40,7 +43,7 @@ public record ChatStreamEvent(
      *   <li>{@code id} — step-{index}</li>
      *   <li>{@code name} — action（retrieve_kb / file / search / general / finish / evaluate_optimize）</li>
      *   <li>{@code text} — reasoning</li>
-     *   <li>{@code args} — 含 instruction、stepIndex 等</li>
+     *   <li>{@code args} — 含 instruction、stepIndex；retrieve_kb 可含 citations</li>
      *   <li>{@code preview} — observation 截断预览</li>
      * </ul>
      */
@@ -70,13 +73,7 @@ public record ChatStreamEvent(
     }
 
     /**
-     * 编排 / 质量环单步事件（复用 name/text/preview/args，避免扩大 record）。
-     *
-     * @param stepIndex          从 1 开始
-     * @param action             next_action 或 evaluate_optimize
-     * @param reasoning          简要理由
-     * @param instruction        子任务指令（可空）
-     * @param observationPreview Worker 观察预览（可空）
+     * 编排 / 质量环单步事件（无引用；质量环等走此重载）。
      */
     public static ChatStreamEvent step(
             String turnId,
@@ -86,10 +83,35 @@ public record ChatStreamEvent(
             String reasoning,
             String instruction,
             String observationPreview) {
+        return step(turnId, seq, stepIndex, action, reasoning, instruction, observationPreview, null);
+    }
+
+    /**
+     * 编排单步事件；retrieve_kb 可带 {@code args.citations}（协议仍 v=1，只扩 args）。
+     *
+     * @param stepIndex          从 1 开始
+     * @param action             next_action 或 evaluate_optimize
+     * @param reasoning          简要理由
+     * @param instruction        子任务指令（可空）
+     * @param observationPreview Worker 观察预览（可空）
+     * @param citations          知识库来源列表（可空；非空才写入 args）
+     */
+    public static ChatStreamEvent step(
+            String turnId,
+            AtomicInteger seq,
+            int stepIndex,
+            String action,
+            String reasoning,
+            String instruction,
+            String observationPreview,
+            List<KnowledgeRetrieveHit> citations) {
         String[] trunc = truncatePreview(observationPreview);
-        Map<String, Object> args = Map.of(
-                "stepIndex", stepIndex,
-                "instruction", instruction != null ? instruction : "");
+        Map<String, Object> args = new HashMap<>();
+        args.put("stepIndex", stepIndex);
+        args.put("instruction", instruction != null ? instruction : "");
+        if (citations != null && !citations.isEmpty()) {
+            args.put("citations", citations);
+        }
         return new ChatStreamEvent(
                 VERSION,
                 TYPE_STEP,

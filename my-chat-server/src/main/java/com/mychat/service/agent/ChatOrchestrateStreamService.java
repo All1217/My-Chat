@@ -251,6 +251,7 @@ public class ChatOrchestrateStreamService {
         }
     }
 
+    /** 把编排步推成 NDJSON step；retrieve_kb 的 citations 写入 args。 */
     private void emitOrchestrateStep(
             Sinks.Many<ChatStreamEvent> sink,
             List<ChatStreamEvent> accumulated,
@@ -267,7 +268,8 @@ public class ChatOrchestrateStreamService {
                 step.getAction(),
                 step.getReasoning(),
                 step.getInstruction(),
-                step.getObservation()));
+                step.getObservation(),
+                step.getCitations()));
     }
 
     private Mono<Void> runQualityLoopIfNeeded(

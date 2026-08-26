@@ -55,3 +55,17 @@ export interface KnowledgeRetrieveTestResponse {
   similarityThreshold: number
   hits: KnowledgeRetrieveHit[]
 }
+
+/** 只读分段列表的单条 */
+export interface DocumentChunkItem {
+  position: number
+  content: string
+  summary?: string | null
+}
+
+/** 某文档的只读分段 */
+export interface DocumentChunkListResponse {
+  documentId: string
+  filename: string
+  chunks: DocumentChunkItem[]
+}

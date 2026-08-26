@@ -105,8 +105,12 @@
             </template>
           </el-table-column>
           <el-table-column prop="createdAt" label="上传时间" width="180" />
-          <el-table-column label="操作" width="200" fixed="right">
+          <el-table-column label="操作" width="300" fixed="right">
             <template #default="{ row }">
+              <el-button link type="primary" size="small" :icon="View"
+                :disabled="row.status !== 'READY'" @click="openChunksDrawer(row)">
+                查看分段
+              </el-button>
               <el-button link type="primary" size="small" :icon="RefreshRight"
                 :disabled="row.status === 'PROCESSING'" @click="handleReindexDoc(row)">
                 重新向量化
@@ -118,6 +122,32 @@
         <div v-else class="empty-hint">选择知识库后查看文档列表</div>
       </div>
     </main>
+
+    <el-drawer v-model="showChunksDrawer" :title="chunksFilename || '分段'" size="480px" destroy-on-close>
+      <div v-loading="chunksLoading">
+        <el-empty v-if="!chunksLoading && chunkItems.length === 0" description="重新向量化后可查看分段" />
+        <ul v-else-if="chunkItems.length > 0" class="retrieve-hits">
+          <li v-for="(chunk, idx) in chunkItems" :key="chunk.position" class="retrieve-hit">
+            <div class="hit-meta">
+              <el-tag size="small">#{{ chunk.position + 1 }}</el-tag>
+            </div>
+            <div v-if="chunk.summary" class="hit-summary-block">
+              <div class="hit-summary-label">摘要</div>
+              <p class="hit-summary" :class="{ expanded: expandedChunkSummaries.has(idx) }">{{ chunk.summary }}</p>
+              <el-button v-if="(chunk.summary || '').length > 80" link type="primary" size="small"
+                @click="toggleChunkSummary(idx)">
+                {{ expandedChunkSummaries.has(idx) ? '收起摘要' : '展开摘要' }}
+              </el-button>
+            </div>
+            <p class="hit-text" :class="{ expanded: expandedChunkTexts.has(idx) }">{{ chunk.content }}</p>
+            <el-button v-if="(chunk.content || '').length > 180" link type="primary" size="small"
+              @click="toggleChunkText(idx)">
+              {{ expandedChunkTexts.has(idx) ? '收起' : '展开' }}
+            </el-button>
+          </li>
+        </ul>
+      </div>
+    </el-drawer>
 
     <el-dialog v-model="showUploadDialog" title="上传文档" width="520px" @closed="fileList = []">
       <el-upload drag multiple :auto-upload="false" accept=".pdf,.docx,.xlsx,.html,.htm,.txt,.md"
@@ -190,11 +220,11 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { UploadUserFile } from 'element-plus'
-import { Plus, Upload, UploadFilled, Delete, House, ArrowLeft, ChatDotRound, Setting, RefreshRight, Search } from '@element-plus/icons-vue'
+import { Plus, Upload, UploadFilled, Delete, House, ArrowLeft, ChatDotRound, Setting, RefreshRight, Search, View } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { knowledgeApi } from '@/api/knowledge'
 import { useNotifyStore } from '@/stores/notify'
-import type { KnowledgeBase, DocumentMeta, KnowledgeRetrieveHit } from '@/types/knowledgeStore/types'
+import type { KnowledgeBase, DocumentMeta, KnowledgeRetrieveHit, DocumentChunkItem } from '@/types/knowledgeStore/types'
 
 const router = useRouter()
 const notifyStore = useNotifyStore()
@@ -228,6 +258,12 @@ const retrieveLoading = ref(false)
 const retrieveRan = ref(false)
 const expandedHits = ref(new Set<number>())
 const expandedSummaries = ref(new Set<number>())
+const showChunksDrawer = ref(false)
+const chunksLoading = ref(false)
+const chunksFilename = ref('')
+const chunkItems = ref<DocumentChunkItem[]>([])
+const expandedChunkSummaries = ref(new Set<number>())
+const expandedChunkTexts = ref(new Set<number>())
 
 const currentKb = computed(() => kbList.value.find(kb => kb.id === activeKbId.value))
 const splitParamsChanged = computed(() =>
@@ -303,6 +339,36 @@ function toggleSummaryExpand(idx: number) {
   if (next.has(idx)) next.delete(idx)
   else next.add(idx)
   expandedSummaries.value = next
+}
+
+function toggleChunkSummary(idx: number) {
+  const next = new Set(expandedChunkSummaries.value)
+  if (next.has(idx)) next.delete(idx)
+  else next.add(idx)
+  expandedChunkSummaries.value = next
+}
+
+function toggleChunkText(idx: number) {
+  const next = new Set(expandedChunkTexts.value)
+  if (next.has(idx)) next.delete(idx)
+  else next.add(idx)
+  expandedChunkTexts.value = next
+}
+
+/** 打开只读分段抽屉并拉取该文档切段 */
+async function openChunksDrawer(row: DocumentMeta) {
+  chunksFilename.value = row.filename
+  chunkItems.value = []
+  expandedChunkSummaries.value = new Set()
+  expandedChunkTexts.value = new Set()
+  showChunksDrawer.value = true
+  chunksLoading.value = true
+  try {
+    const result = await knowledgeApi.listChunks(row.id)
+    chunkItems.value = result.chunks ?? []
+    if (result.filename) chunksFilename.value = result.filename
+  } catch { /* 已 toast */ }
+  chunksLoading.value = false
 }
 
 async function runRetrieveTest() {

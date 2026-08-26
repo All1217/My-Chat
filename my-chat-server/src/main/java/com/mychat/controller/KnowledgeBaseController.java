@@ -2,6 +2,7 @@ package com.mychat.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.mychat.common.result.Result;
+import com.mychat.entity.dto.DocumentChunkListResponse;
 import com.mychat.entity.dto.KnowledgeBaseUpdateRequest;
 import com.mychat.entity.dto.KnowledgeRetrieveTestRequest;
 import com.mychat.entity.dto.KnowledgeRetrieveTestResponse;
@@ -9,6 +10,7 @@ import com.mychat.entity.po.DocumentMeta;
 import com.mychat.entity.po.KnowledgeBase;
 import com.mychat.entity.po.KnowledgeBaseSettings;
 import com.mychat.mapper.DocumentMetaMapper;
+import com.mychat.service.knowledge.DocumentChunkService;
 import com.mychat.service.knowledge.DocumentIngestService;
 import com.mychat.service.knowledge.KnowledgeBaseService;
 import com.mychat.service.knowledge.KnowledgeRetrievalService;
@@ -22,7 +24,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * 知识库与文档元数据 API：列表、创建、更新参数、删除、批量入库、重新向量化、召回测试。
+ * 知识库与文档元数据 API：列表、创建、更新参数、删除、批量入库、重新向量化、召回测试、只读分段。
  */
 @Slf4j
 @RestController
@@ -33,6 +35,7 @@ public class KnowledgeBaseController {
     private final DocumentMetaMapper documentMetaMapper;
     private final DocumentIngestService documentIngestService;
     private final KnowledgeRetrievalService knowledgeRetrievalService;
+    private final DocumentChunkService documentChunkService;
 
     @GetMapping("/list")
     public Result<List<KnowledgeBase>> list() {
@@ -82,6 +85,18 @@ public class KnowledgeBaseController {
         } catch (Exception e) {
             log.error("召回测试失败", e);
             return Result.fail(500, e.getMessage() != null ? e.getMessage() : "召回测试失败");
+        }
+    }
+
+    /**
+     * 只读分段列表：按 position 升序返回原文与摘要；无行返回空数组。
+     */
+    @GetMapping("/documents/chunks")
+    public Result<DocumentChunkListResponse> listDocumentChunks(@RequestParam("id") String id) {
+        try {
+            return Result.ok(documentChunkService.listByDocumentId(id));
+        } catch (IllegalArgumentException e) {
+            return Result.fail(400, e.getMessage());
         }
     }
 

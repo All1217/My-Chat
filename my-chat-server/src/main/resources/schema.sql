@@ -145,6 +145,29 @@ ALTER TABLE document_meta ADD COLUMN IF NOT EXISTS error_message TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_document_meta_kb_id ON document_meta (kb_id);
 
+-- document_chunk（切段原文+摘要，只读展示；与 vector_store 入库双写）
+CREATE TABLE IF NOT EXISTS document_chunk
+(
+    id          VARCHAR(64) PRIMARY KEY,
+    document_id VARCHAR(64) NOT NULL REFERENCES document_meta (id) ON DELETE CASCADE,
+    kb_id       VARCHAR(64) NOT NULL,
+    position    INT         NOT NULL,
+    content     TEXT        NOT NULL,
+    summary     TEXT,
+    created_at  TIMESTAMP   DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (document_id, position)
+);
+COMMENT ON TABLE document_chunk IS '文档切段原文与摘要，只读展示用，与 vector_store 入库双写；已有 READY 文档需重新向量化才有行';
+COMMENT ON COLUMN document_chunk.id IS '与向量段同一套 nameUUID(documentId_下标)';
+COMMENT ON COLUMN document_chunk.document_id IS '所属文档（外键，级联删除）';
+COMMENT ON COLUMN document_chunk.kb_id IS '所属知识库，列表过滤冗余';
+COMMENT ON COLUMN document_chunk.position IS '切段下标，从 0 起';
+COMMENT ON COLUMN document_chunk.content IS '切段原文（metadata.original，无则 Document 文本）';
+COMMENT ON COLUMN document_chunk.summary IS 'chunk 摘要，失败降级可空';
+COMMENT ON COLUMN document_chunk.created_at IS '写入时间';
+
+CREATE INDEX IF NOT EXISTS idx_document_chunk_document_id ON document_chunk (document_id);
+
 -- 助手回合 UI 轨迹（进阶 3：工具时间线回放）
 -- 逻辑外键 conversation_id → chat_sessions.conversation_id
 -- 不修改 spring_ai_chat_memory

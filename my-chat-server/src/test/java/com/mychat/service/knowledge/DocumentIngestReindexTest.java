@@ -29,6 +29,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -45,6 +46,7 @@ class DocumentIngestReindexTest {
     private AsyncJobService asyncJobService;
     private EmbeddingService embeddingService;
     private ChunkSummaryService chunkSummaryService;
+    private DocumentChunkService documentChunkService;
     private DocumentIngestService service;
 
     /** 无 Spring 时手动登记实体，供 LambdaUpdateWrapper 使用。 */
@@ -65,6 +67,7 @@ class DocumentIngestReindexTest {
         asyncJobService = mock(AsyncJobService.class);
         embeddingService = mock(EmbeddingService.class);
         chunkSummaryService = mock(ChunkSummaryService.class);
+        documentChunkService = mock(DocumentChunkService.class);
         when(chunkSummaryService.enrich(anyList())).thenAnswer(inv -> inv.getArgument(0));
         service = new DocumentIngestService(
                 ingestProperties,
@@ -74,7 +77,8 @@ class DocumentIngestReindexTest {
                 asyncJobService,
                 new DocumentService(),
                 embeddingService,
-                chunkSummaryService);
+                chunkSummaryService,
+                documentChunkService);
         when(knowledgeBaseMapper.selectById(any())).thenReturn(null);
         when(embeddingService.storeSegmentsBatched(anyList(), anyInt())).thenAnswer(inv -> {
             List<?> segments = inv.getArgument(0);
@@ -93,10 +97,12 @@ class DocumentIngestReindexTest {
 
         service.ingest("doc-1");
 
-        InOrder order = inOrder(embeddingService);
+        InOrder order = inOrder(embeddingService, documentChunkService, chunkSummaryService);
         order.verify(embeddingService).deleteByDocumentId("doc-1", 5);
+        order.verify(documentChunkService).deleteByDocumentId("doc-1");
+        order.verify(chunkSummaryService).enrich(anyList());
+        order.verify(documentChunkService).replace(eq("doc-1"), eq("kb-1"), anyList());
         order.verify(embeddingService).storeSegmentsBatched(anyList(), eq(32));
-        verify(chunkSummaryService).enrich(anyList());
     }
 
     /** PROCESSING 文档不可再提交重跑。 */
@@ -142,6 +148,35 @@ class DocumentIngestReindexTest {
                 eq("重新向量化：notes.md"),
                 eq("doc-1"),
                 any());
+    }
+
+    /** embedding 失败须再删切段表，避免只读列表残留。 */
+    @Test
+    void ingestDeletesChunksWhenEmbedFails() throws Exception {
+        Path file = tempDir.resolve("b.txt");
+        Files.writeString(file, "知识库入库测试段落。".repeat(80));
+        DocumentMeta meta = readyMeta("doc-1", file);
+        when(documentMetaMapper.selectById("doc-1")).thenReturn(meta);
+        when(embeddingService.storeSegmentsBatched(anyList(), anyInt()))
+                .thenThrow(new EmbeddingService.PartialEmbedException(2, new RuntimeException("embed fail")));
+
+        assertThrows(EmbeddingService.PartialEmbedException.class, () -> service.ingest("doc-1"));
+
+        verify(documentChunkService).replace(eq("doc-1"), eq("kb-1"), anyList());
+        verify(documentChunkService, times(2)).deleteByDocumentId("doc-1");
+    }
+
+    /** 删文档时同步清切段表。 */
+    @Test
+    void deleteDocumentAlsoDeletesChunks() {
+        DocumentMeta meta = readyMeta("doc-1", tempDir.resolve("gone.txt"));
+        when(documentMetaMapper.selectById("doc-1")).thenReturn(meta);
+
+        service.deleteDocument("doc-1");
+
+        verify(documentChunkService).deleteByDocumentId("doc-1");
+        verify(embeddingService).deleteByDocumentId("doc-1", 3);
+        verify(documentMetaMapper).deleteById("doc-1");
     }
 
     private static DocumentMeta readyMeta(String id, Path file) {

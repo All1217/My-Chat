@@ -49,6 +49,7 @@ public class DocumentIngestService {
     private final DocumentService documentService;
     private final EmbeddingService embeddingService;
     private final ChunkSummaryService chunkSummaryService;
+    private final DocumentChunkService documentChunkService;
     /** Spring Boot 4 只注册 Jackson 3 Bean，Jackson 2 Mapper 需自建（与 ChatStreamEventWriter 一致） */
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -60,7 +61,8 @@ public class DocumentIngestService {
             @Lazy AsyncJobService asyncJobService,
             DocumentService documentService,
             EmbeddingService embeddingService,
-            ChunkSummaryService chunkSummaryService) {
+            ChunkSummaryService chunkSummaryService,
+            DocumentChunkService documentChunkService) {
         this.ingestProperties = ingestProperties;
         this.knowledgeBaseMapper = knowledgeBaseMapper;
         this.documentMetaMapper = documentMetaMapper;
@@ -69,6 +71,7 @@ public class DocumentIngestService {
         this.documentService = documentService;
         this.embeddingService = embeddingService;
         this.chunkSummaryService = chunkSummaryService;
+        this.documentChunkService = documentChunkService;
     }
 
     /**
@@ -101,7 +104,7 @@ public class DocumentIngestService {
     }
 
     /**
-     * Job 线程：清旧向量 → 读盘按当前切分参数切段 → 分批 embedding → READY / FAILED。
+     * Job 线程：清旧向量与切段表 → 读盘切段写摘要 → 写入 document_chunk → 分批 embedding → READY / FAILED。
      */
     public void ingest(String documentId) throws Exception {
         if (!StringUtils.hasText(documentId)) {
@@ -121,9 +124,10 @@ public class DocumentIngestService {
             throw new IllegalStateException("落盘文件丢失: " + path);
         }
 
-        // 删旧向量：重跑时避免新旧切段并存；首次入库 chunkCount=0 为空操作
+        // 删旧向量与切段表：重跑时避免新旧切段并存；首次入库 chunkCount=0 为空操作
         int oldChunks = meta.getChunkCount() != null ? meta.getChunkCount() : 0;
         embeddingService.deleteByDocumentId(documentId, oldChunks);
+        documentChunkService.deleteByDocumentId(documentId);
         clearChunkCount(documentId);
 
         KnowledgeBase kb = knowledgeBaseMapper.selectById(meta.getKbId());
@@ -137,22 +141,26 @@ public class DocumentIngestService {
                     in, meta.getFilename(), meta.getKbId(), documentId, chunkSize, chunkOverlap);
             // 摘要：每块 LLM 短摘要拼进 content，失败则该块仍用原文
             var segments = chunkSummaryService.enrich(processed.segments());
+            // 切段表双写：列表只读原文+摘要，不扫 vector_store
+            documentChunkService.replace(documentId, meta.getKbId(), segments);
             written = embeddingService.storeSegmentsBatched(
                     segments, ingestProperties.getEmbedBatchSize());
             markReady(documentId, written);
             log.info("文档入库成功 documentId={} chunks={}", documentId, written);
         } catch (EmbeddingService.PartialEmbedException e) {
-            // 失败回滚：只删本轮已写入的段
+            // 失败回滚：只删本轮已写入的向量，并清切段表
             written = e.written();
             embeddingService.deleteByDocumentId(documentId, written);
+            documentChunkService.deleteByDocumentId(documentId);
             String msg = truncateError(e.getMessage());
             markFailed(documentId, msg);
             throw e;
         } catch (Exception e) {
-            // 失败回滚：只删本轮已写入的段
+            // 失败回滚：只删本轮已写入的向量，并清切段表
             if (written > 0) {
                 embeddingService.deleteByDocumentId(documentId, written);
             }
+            documentChunkService.deleteByDocumentId(documentId);
             String msg = truncateError(e.getMessage());
             markFailed(documentId, msg);
             throw e;
@@ -194,6 +202,9 @@ public class DocumentIngestService {
         return documentMetaMapper.selectById(meta.getId());
     }
 
+    /**
+     * 删文档：先清向量与切段表，再删落盘文件与元数据。
+     */
     public void deleteDocument(String id) {
         DocumentMeta meta = documentMetaMapper.selectById(id);
         if (meta == null) {
@@ -201,6 +212,7 @@ public class DocumentIngestService {
         }
         int chunks = meta.getChunkCount() != null ? meta.getChunkCount() : 0;
         embeddingService.deleteByDocumentId(meta.getId(), chunks);
+        documentChunkService.deleteByDocumentId(meta.getId());
         deleteStoredFile(meta);
         documentMetaMapper.deleteById(id);
     }

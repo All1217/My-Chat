@@ -1,5 +1,5 @@
 import { ragClient } from '@/utils/http'
-import type { KnowledgeBase, KnowledgeBaseUpdate, DocumentMeta, KnowledgeRetrieveTestRequest, KnowledgeRetrieveTestResponse } from '@/types/knowledgeStore/types'
+import type { KnowledgeBase, KnowledgeBaseUpdate, DocumentMeta, KnowledgeRetrieveTestRequest, KnowledgeRetrieveTestResponse, DocumentChunkListResponse } from '@/types/knowledgeStore/types'
 
 export const knowledgeApi = {
   list: () => ragClient.get<KnowledgeBase[]>('/ai/knowledge-base/list'),
@@ -36,6 +36,9 @@ export const knowledgeApi = {
 
   retrieveTest: (payload: KnowledgeRetrieveTestRequest) =>
     ragClient.post<KnowledgeRetrieveTestResponse>('/ai/knowledge-base/documents/retrieve-test', payload),
+
+  listChunks: (id: string) =>
+    ragClient.get<DocumentChunkListResponse>('/ai/knowledge-base/documents/chunks', { params: { id } }),
 
   deleteDocument: (id: string) =>
     ragClient.post<void>('/ai/file/delete', { id }),

@@ -79,6 +79,11 @@ export function dedupeKbCitations(list?: KbCitation[] | null): KbCitation[] {
   return out
 }
 
+/** 解析编排器 kbScope；非法则忽略 */
+export function parseKbScope(raw: unknown): 'catalog' | 'vector' | undefined {
+  return raw === 'catalog' || raw === 'vector' ? raw : undefined
+}
+
 /** 助手消息内可展示的片段（时间线 + 正文拆分） */
 export type MessagePart =
   | { type: 'thinking'; text: string }
@@ -100,6 +105,7 @@ export type MessagePart =
     instruction?: string
     observation?: string
     citations?: KbCitation[]
+    kbScope?: 'catalog' | 'vector'
   }
   | {
     type: 'tool'

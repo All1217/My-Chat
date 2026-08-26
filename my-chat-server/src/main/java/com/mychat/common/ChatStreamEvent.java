@@ -43,7 +43,7 @@ public record ChatStreamEvent(
      *   <li>{@code id} — step-{index}</li>
      *   <li>{@code name} — action（retrieve_kb / file / search / general / finish / evaluate_optimize）</li>
      *   <li>{@code text} — reasoning</li>
-     *   <li>{@code args} — 含 instruction、stepIndex；retrieve_kb 可含 citations</li>
+     *   <li>{@code args} — 含 instruction、stepIndex；retrieve_kb 可含 citations、kbScope</li>
      *   <li>{@code preview} — observation 截断预览</li>
      * </ul>
      */
@@ -83,18 +83,11 @@ public record ChatStreamEvent(
             String reasoning,
             String instruction,
             String observationPreview) {
-        return step(turnId, seq, stepIndex, action, reasoning, instruction, observationPreview, null);
+        return step(turnId, seq, stepIndex, action, reasoning, instruction, observationPreview, null, null);
     }
 
     /**
-     * 编排单步事件；retrieve_kb 可带 {@code args.citations}（协议仍 v=1，只扩 args）。
-     *
-     * @param stepIndex          从 1 开始
-     * @param action             next_action 或 evaluate_optimize
-     * @param reasoning          简要理由
-     * @param instruction        子任务指令（可空）
-     * @param observationPreview Worker 观察预览（可空）
-     * @param citations          知识库来源列表（可空；非空才写入 args）
+     * 编排单步事件；retrieve_kb 可带 citations（协议仍 v=1，只扩 args）。
      */
     public static ChatStreamEvent step(
             String turnId,
@@ -105,12 +98,39 @@ public record ChatStreamEvent(
             String instruction,
             String observationPreview,
             List<KnowledgeRetrieveHit> citations) {
+        return step(turnId, seq, stepIndex, action, reasoning, instruction, observationPreview, citations, null);
+    }
+
+    /**
+     * 编排单步事件；retrieve_kb 可带 {@code args.citations} 与 {@code args.kbScope}。
+     *
+     * @param stepIndex          从 1 开始
+     * @param action             next_action 或 evaluate_optimize
+     * @param reasoning          简要理由
+     * @param instruction        子任务指令（可空）
+     * @param observationPreview Worker 观察预览（可空）
+     * @param citations          知识库来源列表（可空；非空才写入 args）
+     * @param kbScope            catalog|vector（可空；非空才写入 args）
+     */
+    public static ChatStreamEvent step(
+            String turnId,
+            AtomicInteger seq,
+            int stepIndex,
+            String action,
+            String reasoning,
+            String instruction,
+            String observationPreview,
+            List<KnowledgeRetrieveHit> citations,
+            String kbScope) {
         String[] trunc = truncatePreview(observationPreview);
         Map<String, Object> args = new HashMap<>();
         args.put("stepIndex", stepIndex);
         args.put("instruction", instruction != null ? instruction : "");
         if (citations != null && !citations.isEmpty()) {
             args.put("citations", citations);
+        }
+        if (kbScope != null && !kbScope.isBlank()) {
+            args.put("kbScope", kbScope.trim());
         }
         return new ChatStreamEvent(
                 VERSION,

@@ -21,7 +21,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 知识库检索：召回测试、问答上下文拼装，以及聊天引用（来源文件名）装配。
+ * 知识库检索：召回测试、问答上下文拼装（kbScope 目录/向量），以及聊天引用装配。
  */
 @Slf4j
 @Service
@@ -119,9 +119,16 @@ public class KnowledgeRetrievalService {
     }
 
     /**
-     * 为 RAG 生成拼装好的上下文。总览问跳过向量；0 hit 且有就绪文档则改用目录。
+     * 为 RAG 生成拼装好的上下文。双参默认向量检索（Routing / Demo）。
      */
     public RagContext buildRagContext(String kbId, String query) {
+        return buildRagContext(kbId, query, KbScope.VECTOR);
+    }
+
+    /**
+     * 按编排器 kbScope 装配上下文。CATALOG 只拼目录；VECTOR 检索，0 hit 仍可回退目录。
+     */
+    public RagContext buildRagContext(String kbId, String query, KbScope scope) {
         if (!StringUtils.hasText(kbId)) {
             return RagContext.empty("【检索上下文为空】未绑定知识库。");
         }
@@ -129,9 +136,10 @@ public class KnowledgeRetrievalService {
         String q = query == null ? "" : query.trim();
         KnowledgeBase kb = knowledgeBaseMapper.selectById(id);
         List<DocumentMeta> readyDocs = listReadyDocs(id);
+        KbScope resolved = scope != null ? scope : KbScope.VECTOR;
 
-        if (isOverviewQuery(q)) {
-            log.info("总览问走文档目录 kbId={} docs={}", id, readyDocs.size());
+        if (resolved == KbScope.CATALOG) {
+            log.info("kbScope=catalog 走文档目录 kbId={} docs={}", id, readyDocs.size());
             return new RagContext(
                     formatCatalog(kb, readyDocs, true), true, 0, catalogCitations(readyDocs));
         }
@@ -160,28 +168,6 @@ public class KnowledgeRetrievalService {
         String question = userText != null ? userText : "";
         String ctx = StringUtils.hasText(ragContext) ? ragContext : "（无）";
         return question + "\n\n【检索上下文】\n" + ctx;
-    }
-
-    /**
-     * 是否为库级总览问（「总体而言讲了什么」），具体知识点仍走向量。
-     */
-    public static boolean isOverviewQuery(String query) {
-        if (!StringUtils.hasText(query)) {
-            return false;
-        }
-        String q = query.trim();
-        if (q.contains("总体")
-                || q.contains("整体而言")
-                || q.contains("讲了些什么")
-                || q.contains("有哪些文档")
-                || q.contains("有哪些资料")
-                || q.contains("关于什么内容")) {
-            return true;
-        }
-        if (q.contains("这个知识库") && (q.contains("讲了") || q.contains("关于") || q.contains("哪些"))) {
-            return true;
-        }
-        return q.contains("讲了什么") && q.length() <= 40;
     }
 
     /**

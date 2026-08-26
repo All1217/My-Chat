@@ -7,7 +7,7 @@ import { ElMessage } from 'element-plus'
 import { MessageType } from '@/types/AiModule/enums'
 import type { Message } from '@/types/AiModule/types'
 import type { ChatStreamEvent, MessagePart, ToolMessagePart, StepMessagePart } from '@/types/AiModule/streamEvents'
-import { parseKbCitations } from '@/types/AiModule/streamEvents'
+import { parseKbCitations, parseKbScope } from '@/types/AiModule/streamEvents'
 
 /**
  * 聊天消息流式处理 — 发送 / 接收 / 历史加载 / NDJSON 事件归约
@@ -122,6 +122,7 @@ export function useChatStream(
                     stepIndex?: number
                     instruction?: string
                     citations?: unknown
+                    kbScope?: unknown
                 }
                 const stepIndex = typeof args.stepIndex === 'number'
                     ? args.stepIndex
@@ -135,6 +136,7 @@ export function useChatStream(
                     instruction: args.instruction,
                     observation: event.preview,
                     citations: parseKbCitations(args.citations),
+                    kbScope: parseKbScope(args.kbScope),
                 } satisfies StepMessagePart)
                 break
             }
@@ -328,7 +330,7 @@ export function useChatStream(
                     const raw = p as unknown as {
                         id?: string
                         name?: string
-                        args?: { stepIndex?: number; instruction?: string; citations?: unknown }
+                        args?: { stepIndex?: number; instruction?: string; citations?: unknown; kbScope?: unknown }
                         resultPreview?: string
                     }
                     const stepIndex = typeof raw.args?.stepIndex === 'number'
@@ -343,6 +345,7 @@ export function useChatStream(
                         instruction: raw.args?.instruction,
                         observation: undefined,
                         citations: parseKbCitations(raw.args?.citations),
+                        kbScope: parseKbScope(raw.args?.kbScope),
                     }
                 }
                 return p

@@ -38,7 +38,13 @@ public class OrchestrateStepVO {
     private List<KnowledgeRetrieveHit> citations;
 
     /**
-     * 五参构造：保持现有调用点不变，citations 用 setter 另设。
+     * retrieve_kb 的检索范围：catalog | vector；其它 action 为空。
+     * 经 NDJSON {@code step.args.kbScope} 落入 parts。
+     */
+    private String kbScope;
+
+    /**
+     * 五参构造：保持现有调用点不变，citations / kbScope 用 setter 另设。
      */
     public OrchestrateStepVO(
             int index, String action, String reasoning, String instruction, String observation) {

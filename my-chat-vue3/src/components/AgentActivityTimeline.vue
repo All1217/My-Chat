@@ -16,6 +16,10 @@
           <span class="tool-title">
             步骤 {{ part.stepIndex }} → {{ actionLabel(part.action) }}
             <el-tag size="small" type="warning" effect="plain">编排</el-tag>
+            <el-tag v-if="part.action === 'retrieve_kb' && part.kbScope" size="small"
+              :type="part.kbScope === 'catalog' ? 'info' : 'success'" effect="plain">
+              {{ part.kbScope === 'catalog' ? '文档目录' : '向量检索' }}
+            </el-tag>
           </span>
           <div v-if="part.reasoning" class="route-reason">{{ part.reasoning }}</div>
           <KbCitationTags v-if="part.action === 'retrieve_kb'" :citations="part.citations" />

@@ -33,7 +33,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * 召回测试参数、hit 映射，以及总览问走目录。
+ * 召回测试参数、hit 映射，以及 kbScope 目录/向量分流。
  */
 class KnowledgeRetrievalServiceTest {
 
@@ -143,9 +143,9 @@ class KnowledgeRetrievalServiceTest {
         assertEquals("知识库不存在", ex.getMessage());
     }
 
-    /** 总览问不走向量，只注入目录。 */
+    /** kbScope=catalog 不走向量，只注入目录；问句含「总体」也不再靠关键词分流。 */
     @Test
-    void overviewQueryUsesCatalogNotVector() {
+    void catalogScopeUsesCatalogNotVector() {
         DocumentMeta doc = new DocumentMeta();
         doc.setId("doc-java");
         doc.setFilename("Java基础.md");
@@ -154,7 +154,7 @@ class KnowledgeRetrievalServiceTest {
         when(documentMetaMapper.selectList(any())).thenReturn(List.of(doc));
 
         KnowledgeRetrievalService.RagContext ctx =
-                service.buildRagContext("kb-1", "这个知识库总体而言讲了些什么？");
+                service.buildRagContext("kb-1", "这个知识库总体而言讲了些什么？", KbScope.CATALOG);
 
         assertTrue(ctx.catalogUsed());
         assertEquals(0, ctx.chunkHits());
@@ -166,6 +166,13 @@ class KnowledgeRetrievalServiceTest {
         assertEquals("doc-java", ctx.citations().get(0).getDocumentId());
         assertEquals(KnowledgeRetrieveHit.KIND_CATALOG, ctx.citations().get(0).getKind());
         verify(vectorStore, never()).similaritySearch(any(SearchRequest.class));
+    }
+
+    /** kbScope=vector 时，含「总体」的具体问仍走向量检索。 */
+    @Test
+    void vectorScopeWithOverviewWordingStillSearches() {
+        service.buildRagContext("kb-1", "计算机基础总体会涉及哪些方面", KbScope.VECTOR);
+        verify(vectorStore).similaritySearch(any(SearchRequest.class));
     }
 
     /** 具体问 0 hit 且有就绪文档时改用目录。 */
@@ -186,14 +193,6 @@ class KnowledgeRetrievalServiceTest {
         assertEquals("计算机基础.pdf", ctx.citations().get(0).getFilename());
         assertEquals(KnowledgeRetrieveHit.KIND_CATALOG, ctx.citations().get(0).getKind());
         verify(vectorStore).similaritySearch(any(SearchRequest.class));
-    }
-
-    @Test
-    void isOverviewQueryDetectsMetaQuestions() {
-        assertTrue(KnowledgeRetrievalService.isOverviewQuery("这个知识库总体而言是关于什么内容的？"));
-        assertTrue(KnowledgeRetrievalService.isOverviewQuery("库里有哪些文档"));
-        assertFalse(KnowledgeRetrievalService.isOverviewQuery("Java 三大特性是什么"));
-        assertFalse(KnowledgeRetrievalService.isOverviewQuery("这个知识库里的多态怎么实现"));
     }
 
     /** 向量命中填入 citations，正文截到 200 字。 */

@@ -5,6 +5,7 @@ import com.mychat.common.OrchestratorWorkflow;
 import com.mychat.config.WorkspaceContext;
 import com.mychat.entity.dto.KnowledgeRetrieveHit;
 import com.mychat.entity.dto.OrchestrateRequest;
+import com.mychat.service.knowledge.KbScope;
 import com.mychat.service.knowledge.KnowledgeRetrievalService;
 import com.mychat.utils.SearchSystemPrompts;
 import com.mychat.utils.WorkspacePromptBuilder;
@@ -152,9 +153,10 @@ public class AgentOrchestratorService {
             String instruction = decision.instruction() != null ? decision.instruction() : "";
             // finish 时忽略 complexity；Worker 步用 single 触发自动 finish（省第二次 decideNext）
             String complexity = OrchestratorWorkflow.normalizeComplexity(decision.complexity());
+            String kbScope = OrchestratorWorkflow.normalizeKbScope(action, decision.kbScope());
 
-            log.info("Orchestrator step={}/{} action={} complexity={} reasoning={}",
-                    i, maxSteps, action, complexity, reasoning);
+            log.info("Orchestrator step={}/{} action={} complexity={} kbScope={} reasoning={}",
+                    i, maxSteps, action, complexity, kbScope, reasoning);
 
             if ("finish".equals(action)) {
                 String finalAnswer = resolveFinalAnswer(userGoal, instruction, steps);
@@ -176,7 +178,7 @@ public class AgentOrchestratorService {
 
             WorkerOutcome outcome;
             try {
-                outcome = runWorker(action, instruction, kbId, workDir, dialogueHistory, userGoal);
+                outcome = runWorker(action, instruction, kbId, workDir, dialogueHistory, userGoal, kbScope);
             } catch (Exception e) {
                 log.warn("Orchestrator Worker 失败 action={}: {}", action, e.getMessage());
                 outcome = WorkerOutcome.text("[Worker 错误] " + (e.getMessage() != null
@@ -188,6 +190,9 @@ public class AgentOrchestratorService {
             OrchestrateStepVO step = appendStep(steps, history, i, action, reasoning, instruction, observation);
             if (outcome.citations() != null && !outcome.citations().isEmpty()) {
                 step.setCitations(outcome.citations());
+            }
+            if (kbScope != null) {
+                step.setKbScope(kbScope);
             }
             notifyListener(listener, step);
 
@@ -251,13 +256,14 @@ public class AgentOrchestratorService {
     }
 
     /**
-     * 按 action 调用对应 Worker。retrieve_kb 的检索 query 用用户原问，不用历史拼装消息。
+     * 按 action 调用对应 Worker。retrieve_kb 的检索 query 用用户原问，范围由 kbScope 决定。
      */
     private WorkerOutcome runWorker(
-            String action, String instruction, String kbId, String workDir, String dialogueHistory, String userGoal) {
+            String action, String instruction, String kbId, String workDir,
+            String dialogueHistory, String userGoal, String kbScope) {
         String task = buildWorkerUserMessage(dialogueHistory, instruction);
         return switch (action) {
-            case "retrieve_kb" -> workerKb(task, kbId, userGoal, instruction);
+            case "retrieve_kb" -> workerKb(task, kbId, userGoal, instruction, kbScope);
             case "file" -> WorkerOutcome.text(workerFile(task, workDir));
             case "search" -> WorkerOutcome.text(workerSearch(task, workDir));
             case "general" -> WorkerOutcome.text(workerGeneral(task));
@@ -328,13 +334,16 @@ public class AgentOrchestratorService {
     }
 
     /**
-     * kb：自行 similaritySearch（query=用户原问），再交给 ragChatClient 生成。
+     * kb：自行 similaritySearch 或目录（由 kbScope 决定），再交给 ragChatClient 生成。
      */
-    private WorkerOutcome workerKb(String userMessage, String kbId, String userGoal, String instruction) {
+    private WorkerOutcome workerKb(
+            String userMessage, String kbId, String userGoal, String instruction, String kbScope) {
         String conversationId = "orch-kb-" + UUID.randomUUID();
-        // 1. 检索：query=用户原问，产出 prompt 与结构化来源
+        // 1. 检索：query=用户原问；范围由编排器 kbScope 决定
         String searchQuery = kbSearchQuery(userGoal, instruction);
-        KnowledgeRetrievalService.RagContext rag = knowledgeRetrievalService.buildRagContext(kbId, searchQuery);
+        KbScope scope = KbScope.from(kbScope);
+        KnowledgeRetrievalService.RagContext rag =
+                knowledgeRetrievalService.buildRagContext(kbId, searchQuery, scope);
         String prompt = buildKbWorkerUserPrompt(userMessage, rag.promptBlock());
         // 2. 生成：临时 conversationId，不写会话 Memory
         String content = ragChatClient.prompt()

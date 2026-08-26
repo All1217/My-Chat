@@ -172,7 +172,7 @@ public class AgentRoutingService {
     }
 
     /**
-     * kb：先按用户原问检索（总览走目录），再交给 ragChatClient 生成。
+     * kb：先按用户原问做向量检索（默认 kbScope=vector），再交给 ragChatClient 生成。
      */
     private String handleKb(String input, String kbId) {
         String conversationId = "agent-route-kb-" + UUID.randomUUID();

@@ -16,6 +16,8 @@ import java.util.Set;
  * <p>
  * {@code complexity=single} 时，调用方可在跑完一个 Worker 后自动 finish（单步快路径），
  * 以逼近 Routing「分类 + 单 Worker」的延迟/成本。
+ * <p>
+ * retrieve_kb 时输出 {@code kbScope=catalog|vector}，由 Worker 决定走文档目录还是向量检索。
  */
 public class OrchestratorWorkflow {
 
@@ -24,6 +26,12 @@ public class OrchestratorWorkflow {
 
     public static final Set<String> ALLOWED_COMPLEXITIES = Set.of("single", "multi");
 
+    /** retrieve_kb 走文档目录 */
+    public static final String KB_SCOPE_CATALOG = "catalog";
+
+    /** retrieve_kb 走向量检索（缺省） */
+    public static final String KB_SCOPE_VECTOR = "vector";
+
     /**
      * 编排器 Structured Output。
      *
@@ -31,9 +39,10 @@ public class OrchestratorWorkflow {
      * @param nextAction  动作标签，须为 {@link #ALLOWED_ACTIONS} 之一
      * @param instruction 给 Worker 的子任务；{@code finish} 时必须是面向用户的完整最终答复
      * @param complexity  {@code single}＝本 Worker 完成后即可答复；{@code multi}＝还需后续步骤；缺失按 multi
+     * @param kbScope     retrieve_kb 时 catalog|vector；其它 action 为空
      */
     public record NextAction(
-            String reasoning, String nextAction, String instruction, String complexity) {
+            String reasoning, String nextAction, String instruction, String complexity, String kbScope) {
     }
 
     /**
@@ -88,6 +97,10 @@ public class OrchestratorWorkflow {
                 - finish：任务已完成；instruction 必须是给用户看的完整最终答复
                 
                 规则：
+                - **kbScope（retrieve_kb 时强制）**：
+                  1. catalog：问整个知识库有哪些文档、库里讲什么、请概括资料清单（不针对某一学科/某文档内的知识点）。
+                  2. vector：具体概念、章节、某文档内容；即使句子含「总体 / 整体 / 方面」也选 vector。例：「计算机基础总体会涉及哪些方面」→ vector。
+                  3. 其它 nextAction 不要填 kbScope；不确定时选 vector。
                 - 复杂任务拆成多步；非 finish 时 instruction 只描述当前 Worker 要做的事。
                 - 若用户追问「刚才/上一条/之前说了什么」等，必须依据「近期对话」回答，禁止声称没有历史。
                 - **非 finish 的 instruction（强制指代消解）**：必须写成可独立执行的细节（具体 path、文件名、上轮结论要点、检索关键词等）；禁止只写「刚才那个文件 / 同上 / 按上次说的做」等未消解指代。Worker 虽会收到近期对话摘要，仍以你消解后的 instruction 为准。
@@ -121,7 +134,8 @@ public class OrchestratorWorkflow {
                   "reasoning": "简要理由",
                   "nextAction": "retrieve_kb|file|search|general|finish",
                   "instruction": "Worker 子任务；或 finish 时的完整用户可见答复",
-                  "complexity": "single|multi"
+                  "complexity": "single|multi",
+                  "kbScope": "catalog|vector，仅 retrieve_kb 时填写"
                 \\}
                 """;
 
@@ -140,17 +154,19 @@ public class OrchestratorWorkflow {
         String reasoning = raw != null && raw.reasoning() != null ? raw.reasoning() : "";
         String instruction = raw != null && raw.instruction() != null ? raw.instruction() : "";
         String complexity = normalizeComplexity(raw != null ? raw.complexity() : null);
+        String kbScope = normalizeKbScope(action, raw != null ? raw.kbScope() : null);
 
         if (!ALLOWED_ACTIONS.contains(action)) {
             reasoning = (reasoning.isBlank() ? "" : reasoning + " ")
                     + "[未知 nextAction，已回退为 general]";
             action = "general";
+            kbScope = null;
             if (!StringUtils.hasText(instruction)) {
                 instruction = userGoal;
             }
         }
 
-        return new NextAction(reasoning, action, instruction, complexity);
+        return new NextAction(reasoning, action, instruction, complexity, kbScope);
     }
 
     /**
@@ -162,6 +178,21 @@ public class OrchestratorWorkflow {
         }
         String c = complexity.trim().toLowerCase(Locale.ROOT);
         return ALLOWED_COMPLEXITIES.contains(c) ? c : "multi";
+    }
+
+    /**
+     * 规范化 kbScope：仅 retrieve_kb 有效；catalog 保留，其余（含空/非法）默认 vector。
+     *
+     * @return retrieve_kb 时为 catalog 或 vector；其它 action 为 null
+     */
+    public static String normalizeKbScope(String action, String kbScope) {
+        if (!"retrieve_kb".equals(action)) {
+            return null;
+        }
+        if (kbScope != null && KB_SCOPE_CATALOG.equalsIgnoreCase(kbScope.trim())) {
+            return KB_SCOPE_CATALOG;
+        }
+        return KB_SCOPE_VECTOR;
     }
 
     /**

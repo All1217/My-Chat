@@ -33,7 +33,8 @@ class TurnPartsReducerTest {
                 "检索知识库",
                 "回答封装",
                 "观察预览",
-                List.of(hit));
+                List.of(hit),
+                "vector");
 
         TurnPartsReducer.TurnSnapshot snap = TurnPartsReducer.reduce(List.of(event), false);
         assertEquals(1, snap.parts().size());
@@ -44,6 +45,7 @@ class TurnPartsReducerTest {
         @SuppressWarnings("unchecked")
         Map<String, Object> args = (Map<String, Object>) part.getArgs();
         assertTrue(args.containsKey("citations"));
+        assertEquals("vector", args.get("kbScope"));
         @SuppressWarnings("unchecked")
         List<KnowledgeRetrieveHit> citations = (List<KnowledgeRetrieveHit>) args.get("citations");
         assertEquals(1, citations.size());
@@ -60,6 +62,7 @@ class TurnPartsReducerTest {
         @SuppressWarnings("unchecked")
         Map<String, Object> args = (Map<String, Object>) snap.parts().get(0).getArgs();
         assertTrue(!args.containsKey("citations"));
+        assertTrue(!args.containsKey("kbScope"));
         assertEquals(1, args.get("stepIndex"));
     }
 }

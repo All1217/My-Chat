@@ -1,4 +1,4 @@
-package com.mychat.service.agent;
+package com.mychat.service.agent.demo;
 
 import com.mychat.entity.dto.RouteRequest;
 import com.mychat.entity.po.KnowledgeBase;

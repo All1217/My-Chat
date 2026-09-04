@@ -13,7 +13,7 @@ import java.util.Set;
  */
 public class RoutingWorkflow {
 
-    /** 允许的路由标签（与 AgentRoutingService 分发一致） */
+    /** 允许的路由标签（与 {@link com.mychat.service.agent.demo.AgentRoutingService} 分发一致） */
     public static final Set<String> ALLOWED_ROUTES = Set.of("file", "kb", "search", "general");
 
     /**

@@ -1,5 +1,6 @@
 package com.mychat.service.agent;
 
+import com.mychat.service.agent.worker.WorkerPromptSupport;
 import com.mychat.vo.OrchestrateStepVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.StringUtils;
@@ -141,7 +142,7 @@ public final class FinalAnswerComposer {
                 .append(StringUtils.hasText(userGoal) ? userGoal.trim() : "（未提供）")
                 .append("\n\n");
         sb.append("会话上下文（只读参考，含摘要+近期原文；不要复述整段历史）：\n");
-        sb.append(AgentOrchestratorService.truncateDialogueForWorker(dialogueHistory));
+        sb.append(WorkerPromptSupport.truncateDialogueForWorker(dialogueHistory));
         sb.append("\n\n");
         sb.append("参考材料（各 Worker observation，可能截断）：\n");
         sb.append(formatMaterialsForStreamPrompt(steps));

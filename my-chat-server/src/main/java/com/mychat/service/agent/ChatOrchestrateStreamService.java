@@ -1,6 +1,7 @@
 package com.mychat.service.agent;
 
 import com.mychat.common.ChatStreamEvent;
+import com.mychat.service.agent.quality.AgentEvaluatorOptimizerService;
 import com.mychat.service.chat.ChatAssistantTurnService;
 import com.mychat.config.WorkspaceContext;
 import com.mychat.entity.dto.EvaluateOptimizeRequest;

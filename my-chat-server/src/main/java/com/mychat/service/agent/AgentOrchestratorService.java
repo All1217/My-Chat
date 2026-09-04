@@ -2,19 +2,17 @@ package com.mychat.service.agent;
 
 import com.mychat.common.ChatStreamEvent;
 import com.mychat.service.agent.workflow.OrchestratorWorkflow;
-import com.mychat.config.WorkspaceContext;
-import com.mychat.entity.dto.KnowledgeRetrieveHit;
+import com.mychat.service.agent.worker.FileWorker;
+import com.mychat.service.agent.worker.GeneralWorker;
+import com.mychat.service.agent.worker.KbWorker;
+import com.mychat.service.agent.worker.SearchWorker;
+import com.mychat.service.agent.worker.WorkerOutcome;
+import com.mychat.service.agent.worker.WorkerPromptSupport;
 import com.mychat.entity.dto.OrchestrateRequest;
-import com.mychat.service.knowledge.KbScope;
-import com.mychat.service.knowledge.KnowledgeRetrievalService;
-import com.mychat.utils.SearchSystemPrompts;
-import com.mychat.utils.WorkspacePromptBuilder;
-import com.mychat.utils.WorkspaceUtil;
 import com.mychat.vo.OrchestrateResultVO;
 import com.mychat.vo.OrchestrateStepVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -22,13 +20,12 @@ import reactor.core.publisher.Flux;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 /**
  * 回合内编排循环：decideNext → switch 调 Worker → 可选 auto-finish。
  * <p>
  * 怎么读：入口 {@code ChatController} → 管道 {@link ChatOrchestrateStreamService}
- * → 本类循环 → 本类 {@code workerKb}/{@code workerFile}/{@code workerSearch}/{@code workerGeneral}。
+ * → 本类循环 → {@link com.mychat.service.agent.worker}。
  * 主路固定 Orchestrator；Routing 是 Demo，不是本类的前置分类。
  * <p>
  * Worker 用 {@code orch-*} 临时 conversationId，不写会话 chatId。
@@ -48,11 +45,6 @@ public class AgentOrchestratorService {
      */
     public static final int HISTORY_OBSERVATION_MAX_CHARS = 16000;
 
-    /**
-     * Worker 侧只读会话摘要预算（短于决策器侧，避免挤占工具上下文）
-     */
-    public static final int WORKER_DIALOGUE_HISTORY_MAX_CHARS = 3000;
-
     private static final String FINAL_STREAM_SYSTEM = """
             你是面向用户的助手。根据「用户目标」「参考材料」和「答复草稿」，直接输出最终答复正文。
             要求：
@@ -62,29 +54,24 @@ public class AgentOrchestratorService {
             4. 只输出用户可见正文，不要前言、不要解释你在流式输出。
             """;
 
-    private static final String SEARCH_SYSTEM_PROMPT = SearchSystemPrompts.SEARCH;
-
     private final OrchestratorWorkflow orchestratorWorkflow;
-    private final ChatClient toolChatClient;
-    private final ChatClient ragChatClient;
     private final ChatClient agentWorkflowChatClient;
-    private final KnowledgeRetrievalService knowledgeRetrievalService;
-    private final WorkspaceUtil workspaceUtil;
-    private final WorkspacePromptBuilder workspacePromptBuilder;
+    private final KbWorker kbWorker;
+    private final FileWorker fileWorker;
+    private final SearchWorker searchWorker;
+    private final GeneralWorker generalWorker;
 
     public AgentOrchestratorService(
             @Qualifier("agentWorkflowChatClient") ChatClient agentWorkflowChatClient,
-            @Qualifier("toolChatClient") ChatClient toolChatClient,
-            @Qualifier("ragChatClient") ChatClient ragChatClient,
-            KnowledgeRetrievalService knowledgeRetrievalService,
-            WorkspaceUtil workspaceUtil,
-            WorkspacePromptBuilder workspacePromptBuilder) {
+            KbWorker kbWorker,
+            FileWorker fileWorker,
+            SearchWorker searchWorker,
+            GeneralWorker generalWorker) {
         this.agentWorkflowChatClient = agentWorkflowChatClient;
-        this.toolChatClient = toolChatClient;
-        this.ragChatClient = ragChatClient;
-        this.knowledgeRetrievalService = knowledgeRetrievalService;
-        this.workspaceUtil = workspaceUtil;
-        this.workspacePromptBuilder = workspacePromptBuilder;
+        this.kbWorker = kbWorker;
+        this.fileWorker = fileWorker;
+        this.searchWorker = searchWorker;
+        this.generalWorker = generalWorker;
         this.orchestratorWorkflow = new OrchestratorWorkflow(agentWorkflowChatClient);
     }
 
@@ -217,162 +204,22 @@ public class AgentOrchestratorService {
     }
 
     /**
-     * Worker 观察及可选知识库引用来源。
-     */
-    private record WorkerOutcome(String observation, List<KnowledgeRetrieveHit> citations) {
-        /** 无引用的纯文本观察。 */
-        static WorkerOutcome text(String observation) {
-            return new WorkerOutcome(observation != null ? observation : "", null);
-        }
-    }
-
-    /**
      * 按 action 调用对应 Worker。retrieve_kb 的检索 query 用用户原问，范围由 kbScope 决定。
      */
     private WorkerOutcome runWorker(
             String action, String instruction, String kbId, String workDir,
             String dialogueHistory, String userGoal, String kbScope) {
-        String task = buildWorkerUserMessage(dialogueHistory, instruction);
+        String task = WorkerPromptSupport.buildWorkerUserMessage(dialogueHistory, instruction);
         return switch (action) {
-            case "retrieve_kb" -> workerKb(task, kbId, userGoal, instruction, kbScope);
-            case "file" -> WorkerOutcome.text(workerFile(task, workDir));
-            case "search" -> WorkerOutcome.text(workerSearch(task, workDir));
-            case "general" -> WorkerOutcome.text(workerGeneral(task));
+            case "retrieve_kb" -> kbWorker.run(task, kbId, userGoal, instruction, kbScope);
+            case "file" -> WorkerOutcome.text(fileWorker.run(task, workDir));
+            case "search" -> WorkerOutcome.text(searchWorker.run(task, workDir));
+            case "general" -> WorkerOutcome.text(generalWorker.run(task));
             default -> WorkerOutcome.text("[约束] 未实现的 Worker: " + action);
         };
     }
 
-    /**
-     * Worker user 消息：只读会话摘要 + 本步任务。包可见便于单测。
-     * <p>
-     * 不写入会话 Memory；仅消解「刚才/那个文件」等指代。
-     */
-    static String buildWorkerUserMessage(String dialogueHistory, String instruction) {
-        String hist = truncateDialogueForWorker(dialogueHistory);
-        String task = StringUtils.hasText(instruction) ? instruction.trim() : "";
-        return """
-                【会话上下文｜只读参考，用于消解「刚才/那个文件」等指代；不要复述整段历史】
-                %s
-                
-                【本步任务】
-                %s
-                """.formatted(hist, task);
-    }
-
-    /**
-     * Worker / 最终流式侧截断：优先保留「会话摘要」段，再截「近期原文」。
-     */
-    static String truncateDialogueForWorker(String dialogueHistory) {
-        if (!StringUtils.hasText(dialogueHistory)) {
-            return "（无）";
-        }
-        String t = dialogueHistory.trim();
-        if (t.length() <= WORKER_DIALOGUE_HISTORY_MAX_CHARS) {
-            return t;
-        }
-        final String recentMarker = "【近期对话原文】";
-        int recentIdx = t.indexOf(recentMarker);
-        if (recentIdx > 0 && t.contains("【会话摘要")) {
-            String head = t.substring(0, recentIdx);
-            String recent = t.substring(recentIdx);
-            int budgetForRecent = WORKER_DIALOGUE_HISTORY_MAX_CHARS - head.length() - 24;
-            if (budgetForRecent < 120) {
-                return t.substring(0, WORKER_DIALOGUE_HISTORY_MAX_CHARS) + "\n…[会话上下文已截断]";
-            }
-            if (recent.length() > budgetForRecent) {
-                recent = recent.substring(0, budgetForRecent) + "\n…[近期原文已截断]";
-            }
-            return head + recent;
-        }
-        return t.substring(0, WORKER_DIALOGUE_HISTORY_MAX_CHARS) + "\n…[会话摘要已截断]";
-    }
-
-    /**
-     * 知识库检索 query：只用用户原问，避免把会话历史拿去 embedding。
-     */
-    static String kbSearchQuery(String userGoal, String instruction) {
-        if (StringUtils.hasText(userGoal)) {
-            return userGoal.trim();
-        }
-        return StringUtils.hasText(instruction) ? instruction.trim() : "";
-    }
-
-    /**
-     * 生成侧 user：会话任务 + 已检索上下文（不再交给 QuestionAnswerAdvisor）。
-     */
-    static String buildKbWorkerUserPrompt(String workerUserMessage, String ragContext) {
-        return KnowledgeRetrievalService.wrapUserWithContext(workerUserMessage, ragContext);
-    }
-
-    /**
-     * kb：自行 similaritySearch 或目录（由 kbScope 决定），再交给 ragChatClient 生成。
-     */
-    private WorkerOutcome workerKb(
-            String userMessage, String kbId, String userGoal, String instruction, String kbScope) {
-        String conversationId = "orch-kb-" + UUID.randomUUID();
-        // 1. 检索：query=用户原问；范围由编排器 kbScope 决定
-        String searchQuery = kbSearchQuery(userGoal, instruction);
-        KbScope scope = KbScope.from(kbScope);
-        KnowledgeRetrievalService.RagContext rag =
-                knowledgeRetrievalService.buildRagContext(kbId, searchQuery, scope);
-        String prompt = buildKbWorkerUserPrompt(userMessage, rag.promptBlock());
-        // 2. 生成：临时 conversationId，不写会话 Memory
-        String content = ragChatClient.prompt()
-                .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationId))
-                .user(prompt)
-                .call()
-                .content();
-        // 3. 带回 citations，供 step.args 落入气泡引用
-        return new WorkerOutcome(content != null ? content : "", rag.citations());
-    }
-
-    private String workerFile(String userMessage, String workDir) {
-        String conversationId = "orch-file-" + UUID.randomUUID();
-        String root = StringUtils.hasText(workDir)
-                ? workDir
-                : workspaceUtil.getWorkspaceRoot().toString();
-        WorkspaceContext.set(root);
-        try {
-            String content = toolChatClient.prompt()
-                    .system(workspacePromptBuilder.build(root))
-                    .user(userMessage)
-                    .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationId))
-                    .call()
-                    .content();
-            return content != null ? content : "";
-        } finally {
-            WorkspaceContext.clear();
-        }
-    }
-
-    private String workerSearch(String userMessage, String workDir) {
-        String conversationId = "orch-search-" + UUID.randomUUID();
-        String root = StringUtils.hasText(workDir)
-                ? workDir
-                : workspaceUtil.getWorkspaceRoot().toString();
-        WorkspaceContext.set(root);
-        try {
-            String content = toolChatClient.prompt()
-                    .system(SEARCH_SYSTEM_PROMPT)
-                    .user(userMessage)
-                    .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationId))
-                    .call()
-                    .content();
-            return content != null ? content : "";
-        } finally {
-            WorkspaceContext.clear();
-        }
-    }
-
-    private String workerGeneral(String userMessage) {
-        String content = agentWorkflowChatClient.prompt()
-                .system("你是友好的助手，用简洁中文完成编排器交给你的子任务。不要尝试调用外部工具。")
-                .user(userMessage)
-                .call()
-                .content();
-        return content != null ? content : "";
-    }
-
+    /** 同时写入对外 steps 与决策器用的 StepSummary 历史。 */
     private static OrchestrateStepVO appendStep(
             List<OrchestrateStepVO> steps,
             List<OrchestratorWorkflow.StepSummary> history,

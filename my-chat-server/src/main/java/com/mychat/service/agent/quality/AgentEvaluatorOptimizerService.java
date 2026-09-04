@@ -1,4 +1,4 @@
-package com.mychat.service.agent;
+package com.mychat.service.agent.quality;
 
 import com.mychat.common.ChatStreamEvent;
 import com.mychat.service.agent.workflow.EvaluatorOptimizerWorkflow;

@@ -1,4 +1,4 @@
-package com.mychat.service.agent;
+package com.mychat.service.agent.demo;
 
 import com.mychat.common.ChatStreamEvent;
 import com.mychat.service.agent.workflow.RoutingWorkflow;

@@ -7,15 +7,9 @@ import java.util.Locale;
 import java.util.Set;
 
 /**
- * Routing Workflow：先用一次 LLM 给输入打标签，再由调用方按标签分发。
+ * Routing 分类器：一次 LLM 打标签，再由调用方 Java switch 分发。仅 Demo 使用。
  * <p>
- * <b>代码路径 vs 单次 LLM</b>：
- * <ul>
- *   <li>本类只负责「分类」这一次 LLM 调用（Structured Output）。</li>
- *   <li>选中哪条处理路径（file / kb / search / general）由 Java {@code switch} 决定，
- *       不属于模型自治 Agent。</li>
- * </ul>
- * 对照：06-agents 用同一 ChatClient 换 system prompt；My-Chat 阶段 E 在分类后换不同 ChatClient。
+ * 主聊天走 {@link OrchestratorWorkflow} 多步决策，不经过本类。
  */
 public class RoutingWorkflow {
 

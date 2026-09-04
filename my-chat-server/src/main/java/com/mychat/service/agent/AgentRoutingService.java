@@ -22,15 +22,11 @@ import org.springframework.util.StringUtils;
 import java.util.UUID;
 
 /**
- * Routing 编排服务：分类（LLM）→ Java switch 分发到专用 ChatClient。
+ * 单次 Routing：LLM 分类一次后 Java switch 分发。仅 Demo 使用，主聊天不走本类。
  * <p>
- * <b>代码路径 vs 单次 LLM</b>：
- * <ul>
- *   <li>分类：{@link RoutingWorkflow#determineRoute} 一次 LLM（无工具 Client）。</li>
- *   <li>分发：本类 {@code switch} 固定路径，不是模型自己决定下一步。</li>
- *   <li>处理：各分支再发起一次（或带工具循环的）ChatClient 调用。</li>
- * </ul>
- * 调试 API 走同步 {@link #route}；主聊天走 {@link #classify} 后由 Controller 流式分发。
+ * 产品入口见 {@code ChatController}（Orchestrator）。
+ * Demo 流式入口见 {@code POST /ai/agent/route}（{@link AgentRouteDemoStreamService}）；
+ * 同步 {@link #route} 仍可供内部/单测调用。
  */
 @Slf4j
 @Service
@@ -65,7 +61,7 @@ public class AgentRoutingService {
     }
 
     /**
-     * 主聊天 / 调试共用：带会话约束的分类（含 kb 无 kbId 时回退 general）。
+     * Demo 分类：带会话约束（无 kbId 时 kb 回退 general）。主聊天不调用。
      */
     public RoutingWorkflow.RoutingResponse classify(String input, String kbId, String workDir) {
         if (!StringUtils.hasText(input)) {

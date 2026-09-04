@@ -27,7 +27,9 @@ import java.util.Map;
 @Service
 public class KnowledgeRetrievalService {
 
-    /** 模拟问题字数上限，避免超长 embedding */
+    /**
+     * 模拟问题字数上限，避免超长 embedding
+     */
     public static final int MAX_QUERY_CHARS = 1000;
 
     private final KnowledgeBaseMapper knowledgeBaseMapper;
@@ -43,7 +45,9 @@ public class KnowledgeRetrievalService {
         this.vectorStore = vectorStore;
     }
 
-    /** 聊天引用摘录上限，控制 NDJSON 体积（对齐 Dify retriever_resources.content 截短） */
+    /**
+     * 聊天引用摘录上限，控制 NDJSON 体积（对齐 Dify retriever_resources.content 截短）
+     */
     public static final int CITATION_SNIPPET_MAX_CHARS = 200;
 
     /**
@@ -59,7 +63,9 @@ public class KnowledgeRetrievalService {
             boolean catalogUsed,
             int chunkHits,
             List<KnowledgeRetrieveHit> citations) {
-        /** 空上下文占位，无引用来源。 */
+        /**
+         * 空上下文占位，无引用来源。
+         */
         public static RagContext empty(String message) {
             String text = StringUtils.hasText(message) ? message : "【检索上下文为空】";
             return new RagContext(text, false, 0, List.of());
@@ -145,8 +151,7 @@ public class KnowledgeRetrievalService {
         }
 
         int topK = KnowledgeBaseSettings.topKOrDefault(kb != null ? kb.getTopK() : null);
-        double threshold = KnowledgeBaseSettings.thresholdOrDefault(
-                kb != null ? kb.getSimilarityThreshold() : null);
+        double threshold = KnowledgeBaseSettings.thresholdOrDefault(kb != null ? kb.getSimilarityThreshold() : null);
         List<Document> hits = StringUtils.hasText(q)
                 ? searchChunks(id, q, topK, threshold)
                 : List.of();

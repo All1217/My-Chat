@@ -34,12 +34,12 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * 主聊天 Orchestrate NDJSON 管道（自 ChatController 下沉）。
+ * 主聊天 NDJSON 管道：驱动编排、推 step/text_delta、可选质量环、回合落库。
  * <p>
- * 读路径：{@link OrchestrateDialogueContextService} 注入「滚动摘要 + 近期原文」；
- * Worker / 最终流式共用该文本。<br>
- * 写路径：仅回合 {@code ON_COMPLETE} 时 {@link #persistOrchestrateExchange}；
- * Worker 继续 {@code orch-*}，不挂 MessageChatMemoryAdvisor 写会话 chatId。
+ * 怎么读：上接 {@code ChatController}，下接 {@link AgentOrchestratorService}。
+ * 读：{@link OrchestrateDialogueContextService} 注入摘要+近期原文；
+ * 写：回合 {@code ON_COMPLETE} 时 {@link #persistOrchestrateExchange}。
+ * Worker 用 {@code orch-*}，不把会话 chatId 交给 MessageChatMemoryAdvisor。
  */
 @Slf4j
 @Service

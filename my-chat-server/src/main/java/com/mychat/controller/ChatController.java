@@ -19,11 +19,12 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
- * 主聊天流式端点（仅 Orchestrator + 写盘质量环）。
+ * 主聊天 HTTP 入口：校验 ndjson、绑工作区、解析 kbId、处理附件后交给管道。
  * <p>
- * 产品入口必须 {@code format=ndjson}。业务管道见 {@link ChatOrchestrateStreamService}。<br>
- * 单次 Routing 调试见 {@code POST /ai/agent/route}（Demo）。<br>
- * 附件仅支持 txt/md/pdf；图片暂不支持。
+ * 怎么读：本类 → {@link ChatOrchestrateStreamService}（NDJSON 管道）
+ * → {@link com.mychat.service.agent.AgentOrchestratorService}（编排循环与 Worker）。
+ * 主路固定 Orchestrator，不走 Routing；Routing 仅 {@code POST /ai/agent/route}（Demo）。
+ * 附件仅 txt/md/pdf，图片双拒。
  */
 @Slf4j
 @RestController

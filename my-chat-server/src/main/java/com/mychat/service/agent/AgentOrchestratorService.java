@@ -26,22 +26,15 @@ import java.util.Locale;
 import java.util.UUID;
 
 /**
- * 回合内 Orchestrator-Workers 编排服务。
+ * 回合内编排循环：decideNext → switch 调 Worker → 可选 auto-finish。
  * <p>
- * 外层：{@link OrchestratorWorkflow} 逐步产出 next_action；
- * 内层：Java switch 调用专用 ChatClient（与 Routing 同源能力档，不合并 Tools+RAG，遵守 P0-7）。
+ * 怎么读：入口 {@code ChatController} → 管道 {@link ChatOrchestrateStreamService}
+ * → 本类循环 → 本类 {@code workerKb}/{@code workerFile}/{@code workerSearch}/{@code workerGeneral}。
+ * 主路固定 Orchestrator；Routing 是 Demo，不是本类的前置分类。
  * <p>
- * 会话 Memory：<b>读</b>＝{@link OrchestrateDialogueContextService} 注入摘要+近期原文；
- * Worker 仍用 {@code orch-*} 临时 conversationId，<b>不</b>挂 {@code MessageChatMemoryAdvisor} 写会话 chatId。
- * <b>写</b>＝主聊天回合结束由 {@code ChatOrchestrateStreamService} 手动 persist。
- * <p>
- * 调试 API 与主聊天共用本服务；主路传入 {@link OrchestrateListener} 推送 NDJSON {@code step}。
- * <p>
- * 最终答复写入会话 Memory / 主气泡依赖 {@link #resolveFinalAnswer}：finish 提纲过短时
- * 会用各步 observation 合成 Markdown，避免干货只留在时间线。
- * <p>
- * 主聊天 NDJSON 在编排结束后再经 {@link #streamFinalAnswer} 做 <b>token 级</b> {@code text_delta}；
- * 调试同步 API 仍直接使用 {@code finalAnswer} 字段。
+ * Worker 用 {@code orch-*} 临时 conversationId，不写会话 chatId。
+ * Memory 读由 {@link OrchestrateDialogueContextService} 注入；写由管道在回合结束 persist。
+ * 主路再经 {@link #streamFinalAnswer} 出 token 级 {@code text_delta}；Demo 同步 API 用 {@code finalAnswer}。
  */
 @Slf4j
 @Service

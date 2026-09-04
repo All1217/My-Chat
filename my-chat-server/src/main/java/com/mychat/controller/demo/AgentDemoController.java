@@ -24,12 +24,11 @@ import reactor.core.publisher.Flux;
 import java.nio.charset.StandardCharsets;
 
 /**
- * Agent Workflow 调试 API（旁路，不进入主聊天产品路径）。
+ * Agent 调试 API，不进入主聊天产品路径。
  * <p>
- * {@code POST /ai/agent/route} — 单次 Routing，<b>NDJSON 流式</b>（与主聊天
- * {@code agentMode=route} 事件同构：route / tool_* / text_delta / thinking_delta / done）；
- * {@code POST /ai/agent/orchestrate} — 回合内 Orchestrator-Workers（同步 JSON）；
- * {@code POST /ai/agent/evaluate-optimize} — 任务内质量环（同步 JSON）。
+ * {@code POST /ai/agent/route} — 单次 Routing，NDJSON（route / tool_* / text_delta / thinking_delta / done）；
+ * {@code POST /ai/agent/orchestrate} — 同步 JSON 多步编排（与主路共用 {@link AgentOrchestratorService}）；
+ * {@code POST /ai/agent/evaluate-optimize} — 同步 JSON 质量环。
  */
 @Slf4j
 @RestController

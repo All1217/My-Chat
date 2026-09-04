@@ -14,7 +14,7 @@ import java.util.List;
 
 /**
  * 启动时打印 MCP Client 发现到的工具名，便于确认天气等远程工具是否真正生效。
- * 若日志为 (none)，说明未连上 MCP Server，或 Server 未暴露 @McpTool。
+ * 探测失败只打 warn，不中断启动。
  */
 @Component
 public class McpToolsDiagnostics implements ApplicationRunner {
@@ -35,7 +35,16 @@ public class McpToolsDiagnostics implements ApplicationRunner {
             return;
         }
 
-        ToolCallback[] callbacks = provider.getToolCallbacks();
+        // 探测失败不得拖垮启动：远程 MCP（如 Smithery）listTools 500 时仍允许本服务运行
+        ToolCallback[] callbacks;
+        try {
+            callbacks = provider.getToolCallbacks();
+        } catch (Exception e) {
+            log.warn("MCP listTools 失败，已跳过工具清单探测（聊天仍可用本地 FileTools/searchWeb）：{}",
+                    e.getMessage());
+            return;
+        }
+
         List<String> names = Arrays.stream(callbacks)
                 .map(tc -> tc.getToolDefinition().name())
                 .toList();

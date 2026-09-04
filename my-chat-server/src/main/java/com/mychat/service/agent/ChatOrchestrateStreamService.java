@@ -2,7 +2,6 @@ package com.mychat.service.agent;
 
 import com.mychat.common.ChatStreamEvent;
 import com.mychat.service.chat.ChatAssistantTurnService;
-import com.mychat.service.knowledge.DocumentService;
 import com.mychat.config.WorkspaceContext;
 import com.mychat.entity.dto.EvaluateOptimizeRequest;
 import com.mychat.entity.dto.OrchestrateRequest;
@@ -20,7 +19,6 @@ import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
-import org.springframework.web.multipart.MultipartFile;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.SignalType;
@@ -40,6 +38,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * 读：{@link OrchestrateDialogueContextService} 注入摘要+近期原文；
  * 写：回合 {@code ON_COMPLETE} 时 {@link #persistOrchestrateExchange}。
  * Worker 用 {@code orch-*}，不把会话 chatId 交给 MessageChatMemoryAdvisor。
+ * 附件拼装在入口由 {@link ChatUploadEnrichment} 完成，本类只收已经分好的 agentInput / memoryUserText。
  */
 @Slf4j
 @Service
@@ -55,7 +54,6 @@ public class ChatOrchestrateStreamService {
     private final ChatMemory chatMemory;
     private final WorkspaceUtil workspaceUtil;
     private final ChatStreamEventWriter eventWriter;
-    private final DocumentService documentService;
     private final OrchestrateDialogueContextService dialogueContextService;
 
     public ChatOrchestrateStreamService(
@@ -65,7 +63,6 @@ public class ChatOrchestrateStreamService {
             ChatMemory chatMemory,
             WorkspaceUtil workspaceUtil,
             ChatStreamEventWriter eventWriter,
-            DocumentService documentService,
             OrchestrateDialogueContextService dialogueContextService) {
         this.agentOrchestratorService = agentOrchestratorService;
         this.agentEvaluatorOptimizerService = agentEvaluatorOptimizerService;
@@ -73,7 +70,6 @@ public class ChatOrchestrateStreamService {
         this.chatMemory = chatMemory;
         this.workspaceUtil = workspaceUtil;
         this.eventWriter = eventWriter;
-        this.documentService = documentService;
         this.dialogueContextService = dialogueContextService;
     }
 
@@ -139,63 +135,6 @@ public class ChatOrchestrateStreamService {
                 .then();
 
         return NdjsonStreamSupport.mergeNdjson(sink, drive, eventWriter);
-    }
-
-    /**
-     * 将上传的 txt/md/pdf 抽成文本，拼进本轮用户目标（不落 Memory）。
-     */
-    public String enrichPromptWithUploadedDocuments(String prompt, List<MultipartFile> files) {
-        List<MultipartFile> documents = nonEmptyDocuments(files);
-        if (documents.isEmpty()) {
-            return prompt;
-        }
-        String fileList = buildFileList(documents);
-        String docContent = extractDocContent(documents);
-        StringBuilder sb = new StringBuilder();
-        if (!fileList.isEmpty()) {
-            sb.append(fileList).append("\n\n");
-        }
-        if (!docContent.isEmpty()) {
-            sb.append("以下为上传文档正文（供回答参考）：\n").append(docContent).append("\n");
-        }
-        sb.append("用户的问题：\n").append(prompt != null ? prompt : "");
-        return sb.toString();
-    }
-
-    /**
-     * 写入 spring_ai_chat_memory / 刷新后气泡：仅文件名列表 + 原问，不含正文。
-     */
-    public String buildMemoryUserText(String prompt, List<MultipartFile> files) {
-        List<MultipartFile> documents = nonEmptyDocuments(files);
-        if (documents.isEmpty()) {
-            return prompt != null ? prompt : "";
-        }
-        String fileList = buildFileList(documents);
-        return fileList + "\n\n用户的问题：\n" + (prompt != null ? prompt : "");
-    }
-
-    public static boolean containsImageFile(List<MultipartFile> files) {
-        if (files == null || files.isEmpty()) {
-            return false;
-        }
-        for (MultipartFile file : files) {
-            if (file == null || file.isEmpty()) {
-                continue;
-            }
-            String contentType = file.getContentType();
-            if (contentType != null && contentType.startsWith("image/")) {
-                return true;
-            }
-            String name = file.getOriginalFilename();
-            if (name != null) {
-                String lower = name.toLowerCase();
-                if (lower.endsWith(".png") || lower.endsWith(".jpg") || lower.endsWith(".jpeg")
-                        || lower.endsWith(".gif") || lower.endsWith(".webp") || lower.endsWith(".bmp")) {
-                    return true;
-                }
-            }
-        }
-        return false;
     }
 
     private Mono<Void> streamOrchestrateFinalAnswer(
@@ -375,70 +314,4 @@ public class ChatOrchestrateStreamService {
                 );
     }
 
-    private static List<MultipartFile> nonEmptyDocuments(List<MultipartFile> files) {
-        List<MultipartFile> documents = new ArrayList<>();
-        if (files == null) {
-            return documents;
-        }
-        for (MultipartFile file : files) {
-            if (file != null && !file.isEmpty()) {
-                documents.add(file);
-            }
-        }
-        return documents;
-    }
-
-    // 提取文件名列表
-    private String buildFileList(List<MultipartFile> documents) {
-        if (documents.isEmpty()) {
-            return "";
-        }
-        StringBuilder sb = new StringBuilder("上传了以下文件：\n");
-        for (MultipartFile file : documents) {
-            String name = file.getOriginalFilename();
-            if (name == null) {
-                continue;
-            }
-            sb.append("- ").append(name).append("（").append(formatFileSize(file.getSize())).append("）\n");
-        }
-        return sb.toString().trim();
-    }
-
-    // 提取文件内容
-    private String extractDocContent(List<MultipartFile> documents) {
-        if (documents.isEmpty()) {
-            return "";
-        }
-        StringBuilder sb = new StringBuilder();
-        for (MultipartFile file : documents) {
-            String filename = file.getOriginalFilename();
-            if (filename == null) {
-                continue;
-            }
-            try {
-                String text = documentService.extractPlainText(file.getInputStream(), filename);
-                if (!text.isBlank()) {
-                    sb.append("\n--- ").append(filename).append(" ---\n");
-                    if (text.length() > 50_000) {
-                        text = text.substring(0, 50_000) + "\n\n... [内容过长已截断]";
-                    }
-                    sb.append(text).append("\n");
-                }
-            } catch (Exception e) {
-                log.warn("提取文档内容失败: {}", filename, e);
-            }
-        }
-        return sb.toString();
-    }
-
-    // 格式化文件大小
-    private static String formatFileSize(long bytes) {
-        if (bytes < 1024) {
-            return bytes + " B";
-        }
-        if (bytes < 1024 * 1024) {
-            return String.format("%.1f KB", bytes / 1024.0);
-        }
-        return String.format("%.1f MB", bytes / (1024.0 * 1024.0));
-    }
 }

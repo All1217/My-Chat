@@ -2,6 +2,7 @@ package com.mychat.controller;
 
 import com.mychat.config.WorkspaceContext;
 import com.mychat.service.agent.ChatOrchestrateStreamService;
+import com.mychat.service.agent.ChatUploadEnrichment;
 import com.mychat.service.chat.ChatSessionsService;
 import com.mychat.utils.WorkspaceUtil;
 import jakarta.servlet.http.HttpServletResponse;
@@ -21,7 +22,7 @@ import java.util.List;
 /**
  * 主聊天 HTTP 入口：校验 ndjson、绑工作区、解析 kbId、处理附件后交给管道。
  * <p>
- * 怎么读：本类 → {@link ChatOrchestrateStreamService}（NDJSON 管道）
+ * 怎么读：本类 → {@link ChatUploadEnrichment}（附件）→ {@link ChatOrchestrateStreamService}（NDJSON 管道）
  * → {@link com.mychat.service.agent.AgentOrchestratorService}（编排循环与 Worker）。
  * 主路固定 Orchestrator，不走 Routing；Routing 仅 {@code POST /ai/agent/route}（Demo）。
  * 附件仅 txt/md/pdf，图片双拒。
@@ -32,14 +33,17 @@ import java.util.List;
 public class ChatController {
 
     private final ChatOrchestrateStreamService chatOrchestrateStreamService;
+    private final ChatUploadEnrichment chatUploadEnrichment;
     private final ChatSessionsService chatSessionsService;
     private final WorkspaceUtil workspaceUtil;
 
     public ChatController(
             ChatOrchestrateStreamService chatOrchestrateStreamService,
+            ChatUploadEnrichment chatUploadEnrichment,
             ChatSessionsService chatSessionsService,
             WorkspaceUtil workspaceUtil) {
         this.chatOrchestrateStreamService = chatOrchestrateStreamService;
+        this.chatUploadEnrichment = chatUploadEnrichment;
         this.chatSessionsService = chatSessionsService;
         this.workspaceUtil = workspaceUtil;
     }
@@ -79,14 +83,14 @@ public class ChatController {
         boolean ql = !Boolean.FALSE.equals(qualityLoop);
 
         // 图片暂不支持：前后端双拒，避免静默丢图
-        if (ChatOrchestrateStreamService.containsImageFile(files)) {
+        if (chatUploadEnrichment.containsImageFile(files)) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST, "暂不支持图片上传，请使用 txt/md/pdf 文本附件");
         }
         // 注入文件全文内容。同时让刷新后的文件上传历史只显示文件名列表而非全文
-        String agentInput = chatOrchestrateStreamService.enrichPromptWithUploadedDocuments(prompt, files);
+        String agentInput = chatUploadEnrichment.enrichPromptWithUploadedDocuments(prompt, files);
         // 将上传文件内容录入数据库（仅文件名列表加原问题）
-        String memoryUserText = chatOrchestrateStreamService.buildMemoryUserText(prompt, files);
+        String memoryUserText = chatUploadEnrichment.buildMemoryUserText(prompt, files);
 
         return chatOrchestrateStreamService
                 .streamOrchestrate(agentInput, memoryUserText, prompt, chatId, effectiveKbId, ql, criteria)

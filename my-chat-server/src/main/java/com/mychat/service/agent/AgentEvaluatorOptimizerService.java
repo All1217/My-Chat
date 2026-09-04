@@ -1,7 +1,7 @@
 package com.mychat.service.agent;
 
 import com.mychat.common.ChatStreamEvent;
-import com.mychat.common.EvaluatorOptimizerWorkflow;
+import com.mychat.service.agent.workflow.EvaluatorOptimizerWorkflow;
 import com.mychat.config.WorkspaceContext;
 import com.mychat.entity.dto.EvaluateOptimizeRequest;
 import com.mychat.utils.WorkspacePromptBuilder;

@@ -1,6 +1,6 @@
 package com.mychat.service.agent;
 
-import com.mychat.common.OrchestratorWorkflow;
+import com.mychat.service.agent.workflow.OrchestratorWorkflow;
 import com.mychat.vo.OrchestrateStepVO;
 import org.junit.jupiter.api.Test;
 

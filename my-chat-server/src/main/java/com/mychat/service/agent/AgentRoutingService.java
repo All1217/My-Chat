@@ -7,7 +7,7 @@ import com.mychat.mapper.KnowledgeBaseMapper;
 import com.mychat.service.knowledge.KbSearchRequests;
 import com.mychat.service.knowledge.KnowledgeRetrievalService;
 import com.mychat.vo.RouteResultVO;
-import com.mychat.common.RoutingWorkflow;
+import com.mychat.service.agent.workflow.RoutingWorkflow;
 import com.mychat.config.WorkspaceContext;
 import com.mychat.utils.WorkspaceUtil;
 import lombok.extern.slf4j.Slf4j;

@@ -1,7 +1,7 @@
 package com.mychat.service.agent;
 
 import com.mychat.common.ChatStreamEvent;
-import com.mychat.common.OrchestratorWorkflow;
+import com.mychat.service.agent.workflow.OrchestratorWorkflow;
 import com.mychat.config.WorkspaceContext;
 import com.mychat.entity.dto.KnowledgeRetrieveHit;
 import com.mychat.entity.dto.OrchestrateRequest;

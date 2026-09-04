@@ -1,4 +1,4 @@
-package com.mychat.common;
+package com.mychat.service.agent.workflow;
 
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.util.StringUtils;

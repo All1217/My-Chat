@@ -1,7 +1,7 @@
 package com.mychat.service.agent;
 
 import com.mychat.common.ChatStreamEvent;
-import com.mychat.common.RoutingWorkflow;
+import com.mychat.service.agent.workflow.RoutingWorkflow;
 import com.mychat.config.WorkspaceContext;
 import com.mychat.entity.dto.RouteRequest;
 import com.mychat.service.knowledge.KnowledgeRetrievalService;

@@ -12,7 +12,7 @@ import org.springframework.util.StringUtils;
 import java.util.UUID;
 
 /**
- * search Worker：toolChatClient + 联网搜索 system prompt。
+ * search Worker：toolChatClient（FileTools + YAML MCP）+ 联网搜索 system prompt。
  */
 @Service
 public class SearchWorker {

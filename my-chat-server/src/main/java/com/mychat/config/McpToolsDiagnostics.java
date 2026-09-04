@@ -1,58 +1,71 @@
 package com.mychat.config;
 
+import io.modelcontextprotocol.client.McpSyncClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.mcp.SyncMcpToolCallbackProvider;
+import org.springframework.ai.mcp.McpToolNamePrefixGenerator;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
+import org.springframework.util.CollectionUtils;
 
 import java.util.Arrays;
 import java.util.List;
 
 /**
- * 启动时打印 MCP Client 发现到的工具名，便于确认天气等远程工具是否真正生效。
- * 探测失败只打 warn，不中断启动。
+ * 启动时按连接打印 MCP 工具名：某一端 listTools 失败不影响其它连接的探测。
  */
 @Component
 public class McpToolsDiagnostics implements ApplicationRunner {
 
     private static final Logger log = LoggerFactory.getLogger(McpToolsDiagnostics.class);
 
-    private final ObjectProvider<SyncMcpToolCallbackProvider> mcpTools;
+    private final ObjectProvider<List<McpSyncClient>> mcpSyncClients;
+    private final ObjectProvider<McpToolNamePrefixGenerator> prefixGenerator;
 
-    public McpToolsDiagnostics(ObjectProvider<SyncMcpToolCallbackProvider> mcpTools) {
-        this.mcpTools = mcpTools;
+    public McpToolsDiagnostics(ObjectProvider<List<McpSyncClient>> mcpSyncClients,
+                               ObjectProvider<McpToolNamePrefixGenerator> prefixGenerator) {
+        this.mcpSyncClients = mcpSyncClients;
+        this.prefixGenerator = prefixGenerator;
     }
 
     @Override
     public void run(ApplicationArguments args) {
-        SyncMcpToolCallbackProvider provider = mcpTools.getIfAvailable();
-        if (provider == null) {
-            log.warn("MCP SyncMcpToolCallbackProvider bean 不存在；检查 spring-ai-starter-mcp-client 依赖与 spring.ai.mcp.client 配置");
+        List<McpSyncClient> clients = mcpSyncClients.getIfAvailable();
+        if (CollectionUtils.isEmpty(clients)) {
+            log.warn("未发现 McpSyncClient；检查 spring-ai-starter-mcp-client 与 spring.ai.mcp.client 配置");
             return;
         }
 
-        // 探测失败不得拖垮启动：远程 MCP（如 Smithery）listTools 500 时仍允许本服务运行
-        ToolCallback[] callbacks;
-        try {
-            callbacks = provider.getToolCallbacks();
-        } catch (Exception e) {
-            log.warn("MCP listTools 失败，已跳过工具清单探测（聊天仍可用本地 FileTools/searchWeb）：{}",
-                    e.getMessage());
-            return;
+        // 与 ChatClient 同一套按连接隔离逻辑，日志能看出哪条 connection 失败
+        var provider = new TolerantMcpToolCallbackProvider(clients, prefixGenerator.getIfAvailable());
+        int ok = 0;
+        for (McpSyncClient client : clients) {
+            String name = TolerantMcpToolCallbackProvider.describe(client);
+            ToolCallback[] callbacks;
+            try {
+                callbacks = provider.listOne(client);
+            } catch (Exception e) {
+                log.warn("MCP [{}] listTools 失败: {}", name, e.getMessage());
+                continue;
+            }
+            if (callbacks == null) {
+                callbacks = new ToolCallback[0];
+            }
+            List<String> toolNames = Arrays.stream(callbacks)
+                    .map(tc -> tc.getToolDefinition().name())
+                    .toList();
+            if (toolNames.isEmpty()) {
+                log.warn("MCP [{}] tools: (none)", name);
+            } else {
+                ok++;
+                log.info("MCP [{}] tools: {}", name, toolNames);
+            }
         }
-
-        List<String> names = Arrays.stream(callbacks)
-                .map(tc -> tc.getToolDefinition().name())
-                .toList();
-
-        if (names.isEmpty()) {
-            log.warn("local MCP tools discovered: (none) — 请先启动 mcp-server-demo(8101)，并确认 initialized=true 后重启本服务");
-        } else {
-            log.info("local MCP tools discovered: {}", names);
+        if (ok == 0) {
+            log.warn("全部 MCP 连接均未发现工具 — 请启动 mcp-server-demo(8101)，并确认 SMITHERY_API_KEY / initialized=true");
         }
     }
 }

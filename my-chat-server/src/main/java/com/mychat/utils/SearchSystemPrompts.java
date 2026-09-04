@@ -3,8 +3,8 @@ package com.mychat.utils;
 /**
  * search 路径 / Orchestrator search Worker 共用的 system 文案。
  * <p>
- * Smithery toolbox 下网页搜索连接名一般为 {@code exa}；模型常误用 {@code connections.search} 导致
- * Connection not found。此处写明正确用法，减少无效重试。
+ * Smithery 命名空间工具名一般是 {@code exa.search}；ChatClient 侧暴露为 {@code exa_search}。
+ * 禁止臆造未挂载的 {@code get_toolbox_status} / {@code connections.search}。
  */
 public final class SearchSystemPrompts {
 
@@ -17,11 +17,14 @@ public final class SearchSystemPrompts {
     public static final String SEARCH = """
             当前请求已路由到 search（联网检索）。不要编造实时数据。
 
-            ## 优先顺序（务必遵守）
-            1. **优先调用本地工具 searchWeb(query)** 完成网页搜索（不经 Smithery/mcp.exa.ai，可避开 Cloudflare 403）。
-            2. 仅当 searchWeb 明确失败且用户需要其它 MCP（如天气 get_weather）时，再使用远程 MCP。
-            3. 若仍走 Smithery execute：先 get_toolbox_status；连接名是 **exa** 不是 search；使用 connections.exa.search("查询词")。
-            4. MCP 返回 Cloudflare 403 时：立刻改用 searchWeb，不要反复重试 connections.exa。
-            5. 所有搜索途径都失败时：如实说明未成功联网，再基于已有知识谨慎作答并标注。
+            只调用本轮 ChatClient 工具列表里实际出现的工具。不要调用未出现的名字。
+
+            ## 网页搜索
+            - Smithery 命名空间搜索工具对外名是 **exa_search**（参数 query）。对应 MCP 名 exa.search。
+            - 天气用本地 MCP **get_weather**（若列表里有）。
+            - 禁止调用 get_toolbox_status、search_toolbox、connections.search；这些名字当前不会出现在工具列表中。
+
+            ## 失败时
+            工具返回错误（含 Cloudflare 403、500、Unknown tool）：如实说明未成功联网；不要改去调文件工具 ls/cat 凑数。
             """;
 }

@@ -88,15 +88,6 @@ app:
     max-files-per-request: 20
     embed-batch-size: 32
     allowed-extensions: pdf,docx,xlsx,html,htm,txt,md
-  # 本地 searchWeb：Exa REST → Bocha → Tavily → DuckDuckGo
-  # EXA_API_KEY 必须来自 https://dashboard.exa.ai/api-keys ，不要填 SMITHERY_API_KEY
-  search:
-    exa:
-      api-key: ${EXA_API_KEY:}
-    bocha:
-      api-key: ${BOCHA_API_KEY:}
-    tavily:
-      api-key: ${TAVILY_API_KEY:}
   mcp:
     smithery:
       # 从 https://smithery.ai/account/api-keys 获取，通过环境变量注入，勿写死进仓库

@@ -1,14 +1,14 @@
 package com.mychat.config;
 
 import com.mychat.tools.FileTools;
-import com.mychat.tools.WebSearchTools;
+import io.modelcontextprotocol.client.McpSyncClient;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.SimpleLoggerAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
 import org.springframework.ai.chat.memory.repository.jdbc.JdbcChatMemoryRepository;
-import org.springframework.ai.mcp.SyncMcpToolCallbackProvider;
+import org.springframework.ai.mcp.McpToolNamePrefixGenerator;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.tool.execution.DefaultToolExecutionExceptionProcessor;
 import org.springframework.ai.tool.execution.ToolExecutionExceptionProcessor;
@@ -16,6 +16,9 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.util.CollectionUtils;
+
+import java.util.List;
 
 @Configuration
 public class AiConfiguration {
@@ -33,7 +36,7 @@ public class AiConfiguration {
     /**
      * MCP / 工具失败时把错误作为 tool result 回灌模型，而不是中断整次 {@code ChatClient.call()}。
      * <p>
-     * 默认 alwaysThrow=true 时，Exa Cloudflare 403 等会直接打断 Orchestrator search Worker；
+     * 默认 alwaysThrow=true 时，远程 MCP 403/500 会直接打断 Orchestrator search Worker；
      * alwaysThrow=false 后模型可收尾说明「联网暂不可用」，编排循环也能拿到 observation。
      */
     @Bean
@@ -42,31 +45,33 @@ public class AiConfiguration {
     }
 
     /**
-     * 普通对话：本地 FileTools + WebSearchTools + 远程 MCP。
+     * 普通对话：本地 FileTools + YAML 配置的全部 MCP 工具。
      * <p>
-     * Spring AI 2.0：MCP 工具不会自动挂到 ChatClient，必须显式注入
-     * {@link SyncMcpToolCallbackProvider} 并调用 {@code defaultTools(...)}。
-     * {@link WebSearchTools#searchWeb} 绕开 Smithery→mcp.exa.ai 的 Cloudflare 403。
+     * Spring AI 2.0：MCP 不会自动挂到 ChatClient，须 {@code defaultToolCallbacks}。
+     * 按连接隔离 listTools，避免 Smithery 500 拖垮本地天气等其它 MCP。
      */
     @Bean
     public ChatClient toolChatClient(OpenAiChatModel model,
                                      ChatMemory chatMemory,
                                      FileTools fileTools,
-                                     WebSearchTools webSearchTools,
-                                     ObjectProvider<SyncMcpToolCallbackProvider> mcpTools) {
+                                     ObjectProvider<List<McpSyncClient>> mcpSyncClients,
+                                     ObjectProvider<McpToolNamePrefixGenerator> prefixGenerator) {
         ChatClient.Builder builder = ChatClient.builder(model)
                 .defaultSystem("""
-                        涉及文件的查看、创建、写入、修改、删除、重命名、复制操作，请积极调用可用工具执行。
-                        需要联网搜索时优先调用 searchWeb；天气等再按需使用远程 MCP。
+                        涉及文件的查看、创建、写入、修改、删除、重命名、复制操作，请积极调用 FileTools 执行。
+                        需要联网搜索、天气等外部能力时，调用当前已挂载的 MCP 工具（YAML 中的 Smithery 与本地 MCP）。
                         """)
                 .defaultAdvisors(
                         new SimpleLoggerAdvisor(),
                         MessageChatMemoryAdvisor.builder(chatMemory).build()
                 )
-                .defaultTools(fileTools, webSearchTools);
+                .defaultTools(fileTools);
 
-        // 有 SyncMcpToolCallbackProvider 时合并远程 MCP 工具（append，不覆盖本地工具）
-        mcpTools.ifAvailable(builder::defaultTools);
+        List<McpSyncClient> clients = mcpSyncClients.getIfAvailable();
+        if (!CollectionUtils.isEmpty(clients)) {
+            builder.defaultToolCallbacks(new TolerantMcpToolCallbackProvider(
+                    clients, prefixGenerator.getIfAvailable()));
+        }
 
         return builder.build();
     }

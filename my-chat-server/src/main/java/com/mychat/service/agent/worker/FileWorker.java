@@ -12,7 +12,7 @@ import org.springframework.util.StringUtils;
 import java.util.UUID;
 
 /**
- * file Worker：toolChatClient + 工作区 system prompt，操作会话 workDir（空则默认根）。
+ * file Worker：toolChatClient（FileTools + YAML MCP）+ 工作区 system prompt。
  */
 @Service
 public class FileWorker {

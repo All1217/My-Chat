@@ -1,6 +1,7 @@
 package com.mychat.config;
 
 import com.mychat.tools.FileTools;
+import com.mychat.tools.WebSearchTools;
 import io.modelcontextprotocol.client.McpSyncClient;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
@@ -20,11 +21,13 @@ import org.springframework.util.CollectionUtils;
 
 import java.util.List;
 
+/** 装配 ChatClient、会话记忆与工具失败回灌策略。 */
 @Configuration
 public class AiConfiguration {
     @Autowired
     JdbcChatMemoryRepository jdbcChatMemoryRepository;
 
+    /** JDBC 窗口记忆，供 tool / rag ChatClient 共用。 */
     @Bean
     public ChatMemory chatMemory() {
         return MessageWindowChatMemory.builder()
@@ -45,7 +48,7 @@ public class AiConfiguration {
     }
 
     /**
-     * 普通对话：本地 FileTools + YAML 配置的全部 MCP 工具。
+     * 普通对话：本地 FileTools + searchWeb + YAML 配置的 MCP 工具。
      * <p>
      * Spring AI 2.0：MCP 不会自动挂到 ChatClient，须 {@code defaultToolCallbacks}。
      * 按连接隔离 listTools，避免 Smithery 500 拖垮本地天气等其它 MCP。
@@ -54,18 +57,20 @@ public class AiConfiguration {
     public ChatClient toolChatClient(OpenAiChatModel model,
                                      ChatMemory chatMemory,
                                      FileTools fileTools,
+                                     WebSearchTools webSearchTools,
                                      ObjectProvider<List<McpSyncClient>> mcpSyncClients,
                                      ObjectProvider<McpToolNamePrefixGenerator> prefixGenerator) {
         ChatClient.Builder builder = ChatClient.builder(model)
                 .defaultSystem("""
                         涉及文件的查看、创建、写入、修改、删除、重命名、复制操作，请积极调用 FileTools 执行。
-                        需要联网搜索、天气等外部能力时，调用当前已挂载的 MCP 工具（YAML 中的 Smithery 与本地 MCP）。
+                        网页搜索优先调用 searchWeb（本机直连 Exa REST）。
+                        天气等其它外部能力，调用当前已挂载的 MCP 工具。
                         """)
                 .defaultAdvisors(
                         new SimpleLoggerAdvisor(),
                         MessageChatMemoryAdvisor.builder(chatMemory).build()
                 )
-                .defaultTools(fileTools);
+                .defaultTools(fileTools, webSearchTools);
 
         List<McpSyncClient> clients = mcpSyncClients.getIfAvailable();
         if (!CollectionUtils.isEmpty(clients)) {

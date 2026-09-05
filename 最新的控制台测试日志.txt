@@ -1,5 +1,5 @@
-C:\Users\Morton\.jdks\ms-25.0.4\bin\java.exe -agentlib:jdwp=transport=dt_socket,address=127.0.0.1:59675,suspend=y,server=n -javaagent:C:\Users\Morton\AppData\Roaming\JetBrains\IntelliJIdea2026.2\plugins\java\lib\rt\debugger-agent.jar=file:///C:/Users/Morton/AppData/Local/Temp/capture17042105731242681269.props -XX:TieredStopAtLevel=1 -Dspring.output.ansi.enabled=always -Dkotlinx.coroutines.debug.enable.creation.stack.trace=false -Ddebugger.agent.enable.coroutines=true -Dkotlinx.coroutines.debug.enable.flows.stack.trace=true -Dkotlinx.coroutines.debug.enable.mutable.state.flows.stack.trace=true -Ddebugger.async.stack.trace.for.all.threads=true -Ddebugger.agent.enable.log.capture=true -Dfile.encoding=UTF-8 -Dsun.stdout.encoding=UTF-8 -Dsun.stderr.encoding=UTF-8 -classpath "E:\Program files\projects\My-Chat\my-chat-server\target\classes;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-client-chat\2.0.0\spring-ai-client-chat-2.0.0.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-model\2.0.0\spring-ai-model-2.0.0.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-commons\2.0.0\spring-ai-commons-2.0.0.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-template-st\2.0.0\spring-ai-template-st-2.0.0.jar;C:\Users\Morton\.m2\repository\org\antlr\ST4\4.3.4\ST4-4.3.4.jar;C:\Users\Morton\.m2\repository\org\antlr\antlr-runtime\3.5.3\antlr-runtime-3.5.3.jar;C:\Users\Morton\.m2\repository\io\micrometer\micrometer-observation\1.17.0\micrometer-observation-1.17.0.jar;C:\Users\Morton\.m2\repository\io\micrometer\micrometer-commons\1.17.0\micrometer-commons-1.17.0.jar;C:\Users\Morton\.m2\repository\org\springframework\spring-messaging\7.0.8\spring-messaging-7.0.8.jar;C:\Users\Morton\.m2\repository\org\antlr\antlr4-runtime\4.13.1\antlr4-runtime-4.13.1.jar;C:\Users\Morton\.m2\repository\com\github\victools\jsonschema-module-jackson\5.0.0\jsonschema-module-jackson-5.0.0.jar;C:\Users\Morton\.m2\repository\tools\jackson\core\jackson-databind\3.1.4\jackson-databind-3.1.4.jar;C:\Users\Morton\.m2\repository\com\fasterxml\jackson\core\jackson-annotations\2.21\jackson-annotations-2.21.jar;C:\Users\Morton\.m2\repository\com\networknt\json-schema-validator\3.0.1\json-schema-validator-3.0.1.jar;C:\Users\Morton\.m2\repository\com\ethlo\time\itu\1.14.0\itu-1.14.0.jar;C:\Users\Morton\.m2\repository\org\slf4j\slf4j-api\2.0.18\slf4j-api-2.0.18.jar;C:\Users\Morton\.m2\repository\io\swagger\core\v3\swagger-annotations-jakarta\2.2.38\swagger-annotations-jakarta-2.2.38.jar;C:\Users\Morton\.m2\repository\com\github\victools\jsonschema-module-swagger-2\5.0.0\jsonschema-module-swagger-2-5.0.0.jar;C:\Users\Morton\.m2\repository\io\projectreactor\reactor-core\3.8.6\reactor-core-3.8.6.jar;C:\Users\Morton\.m2\repository\org\reactivestreams\reactive-streams\1.0.4\reactive-streams-1.0.4.jar;C:\Users\Morton\.m2\repository\org\springframework\spring-context\7.0.8\spring-context-7.0.8.jar;C:\Users\Morton\.m2\repository\org\springframework\spring-aop\7.0.8\spring-aop-7.0.8.jar;C:\Users\Morton\.m2\repository\org\springframework\spring-beans\7.0.8\spring-beans-7.0.8.jar;C:\Users\Morton\.m2\repository\org\springframework\spring-expression\7.0.8\spring-expression-7.0.8.jar;C:\Users\Morton\.m2\repository\com\knuddels\jtokkit\1.1.0\jtokkit-1.1.0.jar;C:\Users\Morton\.m2\repository\com\github\victools\jsonschema-generator\5.0.0\jsonschema-generator-5.0.0.jar;C:\Users\Morton\.m2\repository\com\fasterxml\classmate\1.7.3\classmate-1.7.3.jar;C:\Users\Morton\.m2\repository\tools\jackson\core\jackson-core\3.1.4\jackson-core-3.1.4.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-vector-store-advisor\2.0.0\spring-ai-vector-store-advisor-2.0.0.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-vector-store\2.0.0\spring-ai-vector-store-2.0.0.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot-starter-web\4.1.0\spring-boot-starter-web-4.1.0.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot-starter-jackson\4.1.0\spring-boot-starter-jackson-4.1.0.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot-jackson\4.1.0\spring-boot-jackson-4.1.0.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot-starter-tomcat\4.1.0\spring-boot-starter-tomcat-4.1.0.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot-starter-tomcat-runtime\4.1.0\spring-boot-starter-tomcat-runtime-4.1.0.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot-web-server\4.1.0\spring-boot-web-server-4.1.0.jar;C:\Users\Morton\.m2\repository\org\apache\tomcat\embed\tomcat-embed-core\11.0.22\tomcat-embed-core-11.0.22.jar;C:\Users\Morton\.m2\repository\org\apache\tomcat\embed\tomcat-embed-el\11.0.22\tomcat-embed-el-11.0.22.jar;C:\Users\Morton\.m2\repository\org\apache\tomcat\embed\tomcat-embed-websocket\11.0.22\tomcat-embed-websocket-11.0.22.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot-tomcat\4.1.0\spring-boot-tomcat-4.1.0.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot-http-converter\4.1.0\spring-boot-http-converter-4.1.0.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot\4.1.0\spring-boot-4.1.0.jar;C:\Users\Morton\.m2\repository\org\springframework\spring-web\7.0.8\spring-web-7.0.8.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot-webmvc\4.1.0\spring-boot-webmvc-4.1.0.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot-servlet\4.1.0\spring-boot-servlet-4.1.0.jar;C:\Users\Morton\.m2\repository\org\springframework\spring-webmvc\7.0.8\spring-webmvc-7.0.8.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-starter-model-openai\2.0.0\spring-ai-starter-model-openai-2.0.0.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot-starter-webclient\4.1.0\spring-boot-starter-webclient-4.1.0.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot-reactor\4.1.0\spring-boot-reactor-4.1.0.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot-webclient\4.1.0\spring-boot-webclient-4.1.0.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot-http-client\4.1.0\spring-boot-http-client-4.1.0.jar;C:\Users\Morton\.m2\repository\org\springframework\spring-webflux\7.0.8\spring-webflux-7.0.8.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot-http-codec\4.1.0\spring-boot-http-codec-4.1.0.jar;C:\Users\Morton\.m2\repository\io\projectreactor\netty\reactor-netty-http\1.3.6\reactor-netty-http-1.3.6.jar;C:\Users\Morton\.m2\repository\io\netty\netty-codec-http\4.2.15.Final\netty-codec-http-4.2.15.Final.jar;C:\Users\Morton\.m2\repository\io\netty\netty-common\4.2.15.Final\netty-common-4.2.15.Final.jar;C:\Users\Morton\.m2\repository\io\netty\netty-buffer\4.2.15.Final\netty-buffer-4.2.15.Final.jar;C:\Users\Morton\.m2\repository\io\netty\netty-transport\4.2.15.Final\netty-transport-4.2.15.Final.jar;C:\Users\Morton\.m2\repository\io\netty\netty-codec-base\4.2.15.Final\netty-codec-base-4.2.15.Final.jar;C:\Users\Morton\.m2\repository\io\netty\netty-codec-compression\4.2.15.Final\netty-codec-compression-4.2.15.Final.jar;C:\Users\Morton\.m2\repository\io\netty\netty-handler\4.2.15.Final\netty-handler-4.2.15.Final.jar;C:\Users\Morton\.m2\repository\io\netty\netty-codec-http2\4.2.15.Final\netty-codec-http2-4.2.15.Final.jar;C:\Users\Morton\.m2\repository\io\netty\netty-codec-http3\4.2.15.Final\netty-codec-http3-4.2.15.Final.jar;C:\Users\Morton\.m2\repository\io\netty\netty-transport-native-unix-common\4.2.15.Final\netty-transport-native-unix-common-4.2.15.Final.jar;C:\Users\Morton\.m2\repository\io\netty\netty-resolver\4.2.15.Final\netty-resolver-4.2.15.Final.jar;C:\Users\Morton\.m2\repository\io\netty\netty-codec-classes-quic\4.2.15.Final\netty-codec-classes-quic-4.2.15.Final.jar;C:\Users\Morton\.m2\repository\io\netty\netty-codec-native-quic\4.2.15.Final\netty-codec-native-quic-4.2.15.Final-linux-x86_64.jar;C:\Users\Morton\.m2\repository\io\netty\netty-codec-native-quic\4.2.15.Final\netty-codec-native-quic-4.2.15.Final-linux-aarch_64.jar;C:\Users\Morton\.m2\repository\io\netty\netty-codec-native-quic\4.2.15.Final\netty-codec-native-quic-4.2.15.Final-osx-x86_64.jar;C:\Users\Morton\.m2\repository\io\netty\netty-codec-native-quic\4.2.15.Final\netty-codec-native-quic-4.2.15.Final-osx-aarch_64.jar;C:\Users\Morton\.m2\repository\io\netty\netty-codec-native-quic\4.2.15.Final\netty-codec-native-quic-4.2.15.Final-windows-x86_64.jar;C:\Users\Morton\.m2\repository\io\netty\netty-resolver-dns\4.2.15.Final\netty-resolver-dns-4.2.15.Final.jar;C:\Users\Morton\.m2\repository\io\netty\netty-codec-dns\4.2.15.Final\netty-codec-dns-4.2.15.Final.jar;C:\Users\Morton\.m2\repository\io\netty\netty-resolver-dns-native-macos\4.2.15.Final\netty-resolver-dns-native-macos-4.2.15.Final-osx-x86_64.jar;C:\Users\Morton\.m2\repository\io\netty\netty-resolver-dns-classes-macos\4.2.15.Final\netty-resolver-dns-classes-macos-4.2.15.Final.jar;C:\Users\Morton\.m2\repository\io\netty\netty-transport-native-epoll\4.2.15.Final\netty-transport-native-epoll-4.2.15.Final-linux-x86_64.jar;C:\Users\Morton\.m2\repository\io\netty\netty-transport-classes-epoll\4.2.15.Final\netty-transport-classes-epoll-4.2.15.Final.jar;C:\Users\Morton\.m2\repository\io\projectreactor\netty\reactor-netty-core\1.3.6\reactor-netty-core-1.3.6.jar;C:\Users\Morton\.m2\repository\io\netty\netty-handler-proxy\4.2.15.Final\netty-handler-proxy-4.2.15.Final.jar;C:\Users\Morton\.m2\repository\io\netty\netty-codec-socks\4.2.15.Final\netty-codec-socks-4.2.15.Final.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot-starter-restclient\4.1.0\spring-boot-starter-restclient-4.1.0.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot-restclient\4.1.0\spring-boot-restclient-4.1.0.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-autoconfigure-model-openai\2.0.0\spring-ai-autoconfigure-model-openai-2.0.0.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-autoconfigure-model-tool\2.0.0\spring-ai-autoconfigure-model-tool-2.0.0.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-autoconfigure-retry\2.0.0\spring-ai-autoconfigure-retry-2.0.0.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-autoconfigure-model-chat-observation\2.0.0\spring-ai-autoconfigure-model-chat-observation-2.0.0.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-autoconfigure-model-embedding-observation\2.0.0\spring-ai-autoconfigure-model-embedding-observation-2.0.0.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-autoconfigure-model-image-observation\2.0.0\spring-ai-autoconfigure-model-image-observation-2.0.0.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-openai\2.0.0\spring-ai-openai-2.0.0.jar;C:\Users\Morton\.m2\repository\com\openai\openai-java-core\4.39.1\openai-java-core-4.39.1.jar;C:\Users\Morton\.m2\repository\com\fasterxml\jackson\core\jackson-core\2.21.4\jackson-core-2.21.4.jar;C:\Users\Morton\.m2\repository\com\fasterxml\jackson\core\jackson-databind\2.21.4\jackson-databind-2.21.4.jar;C:\Users\Morton\.m2\repository\com\google\errorprone\error_prone_annotations\2.33.0\error_prone_annotations-2.33.0.jar;C:\Users\Morton\.m2\repository\io\swagger\core\v3\swagger-annotations\2.2.31\swagger-annotations-2.2.31.jar;C:\Users\Morton\.m2\repository\org\jetbrains\kotlin\kotlin-stdlib-jdk8\2.3.21\kotlin-stdlib-jdk8-2.3.21.jar;C:\Users\Morton\.m2\repository\org\jetbrains\kotlin\kotlin-stdlib-jdk7\2.3.21\kotlin-stdlib-jdk7-2.3.21.jar;C:\Users\Morton\.m2\repository\com\fasterxml\jackson\datatype\jackson-datatype-jdk8\2.21.4\jackson-datatype-jdk8-2.21.4.jar;C:\Users\Morton\.m2\repository\com\fasterxml\jackson\datatype\jackson-datatype-jsr310\2.21.4\jackson-datatype-jsr310-2.21.4.jar;C:\Users\Morton\.m2\repository\com\fasterxml\jackson\module\jackson-module-kotlin\2.21.4\jackson-module-kotlin-2.21.4.jar;C:\Users\Morton\.m2\repository\com\squareup\okhttp3\okhttp\4.12.0\okhttp-4.12.0.jar;C:\Users\Morton\.m2\repository\com\squareup\okio\okio\3.6.0\okio-3.6.0.jar;C:\Users\Morton\.m2\repository\com\squareup\okio\okio-jvm\3.6.0\okio-jvm-3.6.0.jar;C:\Users\Morton\.m2\repository\org\jetbrains\kotlin\kotlin-stdlib-common\1.9.10\kotlin-stdlib-common-1.9.10.jar;C:\Users\Morton\.m2\repository\io\micrometer\micrometer-core\1.17.0\micrometer-core-1.17.0.jar;C:\Users\Morton\.m2\repository\org\hdrhistogram\HdrHistogram\2.2.2\HdrHistogram-2.2.2.jar;C:\Users\Morton\.m2\repository\org\springframework\spring-context-support\7.0.8\spring-context-support-7.0.8.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-autoconfigure-model-chat-client\2.0.0\spring-ai-autoconfigure-model-chat-client-2.0.0.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-autoconfigure-model-chat-memory\2.0.0\spring-ai-autoconfigure-model-chat-memory-2.0.0.jar;C:\Users\Morton\.m2\repository\org\jetbrains\kotlin\kotlin-reflect\2.3.21\kotlin-reflect-2.3.21.jar;C:\Users\Morton\.m2\repository\org\jetbrains\kotlin\kotlin-stdlib\2.3.21\kotlin-stdlib-2.3.21.jar;C:\Users\Morton\.m2\repository\org\jetbrains\annotations\13.0\annotations-13.0.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-starter-model-chat-memory-repository-jdbc\2.0.0\spring-ai-starter-model-chat-memory-repository-jdbc-2.0.0.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot-starter-jdbc\4.1.0\spring-boot-starter-jdbc-4.1.0.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot-jdbc\4.1.0\spring-boot-jdbc-4.1.0.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot-sql\4.1.0\spring-boot-sql-4.1.0.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot-transaction\4.1.0\spring-boot-transaction-4.1.0.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot-persistence\4.1.0\spring-boot-persistence-4.1.0.jar;C:\Users\Morton\.m2\repository\com\zaxxer\HikariCP\7.0.2\HikariCP-7.0.2.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-autoconfigure-model-chat-memory-repository-jdbc\2.0.0\spring-ai-autoconfigure-model-chat-memory-repository-jdbc-2.0.0.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-model-chat-memory-repository-jdbc\2.0.0\spring-ai-model-chat-memory-repository-jdbc-2.0.0.jar;C:\Users\Morton\.m2\repository\org\springframework\spring-jdbc\7.0.8\spring-jdbc-7.0.8.jar;C:\Users\Morton\.m2\repository\org\springframework\spring-tx\7.0.8\spring-tx-7.0.8.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-starter-mcp-client\2.0.0\spring-ai-starter-mcp-client-2.0.0.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot-starter\4.1.0\spring-boot-starter-4.1.0.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot-starter-logging\4.1.0\spring-boot-starter-logging-4.1.0.jar;C:\Users\Morton\.m2\repository\ch\qos\logback\logback-classic\1.5.34\logback-classic-1.5.34.jar;C:\Users\Morton\.m2\repository\ch\qos\logback\logback-core\1.5.34\logback-core-1.5.34.jar;C:\Users\Morton\.m2\repository\org\apache\logging\log4j\log4j-to-slf4j\2.25.4\log4j-to-slf4j-2.25.4.jar;C:\Users\Morton\.m2\repository\org\slf4j\jul-to-slf4j\2.0.18\jul-to-slf4j-2.0.18.jar;C:\Users\Morton\.m2\repository\jakarta\annotation\jakarta.annotation-api\3.0.0\jakarta.annotation-api-3.0.0.jar;C:\Users\Morton\.m2\repository\org\yaml\snakeyaml\2.6\snakeyaml-2.6.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-autoconfigure-mcp-client-httpclient\2.0.0\spring-ai-autoconfigure-mcp-client-httpclient-2.0.0.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-autoconfigure-mcp-client-common\2.0.0\spring-ai-autoconfigure-mcp-client-common-2.0.0.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-mcp-annotations\2.0.0\spring-ai-mcp-annotations-2.0.0.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-mcp\2.0.0\spring-ai-mcp-2.0.0.jar;C:\Users\Morton\.m2\repository\io\modelcontextprotocol\sdk\mcp\2.0.0\mcp-2.0.0.jar;C:\Users\Morton\.m2\repository\io\modelcontextprotocol\sdk\mcp-json-jackson3\2.0.0\mcp-json-jackson3-2.0.0.jar;C:\Users\Morton\.m2\repository\io\modelcontextprotocol\sdk\mcp-core\2.0.0\mcp-core-2.0.0.jar;C:\Users\Morton\.m2\repository\org\apache\pdfbox\pdfbox\2.0.31\pdfbox-2.0.31.jar;C:\Users\Morton\.m2\repository\org\apache\pdfbox\fontbox\2.0.31\fontbox-2.0.31.jar;C:\Users\Morton\.m2\repository\commons-logging\commons-logging\1.3.6\commons-logging-1.3.6.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-starter-vector-store-pgvector\2.0.0\spring-ai-starter-vector-store-pgvector-2.0.0.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-autoconfigure-vector-store-pgvector\2.0.0\spring-ai-autoconfigure-vector-store-pgvector-2.0.0.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-autoconfigure-vector-store-observation\2.0.0\spring-ai-autoconfigure-vector-store-observation-2.0.0.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-pgvector-store\2.0.0\spring-ai-pgvector-store-2.0.0.jar;C:\Users\Morton\.m2\repository\com\pgvector\pgvector\0.1.6\pgvector-0.1.6.jar;C:\Users\Morton\.m2\repository\org\postgresql\postgresql\42.7.3\postgresql-42.7.3.jar;C:\Users\Morton\.m2\repository\org\checkerframework\checker-qual\3.42.0\checker-qual-3.42.0.jar;C:\Users\Morton\.m2\repository\com\baomidou\mybatis-plus-spring-boot4-starter\3.5.15\mybatis-plus-spring-boot4-starter-3.5.15.jar;C:\Users\Morton\.m2\repository\com\baomidou\mybatis-plus\3.5.15\mybatis-plus-3.5.15.jar;C:\Users\Morton\.m2\repository\com\baomidou\mybatis-plus-core\3.5.15\mybatis-plus-core-3.5.15.jar;C:\Users\Morton\.m2\repository\com\baomidou\mybatis-plus-annotation\3.5.15\mybatis-plus-annotation-3.5.15.jar;C:\Users\Morton\.m2\repository\com\baomidou\mybatis-plus-spring\3.5.15\mybatis-plus-spring-3.5.15.jar;C:\Users\Morton\.m2\repository\com\baomidou\mybatis-plus-extension\3.5.15\mybatis-plus-extension-3.5.15.jar;C:\Users\Morton\.m2\repository\org\mybatis\mybatis\3.5.19\mybatis-3.5.19.jar;C:\Users\Morton\.m2\repository\org\mybatis\mybatis-spring\3.0.5\mybatis-spring-3.0.5.jar;C:\Users\Morton\.m2\repository\com\baomidou\mybatis-plus-spring-boot-autoconfigure\3.5.15\mybatis-plus-spring-boot-autoconfigure-3.5.15.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot-autoconfigure\4.1.0\spring-boot-autoconfigure-4.1.0.jar;C:\Users\Morton\.m2\repository\org\projectlombok\lombok\1.18.46\lombok-1.18.46.jar;C:\Users\Morton\.m2\repository\org\springframework\spring-core\7.0.8\spring-core-7.0.8.jar;C:\Users\Morton\.m2\repository\org\apache\poi\poi-ooxml\5.4.0\poi-ooxml-5.4.0.jar;C:\Users\Morton\.m2\repository\org\apache\poi\poi\5.4.0\poi-5.4.0.jar;C:\Users\Morton\.m2\repository\commons-codec\commons-codec\1.21.0\commons-codec-1.21.0.jar;C:\Users\Morton\.m2\repository\org\apache\commons\commons-math3\3.6.1\commons-math3-3.6.1.jar;C:\Users\Morton\.m2\repository\com\zaxxer\SparseBitSet\1.3\SparseBitSet-1.3.jar;C:\Users\Morton\.m2\repository\org\apache\poi\poi-ooxml-lite\5.4.0\poi-ooxml-lite-5.4.0.jar;C:\Users\Morton\.m2\repository\org\apache\xmlbeans\xmlbeans\5.3.0\xmlbeans-5.3.0.jar;C:\Users\Morton\.m2\repository\org\apache\commons\commons-compress\1.27.1\commons-compress-1.27.1.jar;C:\Users\Morton\.m2\repository\org\apache\commons\commons-lang3\3.20.0\commons-lang3-3.20.0.jar;C:\Users\Morton\.m2\repository\commons-io\commons-io\2.18.0\commons-io-2.18.0.jar;C:\Users\Morton\.m2\repository\com\github\virtuald\curvesapi\1.08\curvesapi-1.08.jar;C:\Users\Morton\.m2\repository\org\apache\logging\log4j\log4j-api\2.25.4\log4j-api-2.25.4.jar;C:\Users\Morton\.m2\repository\org\apache\commons\commons-collections4\4.4\commons-collections4-4.4.jar;C:\Users\Morton\.m2\repository\org\jsoup\jsoup\1.18.3\jsoup-1.18.3.jar;C:\Users\Morton\.m2\repository\io\micrometer\context-propagation\1.2.1\context-propagation-1.2.1.jar;C:\Users\Morton\.m2\repository\org\jspecify\jspecify\1.0.0\jspecify-1.0.0.jar;E:\Program files (x86)\IntelliJ IDEA 2026.1\lib\idea_rt.jar" com.mychat.Application
-已连接到地址为 ''127.0.0.1:59675'，传输: '套接字'' 的目标虚拟机
+C:\Users\Morton\.jdks\ms-25.0.4\bin\java.exe -agentlib:jdwp=transport=dt_socket,address=127.0.0.1:56462,suspend=y,server=n -javaagent:C:\Users\Morton\AppData\Roaming\JetBrains\IntelliJIdea2026.2\plugins\java\lib\rt\debugger-agent.jar=file:///C:/Users/Morton/AppData/Local/Temp/capture14941106140485021404.props -XX:TieredStopAtLevel=1 -Dspring.output.ansi.enabled=always -Dkotlinx.coroutines.debug.enable.creation.stack.trace=false -Ddebugger.agent.enable.coroutines=true -Dkotlinx.coroutines.debug.enable.flows.stack.trace=true -Dkotlinx.coroutines.debug.enable.mutable.state.flows.stack.trace=true -Ddebugger.async.stack.trace.for.all.threads=true -Ddebugger.agent.enable.log.capture=true -Dfile.encoding=UTF-8 -Dsun.stdout.encoding=UTF-8 -Dsun.stderr.encoding=UTF-8 -classpath "E:\Program files\projects\My-Chat\my-chat-server\target\classes;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-client-chat\2.0.0\spring-ai-client-chat-2.0.0.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-model\2.0.0\spring-ai-model-2.0.0.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-commons\2.0.0\spring-ai-commons-2.0.0.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-template-st\2.0.0\spring-ai-template-st-2.0.0.jar;C:\Users\Morton\.m2\repository\org\antlr\ST4\4.3.4\ST4-4.3.4.jar;C:\Users\Morton\.m2\repository\org\antlr\antlr-runtime\3.5.3\antlr-runtime-3.5.3.jar;C:\Users\Morton\.m2\repository\io\micrometer\micrometer-observation\1.17.0\micrometer-observation-1.17.0.jar;C:\Users\Morton\.m2\repository\io\micrometer\micrometer-commons\1.17.0\micrometer-commons-1.17.0.jar;C:\Users\Morton\.m2\repository\org\springframework\spring-messaging\7.0.8\spring-messaging-7.0.8.jar;C:\Users\Morton\.m2\repository\org\antlr\antlr4-runtime\4.13.1\antlr4-runtime-4.13.1.jar;C:\Users\Morton\.m2\repository\com\github\victools\jsonschema-module-jackson\5.0.0\jsonschema-module-jackson-5.0.0.jar;C:\Users\Morton\.m2\repository\tools\jackson\core\jackson-databind\3.1.4\jackson-databind-3.1.4.jar;C:\Users\Morton\.m2\repository\com\fasterxml\jackson\core\jackson-annotations\2.21\jackson-annotations-2.21.jar;C:\Users\Morton\.m2\repository\com\networknt\json-schema-validator\3.0.1\json-schema-validator-3.0.1.jar;C:\Users\Morton\.m2\repository\com\ethlo\time\itu\1.14.0\itu-1.14.0.jar;C:\Users\Morton\.m2\repository\org\slf4j\slf4j-api\2.0.18\slf4j-api-2.0.18.jar;C:\Users\Morton\.m2\repository\io\swagger\core\v3\swagger-annotations-jakarta\2.2.38\swagger-annotations-jakarta-2.2.38.jar;C:\Users\Morton\.m2\repository\com\github\victools\jsonschema-module-swagger-2\5.0.0\jsonschema-module-swagger-2-5.0.0.jar;C:\Users\Morton\.m2\repository\io\projectreactor\reactor-core\3.8.6\reactor-core-3.8.6.jar;C:\Users\Morton\.m2\repository\org\reactivestreams\reactive-streams\1.0.4\reactive-streams-1.0.4.jar;C:\Users\Morton\.m2\repository\org\springframework\spring-context\7.0.8\spring-context-7.0.8.jar;C:\Users\Morton\.m2\repository\org\springframework\spring-aop\7.0.8\spring-aop-7.0.8.jar;C:\Users\Morton\.m2\repository\org\springframework\spring-beans\7.0.8\spring-beans-7.0.8.jar;C:\Users\Morton\.m2\repository\org\springframework\spring-expression\7.0.8\spring-expression-7.0.8.jar;C:\Users\Morton\.m2\repository\com\knuddels\jtokkit\1.1.0\jtokkit-1.1.0.jar;C:\Users\Morton\.m2\repository\com\github\victools\jsonschema-generator\5.0.0\jsonschema-generator-5.0.0.jar;C:\Users\Morton\.m2\repository\com\fasterxml\classmate\1.7.3\classmate-1.7.3.jar;C:\Users\Morton\.m2\repository\tools\jackson\core\jackson-core\3.1.4\jackson-core-3.1.4.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-vector-store-advisor\2.0.0\spring-ai-vector-store-advisor-2.0.0.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-vector-store\2.0.0\spring-ai-vector-store-2.0.0.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot-starter-web\4.1.0\spring-boot-starter-web-4.1.0.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot-starter-jackson\4.1.0\spring-boot-starter-jackson-4.1.0.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot-jackson\4.1.0\spring-boot-jackson-4.1.0.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot-starter-tomcat\4.1.0\spring-boot-starter-tomcat-4.1.0.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot-starter-tomcat-runtime\4.1.0\spring-boot-starter-tomcat-runtime-4.1.0.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot-web-server\4.1.0\spring-boot-web-server-4.1.0.jar;C:\Users\Morton\.m2\repository\org\apache\tomcat\embed\tomcat-embed-core\11.0.22\tomcat-embed-core-11.0.22.jar;C:\Users\Morton\.m2\repository\org\apache\tomcat\embed\tomcat-embed-el\11.0.22\tomcat-embed-el-11.0.22.jar;C:\Users\Morton\.m2\repository\org\apache\tomcat\embed\tomcat-embed-websocket\11.0.22\tomcat-embed-websocket-11.0.22.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot-tomcat\4.1.0\spring-boot-tomcat-4.1.0.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot-http-converter\4.1.0\spring-boot-http-converter-4.1.0.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot\4.1.0\spring-boot-4.1.0.jar;C:\Users\Morton\.m2\repository\org\springframework\spring-web\7.0.8\spring-web-7.0.8.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot-webmvc\4.1.0\spring-boot-webmvc-4.1.0.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot-servlet\4.1.0\spring-boot-servlet-4.1.0.jar;C:\Users\Morton\.m2\repository\org\springframework\spring-webmvc\7.0.8\spring-webmvc-7.0.8.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-starter-model-openai\2.0.0\spring-ai-starter-model-openai-2.0.0.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot-starter-webclient\4.1.0\spring-boot-starter-webclient-4.1.0.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot-reactor\4.1.0\spring-boot-reactor-4.1.0.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot-webclient\4.1.0\spring-boot-webclient-4.1.0.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot-http-client\4.1.0\spring-boot-http-client-4.1.0.jar;C:\Users\Morton\.m2\repository\org\springframework\spring-webflux\7.0.8\spring-webflux-7.0.8.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot-http-codec\4.1.0\spring-boot-http-codec-4.1.0.jar;C:\Users\Morton\.m2\repository\io\projectreactor\netty\reactor-netty-http\1.3.6\reactor-netty-http-1.3.6.jar;C:\Users\Morton\.m2\repository\io\netty\netty-codec-http\4.2.15.Final\netty-codec-http-4.2.15.Final.jar;C:\Users\Morton\.m2\repository\io\netty\netty-common\4.2.15.Final\netty-common-4.2.15.Final.jar;C:\Users\Morton\.m2\repository\io\netty\netty-buffer\4.2.15.Final\netty-buffer-4.2.15.Final.jar;C:\Users\Morton\.m2\repository\io\netty\netty-transport\4.2.15.Final\netty-transport-4.2.15.Final.jar;C:\Users\Morton\.m2\repository\io\netty\netty-codec-base\4.2.15.Final\netty-codec-base-4.2.15.Final.jar;C:\Users\Morton\.m2\repository\io\netty\netty-codec-compression\4.2.15.Final\netty-codec-compression-4.2.15.Final.jar;C:\Users\Morton\.m2\repository\io\netty\netty-handler\4.2.15.Final\netty-handler-4.2.15.Final.jar;C:\Users\Morton\.m2\repository\io\netty\netty-codec-http2\4.2.15.Final\netty-codec-http2-4.2.15.Final.jar;C:\Users\Morton\.m2\repository\io\netty\netty-codec-http3\4.2.15.Final\netty-codec-http3-4.2.15.Final.jar;C:\Users\Morton\.m2\repository\io\netty\netty-transport-native-unix-common\4.2.15.Final\netty-transport-native-unix-common-4.2.15.Final.jar;C:\Users\Morton\.m2\repository\io\netty\netty-resolver\4.2.15.Final\netty-resolver-4.2.15.Final.jar;C:\Users\Morton\.m2\repository\io\netty\netty-codec-classes-quic\4.2.15.Final\netty-codec-classes-quic-4.2.15.Final.jar;C:\Users\Morton\.m2\repository\io\netty\netty-codec-native-quic\4.2.15.Final\netty-codec-native-quic-4.2.15.Final-linux-x86_64.jar;C:\Users\Morton\.m2\repository\io\netty\netty-codec-native-quic\4.2.15.Final\netty-codec-native-quic-4.2.15.Final-linux-aarch_64.jar;C:\Users\Morton\.m2\repository\io\netty\netty-codec-native-quic\4.2.15.Final\netty-codec-native-quic-4.2.15.Final-osx-x86_64.jar;C:\Users\Morton\.m2\repository\io\netty\netty-codec-native-quic\4.2.15.Final\netty-codec-native-quic-4.2.15.Final-osx-aarch_64.jar;C:\Users\Morton\.m2\repository\io\netty\netty-codec-native-quic\4.2.15.Final\netty-codec-native-quic-4.2.15.Final-windows-x86_64.jar;C:\Users\Morton\.m2\repository\io\netty\netty-resolver-dns\4.2.15.Final\netty-resolver-dns-4.2.15.Final.jar;C:\Users\Morton\.m2\repository\io\netty\netty-codec-dns\4.2.15.Final\netty-codec-dns-4.2.15.Final.jar;C:\Users\Morton\.m2\repository\io\netty\netty-resolver-dns-native-macos\4.2.15.Final\netty-resolver-dns-native-macos-4.2.15.Final-osx-x86_64.jar;C:\Users\Morton\.m2\repository\io\netty\netty-resolver-dns-classes-macos\4.2.15.Final\netty-resolver-dns-classes-macos-4.2.15.Final.jar;C:\Users\Morton\.m2\repository\io\netty\netty-transport-native-epoll\4.2.15.Final\netty-transport-native-epoll-4.2.15.Final-linux-x86_64.jar;C:\Users\Morton\.m2\repository\io\netty\netty-transport-classes-epoll\4.2.15.Final\netty-transport-classes-epoll-4.2.15.Final.jar;C:\Users\Morton\.m2\repository\io\projectreactor\netty\reactor-netty-core\1.3.6\reactor-netty-core-1.3.6.jar;C:\Users\Morton\.m2\repository\io\netty\netty-handler-proxy\4.2.15.Final\netty-handler-proxy-4.2.15.Final.jar;C:\Users\Morton\.m2\repository\io\netty\netty-codec-socks\4.2.15.Final\netty-codec-socks-4.2.15.Final.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot-starter-restclient\4.1.0\spring-boot-starter-restclient-4.1.0.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot-restclient\4.1.0\spring-boot-restclient-4.1.0.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-autoconfigure-model-openai\2.0.0\spring-ai-autoconfigure-model-openai-2.0.0.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-autoconfigure-model-tool\2.0.0\spring-ai-autoconfigure-model-tool-2.0.0.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-autoconfigure-retry\2.0.0\spring-ai-autoconfigure-retry-2.0.0.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-autoconfigure-model-chat-observation\2.0.0\spring-ai-autoconfigure-model-chat-observation-2.0.0.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-autoconfigure-model-embedding-observation\2.0.0\spring-ai-autoconfigure-model-embedding-observation-2.0.0.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-autoconfigure-model-image-observation\2.0.0\spring-ai-autoconfigure-model-image-observation-2.0.0.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-openai\2.0.0\spring-ai-openai-2.0.0.jar;C:\Users\Morton\.m2\repository\com\openai\openai-java-core\4.39.1\openai-java-core-4.39.1.jar;C:\Users\Morton\.m2\repository\com\fasterxml\jackson\core\jackson-core\2.21.4\jackson-core-2.21.4.jar;C:\Users\Morton\.m2\repository\com\fasterxml\jackson\core\jackson-databind\2.21.4\jackson-databind-2.21.4.jar;C:\Users\Morton\.m2\repository\com\google\errorprone\error_prone_annotations\2.33.0\error_prone_annotations-2.33.0.jar;C:\Users\Morton\.m2\repository\io\swagger\core\v3\swagger-annotations\2.2.31\swagger-annotations-2.2.31.jar;C:\Users\Morton\.m2\repository\org\jetbrains\kotlin\kotlin-stdlib-jdk8\2.3.21\kotlin-stdlib-jdk8-2.3.21.jar;C:\Users\Morton\.m2\repository\org\jetbrains\kotlin\kotlin-stdlib-jdk7\2.3.21\kotlin-stdlib-jdk7-2.3.21.jar;C:\Users\Morton\.m2\repository\com\fasterxml\jackson\datatype\jackson-datatype-jdk8\2.21.4\jackson-datatype-jdk8-2.21.4.jar;C:\Users\Morton\.m2\repository\com\fasterxml\jackson\datatype\jackson-datatype-jsr310\2.21.4\jackson-datatype-jsr310-2.21.4.jar;C:\Users\Morton\.m2\repository\com\fasterxml\jackson\module\jackson-module-kotlin\2.21.4\jackson-module-kotlin-2.21.4.jar;C:\Users\Morton\.m2\repository\com\squareup\okhttp3\okhttp\4.12.0\okhttp-4.12.0.jar;C:\Users\Morton\.m2\repository\com\squareup\okio\okio\3.6.0\okio-3.6.0.jar;C:\Users\Morton\.m2\repository\com\squareup\okio\okio-jvm\3.6.0\okio-jvm-3.6.0.jar;C:\Users\Morton\.m2\repository\org\jetbrains\kotlin\kotlin-stdlib-common\1.9.10\kotlin-stdlib-common-1.9.10.jar;C:\Users\Morton\.m2\repository\io\micrometer\micrometer-core\1.17.0\micrometer-core-1.17.0.jar;C:\Users\Morton\.m2\repository\org\hdrhistogram\HdrHistogram\2.2.2\HdrHistogram-2.2.2.jar;C:\Users\Morton\.m2\repository\org\springframework\spring-context-support\7.0.8\spring-context-support-7.0.8.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-autoconfigure-model-chat-client\2.0.0\spring-ai-autoconfigure-model-chat-client-2.0.0.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-autoconfigure-model-chat-memory\2.0.0\spring-ai-autoconfigure-model-chat-memory-2.0.0.jar;C:\Users\Morton\.m2\repository\org\jetbrains\kotlin\kotlin-reflect\2.3.21\kotlin-reflect-2.3.21.jar;C:\Users\Morton\.m2\repository\org\jetbrains\kotlin\kotlin-stdlib\2.3.21\kotlin-stdlib-2.3.21.jar;C:\Users\Morton\.m2\repository\org\jetbrains\annotations\13.0\annotations-13.0.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-starter-model-chat-memory-repository-jdbc\2.0.0\spring-ai-starter-model-chat-memory-repository-jdbc-2.0.0.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot-starter-jdbc\4.1.0\spring-boot-starter-jdbc-4.1.0.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot-jdbc\4.1.0\spring-boot-jdbc-4.1.0.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot-sql\4.1.0\spring-boot-sql-4.1.0.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot-transaction\4.1.0\spring-boot-transaction-4.1.0.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot-persistence\4.1.0\spring-boot-persistence-4.1.0.jar;C:\Users\Morton\.m2\repository\com\zaxxer\HikariCP\7.0.2\HikariCP-7.0.2.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-autoconfigure-model-chat-memory-repository-jdbc\2.0.0\spring-ai-autoconfigure-model-chat-memory-repository-jdbc-2.0.0.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-model-chat-memory-repository-jdbc\2.0.0\spring-ai-model-chat-memory-repository-jdbc-2.0.0.jar;C:\Users\Morton\.m2\repository\org\springframework\spring-jdbc\7.0.8\spring-jdbc-7.0.8.jar;C:\Users\Morton\.m2\repository\org\springframework\spring-tx\7.0.8\spring-tx-7.0.8.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-starter-mcp-client\2.0.0\spring-ai-starter-mcp-client-2.0.0.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot-starter\4.1.0\spring-boot-starter-4.1.0.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot-starter-logging\4.1.0\spring-boot-starter-logging-4.1.0.jar;C:\Users\Morton\.m2\repository\ch\qos\logback\logback-classic\1.5.34\logback-classic-1.5.34.jar;C:\Users\Morton\.m2\repository\ch\qos\logback\logback-core\1.5.34\logback-core-1.5.34.jar;C:\Users\Morton\.m2\repository\org\apache\logging\log4j\log4j-to-slf4j\2.25.4\log4j-to-slf4j-2.25.4.jar;C:\Users\Morton\.m2\repository\org\slf4j\jul-to-slf4j\2.0.18\jul-to-slf4j-2.0.18.jar;C:\Users\Morton\.m2\repository\jakarta\annotation\jakarta.annotation-api\3.0.0\jakarta.annotation-api-3.0.0.jar;C:\Users\Morton\.m2\repository\org\yaml\snakeyaml\2.6\snakeyaml-2.6.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-autoconfigure-mcp-client-httpclient\2.0.0\spring-ai-autoconfigure-mcp-client-httpclient-2.0.0.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-autoconfigure-mcp-client-common\2.0.0\spring-ai-autoconfigure-mcp-client-common-2.0.0.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-mcp-annotations\2.0.0\spring-ai-mcp-annotations-2.0.0.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-mcp\2.0.0\spring-ai-mcp-2.0.0.jar;C:\Users\Morton\.m2\repository\io\modelcontextprotocol\sdk\mcp\2.0.0\mcp-2.0.0.jar;C:\Users\Morton\.m2\repository\io\modelcontextprotocol\sdk\mcp-json-jackson3\2.0.0\mcp-json-jackson3-2.0.0.jar;C:\Users\Morton\.m2\repository\io\modelcontextprotocol\sdk\mcp-core\2.0.0\mcp-core-2.0.0.jar;C:\Users\Morton\.m2\repository\org\apache\pdfbox\pdfbox\2.0.31\pdfbox-2.0.31.jar;C:\Users\Morton\.m2\repository\org\apache\pdfbox\fontbox\2.0.31\fontbox-2.0.31.jar;C:\Users\Morton\.m2\repository\commons-logging\commons-logging\1.3.6\commons-logging-1.3.6.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-starter-vector-store-pgvector\2.0.0\spring-ai-starter-vector-store-pgvector-2.0.0.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-autoconfigure-vector-store-pgvector\2.0.0\spring-ai-autoconfigure-vector-store-pgvector-2.0.0.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-autoconfigure-vector-store-observation\2.0.0\spring-ai-autoconfigure-vector-store-observation-2.0.0.jar;C:\Users\Morton\.m2\repository\org\springframework\ai\spring-ai-pgvector-store\2.0.0\spring-ai-pgvector-store-2.0.0.jar;C:\Users\Morton\.m2\repository\com\pgvector\pgvector\0.1.6\pgvector-0.1.6.jar;C:\Users\Morton\.m2\repository\org\postgresql\postgresql\42.7.3\postgresql-42.7.3.jar;C:\Users\Morton\.m2\repository\org\checkerframework\checker-qual\3.42.0\checker-qual-3.42.0.jar;C:\Users\Morton\.m2\repository\com\baomidou\mybatis-plus-spring-boot4-starter\3.5.15\mybatis-plus-spring-boot4-starter-3.5.15.jar;C:\Users\Morton\.m2\repository\com\baomidou\mybatis-plus\3.5.15\mybatis-plus-3.5.15.jar;C:\Users\Morton\.m2\repository\com\baomidou\mybatis-plus-core\3.5.15\mybatis-plus-core-3.5.15.jar;C:\Users\Morton\.m2\repository\com\baomidou\mybatis-plus-annotation\3.5.15\mybatis-plus-annotation-3.5.15.jar;C:\Users\Morton\.m2\repository\com\baomidou\mybatis-plus-spring\3.5.15\mybatis-plus-spring-3.5.15.jar;C:\Users\Morton\.m2\repository\com\baomidou\mybatis-plus-extension\3.5.15\mybatis-plus-extension-3.5.15.jar;C:\Users\Morton\.m2\repository\org\mybatis\mybatis\3.5.19\mybatis-3.5.19.jar;C:\Users\Morton\.m2\repository\org\mybatis\mybatis-spring\3.0.5\mybatis-spring-3.0.5.jar;C:\Users\Morton\.m2\repository\com\baomidou\mybatis-plus-spring-boot-autoconfigure\3.5.15\mybatis-plus-spring-boot-autoconfigure-3.5.15.jar;C:\Users\Morton\.m2\repository\org\springframework\boot\spring-boot-autoconfigure\4.1.0\spring-boot-autoconfigure-4.1.0.jar;C:\Users\Morton\.m2\repository\org\projectlombok\lombok\1.18.46\lombok-1.18.46.jar;C:\Users\Morton\.m2\repository\org\springframework\spring-core\7.0.8\spring-core-7.0.8.jar;C:\Users\Morton\.m2\repository\org\apache\poi\poi-ooxml\5.4.0\poi-ooxml-5.4.0.jar;C:\Users\Morton\.m2\repository\org\apache\poi\poi\5.4.0\poi-5.4.0.jar;C:\Users\Morton\.m2\repository\commons-codec\commons-codec\1.21.0\commons-codec-1.21.0.jar;C:\Users\Morton\.m2\repository\org\apache\commons\commons-math3\3.6.1\commons-math3-3.6.1.jar;C:\Users\Morton\.m2\repository\com\zaxxer\SparseBitSet\1.3\SparseBitSet-1.3.jar;C:\Users\Morton\.m2\repository\org\apache\poi\poi-ooxml-lite\5.4.0\poi-ooxml-lite-5.4.0.jar;C:\Users\Morton\.m2\repository\org\apache\xmlbeans\xmlbeans\5.3.0\xmlbeans-5.3.0.jar;C:\Users\Morton\.m2\repository\org\apache\commons\commons-compress\1.27.1\commons-compress-1.27.1.jar;C:\Users\Morton\.m2\repository\org\apache\commons\commons-lang3\3.20.0\commons-lang3-3.20.0.jar;C:\Users\Morton\.m2\repository\commons-io\commons-io\2.18.0\commons-io-2.18.0.jar;C:\Users\Morton\.m2\repository\com\github\virtuald\curvesapi\1.08\curvesapi-1.08.jar;C:\Users\Morton\.m2\repository\org\apache\logging\log4j\log4j-api\2.25.4\log4j-api-2.25.4.jar;C:\Users\Morton\.m2\repository\org\apache\commons\commons-collections4\4.4\commons-collections4-4.4.jar;C:\Users\Morton\.m2\repository\org\jsoup\jsoup\1.18.3\jsoup-1.18.3.jar;C:\Users\Morton\.m2\repository\io\micrometer\context-propagation\1.2.1\context-propagation-1.2.1.jar;C:\Users\Morton\.m2\repository\org\jspecify\jspecify\1.0.0\jspecify-1.0.0.jar;E:\Program files (x86)\IntelliJ IDEA 2026.1\lib\idea_rt.jar" com.mychat.Application
+已连接到地址为 ''127.0.0.1:56462'，传输: '套接字'' 的目标虚拟机
 
   .   ____          _            __ _ _
  /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
@@ -10,96 +10,105 @@ C:\Users\Morton\.jdks\ms-25.0.4\bin\java.exe -agentlib:jdwp=transport=dt_socket,
 
  :: Spring Boot ::                (v4.1.0)
 
-2026-09-05T00:20:03.621+08:00  INFO 18508 --- [my-chat] [           main] com.mychat.Application                   : Starting Application using Java 25.0.4 with PID 18508 (E:\Program files\projects\My-Chat\my-chat-server\target\classes started by Morton in E:\Program files\projects\My-Chat\my-chat-server)
-2026-09-05T00:20:03.626+08:00 DEBUG 18508 --- [my-chat] [           main] com.mychat.Application                   : Running with Spring Boot v4.1.0, Spring v7.0.8
-2026-09-05T00:20:03.627+08:00  INFO 18508 --- [my-chat] [           main] com.mychat.Application                   : No active profile set, falling back to 1 default profile: "default"
-2026-09-05T00:20:04.922+08:00  INFO 18508 --- [my-chat] [           main] o.s.boot.tomcat.TomcatWebServer          : Tomcat initialized with port 8100 (http)
-2026-09-05T00:20:04.934+08:00  INFO 18508 --- [my-chat] [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
-2026-09-05T00:20:04.935+08:00  INFO 18508 --- [my-chat] [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/11.0.22]
-2026-09-05T00:20:04.995+08:00  INFO 18508 --- [my-chat] [           main] b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 1310 ms
-2026-09-05T00:20:05.055+08:00  INFO 18508 --- [my-chat] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
-2026-09-05T00:20:05.222+08:00  INFO 18508 --- [my-chat] [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@766b6d02
-2026-09-05T00:20:05.223+08:00  INFO 18508 --- [my-chat] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
-2026-09-05T00:20:05.259+08:00  INFO 18508 --- [my-chat] [           main] c.m.c.ContextPropagationConfiguration    : Reactor 自动上下文传播已启用，WorkspaceContext ThreadLocal 已注册
-2026-09-05T00:20:05.454+08:00  INFO 18508 --- [my-chat] [           main] c.m.config.SmitheryMcpConfiguration      : 已为 MCP 连接 [smithery-toolbox] 注册 Smithery Bearer 鉴权
-2026-09-05T00:20:05.739+08:00  INFO 18508 --- [my-chat] [ient-1-Worker-0] i.m.client.LifecycleInitializer          : Server response with Protocol: 2025-11-25, Capabilities: ServerCapabilities[completions=CompletionCapabilities[], experimental=null, logging=LoggingCapabilities[], prompts=PromptCapabilities[listChanged=true], resources=ResourceCapabilities[subscribe=false, listChanged=true], tools=ToolCapabilities[listChanged=true]], Info: Implementation[name=mcp-weather-server, title=null, version=1.0.0, description=null, icons=null, websiteUrl=null] and Instructions null
-2026-09-05T00:20:05.753+08:00  INFO 18508 --- [my-chat] [           main] com.mychat.config.AgentDebugLog          : agent-debug {"sessionId":"aa38c5","hypothesisId":"H1","location":"SmitheryMcpConfiguration.java:httpRequest","message":"smithery outbound MCP HTTP","timestamp":1788538805752,"data":{"ctxClass":"io.modelcontextprotocol.common.DefaultMcpTransportContext","bodySnippet":"{\"jsonrpc\":\"2.0\",\"method\":\"initialize\",\"id\":\"7f413651-0\",\"params\":{\"protocolVersion\":\"2025-11-25\",\"capabilities\":{},\"clientInfo\":{\"name\":\"spring-ai-mcp-client - smithery-toolbox\",\"title\":\"smithery-toolbox\",\"version\":\"1.0.0\"}}}","method":"POST","rpc":"initialize","hasAuthHeader":true,"endpoint":"https://mcp.smithery.run/2625705206"}}
-2026-09-05T00:20:07.183+08:00  INFO 18508 --- [my-chat] [ient-2-Worker-0] com.mychat.config.AgentDebugLog          : agent-debug {"sessionId":"aa38c5","hypothesisId":"H1","location":"SmitheryMcpConfiguration.java:httpRequest","message":"smithery outbound MCP HTTP","timestamp":1788538807183,"data":{"ctxClass":"io.modelcontextprotocol.common.DefaultMcpTransportContext","bodySnippet":"","method":"GET","rpc":"other","hasAuthHeader":true,"endpoint":"https://mcp.smithery.run/2625705206"}}
-2026-09-05T00:20:07.189+08:00  INFO 18508 --- [my-chat] [ient-2-Worker-0] i.m.client.LifecycleInitializer          : Server response with Protocol: 2025-03-26, Capabilities: ServerCapabilities[completions=null, experimental=null, logging=null, prompts=null, resources=null, tools=ToolCapabilities[listChanged=false]], Info: Implementation[name=2625705206, title=null, version=1.0.0, description=null, icons=null, websiteUrl=null] and Instructions null
-2026-09-05T00:20:07.191+08:00  INFO 18508 --- [my-chat] [ient-2-Worker-0] com.mychat.config.AgentDebugLog          : agent-debug {"sessionId":"aa38c5","hypothesisId":"H1","location":"SmitheryMcpConfiguration.java:httpRequest","message":"smithery outbound MCP HTTP","timestamp":1788538807190,"data":{"ctxClass":"io.modelcontextprotocol.common.DefaultMcpTransportContext","bodySnippet":"{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}","method":"POST","rpc":"initialize","hasAuthHeader":true,"endpoint":"https://mcp.smithery.run/2625705206"}}
+2026-09-05T11:58:21.676+08:00  INFO 20356 --- [my-chat] [           main] com.mychat.Application                   : Starting Application using Java 25.0.4 with PID 20356 (E:\Program files\projects\My-Chat\my-chat-server\target\classes started by Morton in E:\Program files\projects\My-Chat\my-chat-server)
+2026-09-05T11:58:21.679+08:00 DEBUG 20356 --- [my-chat] [           main] com.mychat.Application                   : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-09-05T11:58:21.680+08:00  INFO 20356 --- [my-chat] [           main] com.mychat.Application                   : No active profile set, falling back to 1 default profile: "default"
+2026-09-05T11:58:23.074+08:00  INFO 20356 --- [my-chat] [           main] o.s.boot.tomcat.TomcatWebServer          : Tomcat initialized with port 8100 (http)
+2026-09-05T11:58:23.085+08:00  INFO 20356 --- [my-chat] [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-09-05T11:58:23.086+08:00  INFO 20356 --- [my-chat] [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/11.0.22]
+2026-09-05T11:58:23.138+08:00  INFO 20356 --- [my-chat] [           main] b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 1409 ms
+2026-09-05T11:58:23.198+08:00  INFO 20356 --- [my-chat] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-09-05T11:58:23.398+08:00  INFO 20356 --- [my-chat] [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@2c579202
+2026-09-05T11:58:23.400+08:00  INFO 20356 --- [my-chat] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-09-05T11:58:23.445+08:00  INFO 20356 --- [my-chat] [           main] c.m.c.ContextPropagationConfiguration    : Reactor 自动上下文传播已启用，WorkspaceContext ThreadLocal 已注册
+2026-09-05T11:58:23.666+08:00  INFO 20356 --- [my-chat] [           main] c.m.config.SmitheryMcpConfiguration      : 已为 MCP 连接 [smithery-toolbox] 注册 Smithery Bearer 鉴权
+2026-09-05T11:58:24.125+08:00  INFO 20356 --- [my-chat] [ient-1-Worker-1] i.m.client.LifecycleInitializer          : Server response with Protocol: 2025-11-25, Capabilities: ServerCapabilities[completions=CompletionCapabilities[], experimental=null, logging=LoggingCapabilities[], prompts=PromptCapabilities[listChanged=true], resources=ResourceCapabilities[subscribe=false, listChanged=true], tools=ToolCapabilities[listChanged=true]], Info: Implementation[name=mcp-weather-server, title=null, version=1.0.0, description=null, icons=null, websiteUrl=null] and Instructions null
+2026-09-05T11:58:27.661+08:00  INFO 20356 --- [my-chat] [ient-2-Worker-0] i.m.client.LifecycleInitializer          : Server response with Protocol: 2025-03-26, Capabilities: ServerCapabilities[completions=null, experimental=null, logging=null, prompts=null, resources=null, tools=ToolCapabilities[listChanged=false]], Info: Implementation[name=2625705206, title=null, version=1.0.0, description=null, icons=null, websiteUrl=null] and Instructions null
  _ _   |_  _ _|_. ___ _ |    _ 
 | | |\/|_)(_| | |_\  |_)||_|_\ 
      /               |         
                         3.5.15 
-2026-09-05T00:20:08.556+08:00  INFO 18508 --- [my-chat] [           main] o.s.a.v.pgvector.PgVectorStore           : Using the vector table name: vector_store. Is empty: false
-2026-09-05T00:20:08.557+08:00  INFO 18508 --- [my-chat] [           main] o.s.a.v.pgvector.PgVectorStore           : Initializing PGVectorStore schema for table: vector_store in schema: public
-2026-09-05T00:20:08.557+08:00  INFO 18508 --- [my-chat] [           main] o.s.a.v.pgvector.PgVectorStore           : vectorTableValidationsEnabled false
-2026-09-05T00:20:08.558+08:00 DEBUG 18508 --- [my-chat] [           main] o.s.a.v.pgvector.PgVectorStore           : Skipping the schema initialization for the table: public.vector_store
-2026-09-05T00:20:08.561+08:00  INFO 18508 --- [my-chat] [           main] com.mychat.utils.WorkspaceUtil           : 工作区初始化完成: E:\Program files\projects\My-Chat\my-chat-server\src\main\resources\workspace
-2026-09-05T00:20:08.880+08:00  INFO 18508 --- [my-chat] [           main] com.mychat.config.AsyncConfiguration     : jobExecutor 已启动 core=2 max=4 queue=100
-2026-09-05T00:20:09.016+08:00  INFO 18508 --- [my-chat] [           main] m.e.s.MybatisPlusApplicationContextAware : Register ApplicationContext instances org.springframework.boot.web.server.servlet.context.AnnotationConfigServletWebServerApplicationContext@3f1c5af9
-2026-09-05T00:20:09.094+08:00  WARN 18508 --- [my-chat] [           main] o.s.a.m.a.p.s.SyncMcpSamplingProvider    : No sampling methods found
-2026-09-05T00:20:09.095+08:00  WARN 18508 --- [my-chat] [           main] o.s.a.m.a.p.e.SyncMcpElicitationProvider : No elicitation methods found
-2026-09-05T00:20:09.108+08:00  INFO 18508 --- [my-chat] [           main] o.s.boot.tomcat.TomcatWebServer          : Tomcat started on port 8100 (http) with context path '/'
-2026-09-05T00:20:09.116+08:00  INFO 18508 --- [my-chat] [           main] com.mychat.Application                   : Started Application in 5.913 seconds (process running for 6.48)
-2026-09-05T00:20:09.146+08:00  INFO 18508 --- [my-chat] [           main] com.mychat.config.McpToolsDiagnostics    : MCP [mcp-weather-server] tools: [get_weather]
-2026-09-05T00:20:09.147+08:00  INFO 18508 --- [my-chat] [           main] com.mychat.config.AgentDebugLog          : agent-debug {"sessionId":"aa38c5","hypothesisId":"H1","location":"SmitheryMcpConfiguration.java:httpRequest","message":"smithery outbound MCP HTTP","timestamp":1788538809147,"data":{"ctxClass":"io.modelcontextprotocol.common.DefaultMcpTransportContext","bodySnippet":"{\"jsonrpc\":\"2.0\",\"method\":\"tools/list\",\"id\":\"7f413651-1\",\"params\":{}}","method":"POST","rpc":"tools/list","hasAuthHeader":true,"endpoint":"https://mcp.smithery.run/2625705206"}}
-2026-09-05T00:20:10.526+08:00  WARN 18508 --- [my-chat] [           main] com.mychat.config.McpToolsDiagnostics    : MCP [smithery-toolbox] listTools 失败: Failed to send message: AggregateResponseEvent[responseInfo=jdk.internal.net.http.ResponseInfoImpl@49ed0645, data={"error":"Internal Server Error"}
+2026-09-05T11:58:29.775+08:00  INFO 20356 --- [my-chat] [           main] o.s.a.v.pgvector.PgVectorStore           : Using the vector table name: vector_store. Is empty: false
+2026-09-05T11:58:29.776+08:00  INFO 20356 --- [my-chat] [           main] o.s.a.v.pgvector.PgVectorStore           : Initializing PGVectorStore schema for table: vector_store in schema: public
+2026-09-05T11:58:29.776+08:00  INFO 20356 --- [my-chat] [           main] o.s.a.v.pgvector.PgVectorStore           : vectorTableValidationsEnabled false
+2026-09-05T11:58:29.777+08:00 DEBUG 20356 --- [my-chat] [           main] o.s.a.v.pgvector.PgVectorStore           : Skipping the schema initialization for the table: public.vector_store
+2026-09-05T11:58:29.780+08:00  INFO 20356 --- [my-chat] [           main] com.mychat.utils.WorkspaceUtil           : 工作区初始化完成: E:\Program files\projects\My-Chat\my-chat-server\src\main\resources\workspace
+2026-09-05T11:58:30.099+08:00  INFO 20356 --- [my-chat] [           main] com.mychat.config.AsyncConfiguration     : jobExecutor 已启动 core=2 max=4 queue=100
+2026-09-05T11:58:30.254+08:00  INFO 20356 --- [my-chat] [           main] m.e.s.MybatisPlusApplicationContextAware : Register ApplicationContext instances org.springframework.boot.web.server.servlet.context.AnnotationConfigServletWebServerApplicationContext@3f1c5af9
+2026-09-05T11:58:30.346+08:00  WARN 20356 --- [my-chat] [           main] o.s.a.m.a.p.s.SyncMcpSamplingProvider    : No sampling methods found
+2026-09-05T11:58:30.347+08:00  WARN 20356 --- [my-chat] [           main] o.s.a.m.a.p.e.SyncMcpElicitationProvider : No elicitation methods found
+2026-09-05T11:58:30.362+08:00  INFO 20356 --- [my-chat] [           main] o.s.boot.tomcat.TomcatWebServer          : Tomcat started on port 8100 (http) with context path '/'
+2026-09-05T11:58:30.370+08:00  INFO 20356 --- [my-chat] [           main] com.mychat.Application                   : Started Application in 9.1 seconds (process running for 9.869)
+2026-09-05T11:58:30.419+08:00  INFO 20356 --- [my-chat] [           main] com.mychat.config.McpToolsDiagnostics    : MCP [mcp-weather-server] tools: [get_weather]
+2026-09-05T11:58:31.745+08:00  WARN 20356 --- [my-chat] [           main] com.mychat.config.McpToolsDiagnostics    : MCP [smithery-toolbox] listTools 失败: Failed to send message: AggregateResponseEvent[responseInfo=jdk.internal.net.http.ResponseInfoImpl@2519e9ca, data={"error":"Internal Server Error"}
 ]
-2026-09-05T00:20:11.883+08:00  INFO 18508 --- [my-chat] [           main] com.mychat.config.AgentDebugLog          : agent-debug {"sessionId":"aa38c5","hypothesisId":"H7","location":"McpToolsDiagnostics.java:probe.initialize","message":"probe initialize 2025-03-26","timestamp":1788538811883,"data":{"hasRespSession":false,"status":200,"bodySnippet":"{\"jsonrpc\":\"2.0\",\"id\":\"probe-0\",\"result\":{\"protocolVersion\":\"2025-03-26\",\"capabilities\":{\"tools\":{\"listChanged\":false}},\"serverInfo\":{\"name\":\"2625705206\",\"version\":\"1.0.0\"}}}","contentType":"application/json","method":"POST","wwwAuth":""}}
-2026-09-05T00:20:12.167+08:00  INFO 18508 --- [my-chat] [           main] com.mychat.config.AgentDebugLog          : agent-debug {"sessionId":"aa38c5","hypothesisId":"H11","location":"McpToolsDiagnostics.java:probe.get","message":"probe GET sse","timestamp":1788538812167,"data":{"hasRespSession":false,"status":405,"bodySnippet":"{\"error\":\"method_not_allowed\",\"message\":\"Stateless mode: GET not supported\"}","contentType":"application/json","method":"GET","wwwAuth":""}}
-2026-09-05T00:20:13.560+08:00  INFO 18508 --- [my-chat] [           main] com.mychat.config.AgentDebugLog          : agent-debug {"sessionId":"aa38c5","hypothesisId":"H4","location":"McpToolsDiagnostics.java:probe.list","message":"probe tools/list","timestamp":1788538813560,"data":{"hasRespSession":false,"status":500,"bodySnippet":"{\"error\":\"Internal Server Error\"}","contentType":"application/json","method":"POST","wwwAuth":""}}
-2026-09-05T00:20:16.008+08:00  INFO 18508 --- [my-chat] [           main] com.mychat.config.AgentDebugLog          : agent-debug {"sessionId":"aa38c5","hypothesisId":"H9","location":"McpToolsDiagnostics.java:probe.call","message":"probe tools/call exa.search","timestamp":1788538816008,"data":{"hasRespSession":false,"status":403,"bodySnippet":"<!DOCTYPE html> <!--[if lt IE 7]> <html class=\"no-js ie6 oldie\" lang=\"en-US\"> <![endif]--> <!--[if IE 7]>    <html class=\"no-js ie7 oldie\" lang=\"en-US\"> <![endif]--> <!--[if IE 8]>    <html class=\"no-js ie8 oldie\" lang=\"en-US\"> <![endif]-->","contentType":"text/html; charset=UTF-8","method":"POST","wwwAuth":""}}
-2026-09-05T00:20:19.356+08:00  INFO 18508 --- [my-chat] [           main] com.mychat.config.AgentDebugLog          : agent-debug {"sessionId":"aa38c5","hypothesisId":"H13","location":"McpToolsDiagnostics.java:rest.connections","message":"smithery REST list connections","timestamp":1788538819356,"data":{"bodySnippet":"{\"connections\":[{\"connectionId\":\"exa\",\"name\":\"Exa Search\",\"mcpUrl\":\"https://server.smithery.ai/exa\",\"metadata\":null,\"iconUrl\":\"https://exa.ai/images/favicon-32x32.png\",\"createdAt\":\"2026-07-15T07:17:25.678Z\",\"status\":{\"state\":\"connected\"},\"serverInfo\":{\"name\":\"exa-search-server\",\"icons\":[{\"src\":\"https://exa.ai/images/favicon-32x32.png\",\"sizes\":[\"32x32\"],\"mimeType\":\"image/png\"}],\"title\":\"Exa\",\"version\":\"3.2.1\",\"websiteUrl\":\"https://exa.ai\",\"description\":\"Fast, intelligent web search and web crawli","contentType":"application/json","looksHtml":false,"status":200,"path":"/connect/2625705206"}}
-2026-09-05T00:20:20.238+08:00  INFO 18508 --- [my-chat] [           main] com.mychat.config.AgentDebugLog          : agent-debug {"sessionId":"aa38c5","hypothesisId":"H14","location":"McpToolsDiagnostics.java:rest.tools","message":"smithery REST list tools","timestamp":1788538820238,"data":{"bodySnippet":"{\"tools\":[]}","contentType":"application/json","looksHtml":false,"status":200,"path":"/connect/2625705206/.tools"}}
-2026-09-05T00:20:20.249+08:00  INFO 18508 --- [my-chat] [           main] com.mychat.config.AgentDebugLog          : agent-debug {"sessionId":"aa38c5","hypothesisId":"H15","location":"McpToolsDiagnostics.java:direct.meta","message":"first connection for direct MCP probe","timestamp":1788538820249,"data":{"connectionId":"exa","state":"connected","mcpUrl":"https://server.smithery.ai/exa"}}
-2026-09-05T00:20:21.410+08:00  INFO 18508 --- [my-chat] [           main] com.mychat.config.AgentDebugLog          : agent-debug {"sessionId":"aa38c5","hypothesisId":"H15","location":"McpToolsDiagnostics.java:direct.connect.init","message":"connect API MCP initialize","timestamp":1788538821410,"data":{"hasRespSession":false,"status":403,"bodySnippet":"<!DOCTYPE html> <!--[if lt IE 7]> <html class=\"no-js ie6 oldie\" lang=\"en-US\"> <![endif]--> <!--[if IE 7]>    <html class=\"no-js ie7 oldie\" lang=\"en-US\"> <![endif]--> <!--[if IE 8]>    <html class=\"no-js ie8 oldie\" lang=\"en-US\"> <![endif]-->","contentType":"text/html; charset=UTF-8","method":"POST","wwwAuth":""}}
-2026-09-05T00:20:22.238+08:00  INFO 18508 --- [my-chat] [           main] com.mychat.config.AgentDebugLog          : agent-debug {"sessionId":"aa38c5","hypothesisId":"H15","location":"McpToolsDiagnostics.java:direct.connect.list","message":"connect API MCP tools/list","timestamp":1788538822238,"data":{"hasRespSession":false,"status":403,"bodySnippet":"<!DOCTYPE html> <!--[if lt IE 7]> <html class=\"no-js ie6 oldie\" lang=\"en-US\"> <![endif]--> <!--[if IE 7]>    <html class=\"no-js ie7 oldie\" lang=\"en-US\"> <![endif]--> <!--[if IE 8]>    <html class=\"no-js ie8 oldie\" lang=\"en-US\"> <![endif]-->","contentType":"text/html; charset=UTF-8","method":"POST","wwwAuth":""}}
-2026-09-05T00:20:23.706+08:00  INFO 18508 --- [my-chat] [           main] com.mychat.config.AgentDebugLog          : agent-debug {"sessionId":"aa38c5","hypothesisId":"H15","location":"McpToolsDiagnostics.java:direct.connect.call","message":"connect API MCP tools/call search","timestamp":1788538823706,"data":{"hasRespSession":false,"status":403,"bodySnippet":"<!DOCTYPE html> <!--[if lt IE 7]> <html class=\"no-js ie6 oldie\" lang=\"en-US\"> <![endif]--> <!--[if IE 7]>    <html class=\"no-js ie7 oldie\" lang=\"en-US\"> <![endif]--> <!--[if IE 8]>    <html class=\"no-js ie8 oldie\" lang=\"en-US\"> <![endif]-->","contentType":"text/html; charset=UTF-8","method":"POST","wwwAuth":""}}
-2026-09-05T00:20:24.899+08:00  INFO 18508 --- [my-chat] [           main] com.mychat.config.AgentDebugLog          : agent-debug {"sessionId":"aa38c5","hypothesisId":"H16","location":"McpToolsDiagnostics.java:direct.hosted.init","message":"hosted mcpUrl initialize","timestamp":1788538824899,"data":{"hasRespSession":false,"status":401,"bodySnippet":"{\"error\":\"invalid_token\",\"error_description\":\"Invalid token\"}","contentType":"application/json","method":"POST","wwwAuth":"Bearer error=\"invalid_token\", error_description=\"Invalid token\", resource_metadata=\"https://server.smithery.ai/.well-known/oauth-protected-resource/exa\""}}
-2026-09-05T00:20:25.212+08:00  INFO 18508 --- [my-chat] [           main] com.mychat.config.AgentDebugLog          : agent-debug {"sessionId":"aa38c5","hypothesisId":"H16","location":"McpToolsDiagnostics.java:direct.hosted.list","message":"hosted mcpUrl tools/list","timestamp":1788538825212,"data":{"hasRespSession":false,"status":401,"bodySnippet":"{\"error\":\"invalid_token\",\"error_description\":\"Invalid token\"}","contentType":"application/json","method":"POST","wwwAuth":"Bearer error=\"invalid_token\", error_description=\"Invalid token\", resource_metadata=\"https://server.smithery.ai/.well-known/oauth-protected-resource/exa\""}}
-2026-09-05T00:20:25.327+08:00 DEBUG 18508 --- [my-chat] [           main] c.mychat.mapper.AsyncJobMapper.update    : ==>  Preparing: UPDATE async_job SET status=?,error_message=?,finished_at=?,updated_at=? WHERE (status IN (?,?) AND updated_at < ?)
-2026-09-05T00:20:25.358+08:00 DEBUG 18508 --- [my-chat] [           main] c.mychat.mapper.AsyncJobMapper.update    : ==> Parameters: FAILED(String), 任务超时未完成（进程重启或卡住）(String), 2026-09-05T00:20:25.230860200(LocalDateTime), 2026-09-05T00:20:25.231861100(LocalDateTime), PENDING(String), RUNNING(String), 2026-09-05T00:10:25.215919300(LocalDateTime)
-2026-09-05T00:20:25.368+08:00 DEBUG 18508 --- [my-chat] [           main] c.mychat.mapper.AsyncJobMapper.update    : <==    Updates: 0
-2026-09-05T00:20:25.375+08:00 DEBUG 18508 --- [my-chat] [           main] c.m.mapper.AsyncJobMapper.selectList     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE (job_type = ? AND status = ? AND ref_id IS NOT NULL)
-2026-09-05T00:20:25.376+08:00 DEBUG 18508 --- [my-chat] [           main] c.m.mapper.AsyncJobMapper.selectList     : ==> Parameters: kb_ingest(String), FAILED(String)
-2026-09-05T00:20:25.396+08:00 DEBUG 18508 --- [my-chat] [           main] c.m.mapper.AsyncJobMapper.selectList     : <==      Total: 0
-2026-09-05T00:20:25.396+08:00  INFO 18508 --- [my-chat] [           main] com.mychat.job.StaleJobRecovery          : 过期任务回收完成 staleMinutes=10 staleJobs=0 staleDocs=0
-2026-09-05T00:20:29.967+08:00  INFO 18508 --- [my-chat] [omcat-handler-0] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
-2026-09-05T00:20:29.967+08:00  INFO 18508 --- [my-chat] [omcat-handler-0] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
-2026-09-05T00:20:29.969+08:00  INFO 18508 --- [my-chat] [omcat-handler-0] o.s.web.servlet.DispatcherServlet        : Completed initialization in 1 ms
-2026-09-05T00:20:30.084+08:00 DEBUG 18508 --- [my-chat] [omcat-handler-0] c.m.m.ChatSessionsMapper.deleteById      : ==>  Preparing: DELETE FROM chat_sessions WHERE conversation_id=?
-2026-09-05T00:20:30.084+08:00 DEBUG 18508 --- [my-chat] [omcat-handler-0] c.m.m.ChatSessionsMapper.deleteById      : ==> Parameters: chat_1788538780841_uri36a3sk(String)
-2026-09-05T00:20:30.089+08:00 DEBUG 18508 --- [my-chat] [omcat-handler-0] c.m.m.ChatSessionsMapper.deleteById      : <==    Updates: 1
-2026-09-05T00:20:30.091+08:00 DEBUG 18508 --- [my-chat] [omcat-handler-0] c.m.m.SpringAiChatMemoryMapper.delete    : ==>  Preparing: DELETE FROM spring_ai_chat_memory WHERE (conversation_id = ?)
-2026-09-05T00:20:30.092+08:00 DEBUG 18508 --- [my-chat] [omcat-handler-0] c.m.m.SpringAiChatMemoryMapper.delete    : ==> Parameters: chat_1788538780841_uri36a3sk(String)
-2026-09-05T00:20:30.096+08:00 DEBUG 18508 --- [my-chat] [omcat-handler-0] c.m.m.SpringAiChatMemoryMapper.delete    : <==    Updates: 2
-2026-09-05T00:20:30.098+08:00 DEBUG 18508 --- [my-chat] [omcat-handler-0] c.m.m.ChatAssistantTurnMapper.delete     : ==>  Preparing: DELETE FROM chat_assistant_turns WHERE (conversation_id = ?)
-2026-09-05T00:20:30.099+08:00 DEBUG 18508 --- [my-chat] [omcat-handler-0] c.m.m.ChatAssistantTurnMapper.delete     : ==> Parameters: chat_1788538780841_uri36a3sk(String)
-2026-09-05T00:20:30.104+08:00 DEBUG 18508 --- [my-chat] [omcat-handler-0] c.m.m.ChatAssistantTurnMapper.delete     : <==    Updates: 1
-2026-09-05T00:20:30.106+08:00 DEBUG 18508 --- [my-chat] [omcat-handler-0] c.m.m.C.deleteById                       : ==>  Preparing: DELETE FROM chat_session_summary WHERE conversation_id=?
-2026-09-05T00:20:30.106+08:00 DEBUG 18508 --- [my-chat] [omcat-handler-0] c.m.m.C.deleteById                       : ==> Parameters: chat_1788538780841_uri36a3sk(String)
-2026-09-05T00:20:30.109+08:00 DEBUG 18508 --- [my-chat] [omcat-handler-0] c.m.m.C.deleteById                       : <==    Updates: 0
-2026-09-05T00:20:31.809+08:00 DEBUG 18508 --- [my-chat] [omcat-handler-1] c.m.mapper.ChatSessionsMapper.insert     : ==>  Preparing: INSERT INTO chat_sessions ( conversation_id, title, created_at, updated_at ) VALUES ( ?, ?, ?, ? )
-2026-09-05T00:20:31.810+08:00 DEBUG 18508 --- [my-chat] [omcat-handler-1] c.m.mapper.ChatSessionsMapper.insert     : ==> Parameters: chat_1788538831787_7t9scbxnz(String), chat_1788538831787_7t9scbxnz(String), 2026-09-05T00:20:31.804476900(LocalDateTime), 2026-09-05T00:20:31.804476900(LocalDateTime)
-2026-09-05T00:20:31.813+08:00 DEBUG 18508 --- [my-chat] [omcat-handler-1] c.m.mapper.ChatSessionsMapper.insert     : <==    Updates: 1
-2026-09-05T00:20:31.973+08:00 DEBUG 18508 --- [my-chat] [omcat-handler-2] c.m.m.ChatSessionsMapper.selectById      : ==>  Preparing: SELECT conversation_id,user_id,title,kb_id,created_at,work_dir,updated_at FROM chat_sessions WHERE conversation_id=?
-2026-09-05T00:20:31.974+08:00 DEBUG 18508 --- [my-chat] [omcat-handler-2] c.m.m.ChatSessionsMapper.selectById      : ==> Parameters: chat_1788538831787_7t9scbxnz(String)
-2026-09-05T00:20:31.983+08:00 DEBUG 18508 --- [my-chat] [omcat-handler-2] c.m.m.ChatSessionsMapper.selectById      : <==      Total: 1
-2026-09-05T00:20:31.984+08:00  INFO 18508 --- [my-chat] [omcat-handler-2] com.mychat.controller.ChatController     : 会话 chat_1788538831787_7t9scbxnz 使用默认工作目录: E:\Program files\projects\My-Chat\my-chat-server\src\main\resources\workspace
-2026-09-05T00:20:31.985+08:00 DEBUG 18508 --- [my-chat] [omcat-handler-2] c.m.m.ChatSessionsMapper.selectById      : ==>  Preparing: SELECT conversation_id,user_id,title,kb_id,created_at,work_dir,updated_at FROM chat_sessions WHERE conversation_id=?
-2026-09-05T00:20:31.985+08:00 DEBUG 18508 --- [my-chat] [omcat-handler-2] c.m.m.ChatSessionsMapper.selectById      : ==> Parameters: chat_1788538831787_7t9scbxnz(String)
-2026-09-05T00:20:31.987+08:00 DEBUG 18508 --- [my-chat] [omcat-handler-2] c.m.m.ChatSessionsMapper.selectById      : <==      Total: 1
-2026-09-05T00:20:32.005+08:00 DEBUG 18508 --- [my-chat] [omcat-handler-2] c.m.m.S.selectList                       : ==>  Preparing: SELECT id,conversation_id,type,content,timestamp,sequence_id FROM spring_ai_chat_memory WHERE (conversation_id = ? AND type IN (?,?,?,?)) ORDER BY sequence_id ASC,id ASC
-2026-09-05T00:20:32.006+08:00 DEBUG 18508 --- [my-chat] [omcat-handler-2] c.m.m.S.selectList                       : ==> Parameters: chat_1788538831787_7t9scbxnz(String), USER(String), ASSISTANT(String), user(String), assistant(String)
-2026-09-05T00:20:32.008+08:00 DEBUG 18508 --- [my-chat] [omcat-handler-2] c.m.m.S.selectList                       : <==      Total: 0
-2026-09-05T00:20:32.064+08:00  WARN 18508 --- [my-chat] [omcat-handler-2] s.w.s.m.m.a.RequestMappingHandlerAdapter : !!!
+2026-09-05T11:58:31.869+08:00 DEBUG 20356 --- [my-chat] [           main] c.mychat.mapper.AsyncJobMapper.update    : ==>  Preparing: UPDATE async_job SET status=?,error_message=?,finished_at=?,updated_at=? WHERE (status IN (?,?) AND updated_at < ?)
+2026-09-05T11:58:31.883+08:00 DEBUG 20356 --- [my-chat] [           main] c.mychat.mapper.AsyncJobMapper.update    : ==> Parameters: FAILED(String), 任务超时未完成（进程重启或卡住）(String), 2026-09-05T11:58:31.769065100(LocalDateTime), 2026-09-05T11:58:31.770056400(LocalDateTime), PENDING(String), RUNNING(String), 2026-09-05T11:48:31.747634100(LocalDateTime)
+2026-09-05T11:58:31.906+08:00 DEBUG 20356 --- [my-chat] [           main] c.mychat.mapper.AsyncJobMapper.update    : <==    Updates: 0
+2026-09-05T11:58:31.911+08:00 DEBUG 20356 --- [my-chat] [           main] c.m.mapper.AsyncJobMapper.selectList     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE (job_type = ? AND status = ? AND ref_id IS NOT NULL)
+2026-09-05T11:58:31.911+08:00 DEBUG 20356 --- [my-chat] [           main] c.m.mapper.AsyncJobMapper.selectList     : ==> Parameters: kb_ingest(String), FAILED(String)
+2026-09-05T11:58:31.923+08:00 DEBUG 20356 --- [my-chat] [           main] c.m.mapper.AsyncJobMapper.selectList     : <==      Total: 0
+2026-09-05T11:58:31.924+08:00  INFO 20356 --- [my-chat] [           main] com.mychat.job.StaleJobRecovery          : 过期任务回收完成 staleMinutes=10 staleJobs=0 staleDocs=0
+2026-09-05T11:58:49.245+08:00  INFO 20356 --- [my-chat] [omcat-handler-0] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-09-05T11:58:49.246+08:00  INFO 20356 --- [my-chat] [omcat-handler-0] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-09-05T11:58:49.248+08:00  INFO 20356 --- [my-chat] [omcat-handler-0] o.s.web.servlet.DispatcherServlet        : Completed initialization in 2 ms
+2026-09-05T11:58:49.300+08:00 DEBUG 20356 --- [my-chat] [omcat-handler-0] c.m.mapper.AsyncJobMapper.selectList     : ==>  Preparing: SELECT id,job_type,status,title,ref_id,payload,error_message,created_at,updated_at,finished_at FROM async_job WHERE (status IN (?,?)) ORDER BY created_at DESC
+2026-09-05T11:58:49.301+08:00 DEBUG 20356 --- [my-chat] [omcat-handler-0] c.m.mapper.AsyncJobMapper.selectList     : ==> Parameters: PENDING(String), RUNNING(String)
+2026-09-05T11:58:49.305+08:00 DEBUG 20356 --- [my-chat] [omcat-handler-0] c.m.mapper.AsyncJobMapper.selectList     : <==      Total: 0
+2026-09-05T11:58:49.356+08:00 DEBUG 20356 --- [my-chat] [omcat-handler-1] com.mychat.job.JobEventHub               : SSE 订阅数=1
+2026-09-05T11:58:50.938+08:00 DEBUG 20356 --- [my-chat] [omcat-handler-2] c.m.m.ChatSessionsMapper.selectList      : ==>  Preparing: SELECT conversation_id,user_id,title,kb_id,created_at,work_dir,updated_at FROM chat_sessions ORDER BY created_at DESC
+2026-09-05T11:58:50.939+08:00 DEBUG 20356 --- [my-chat] [omcat-handler-2] c.m.m.ChatSessionsMapper.selectList      : ==> Parameters: 
+2026-09-05T11:58:50.953+08:00 DEBUG 20356 --- [my-chat] [omcat-handler-2] c.m.m.ChatSessionsMapper.selectList      : <==      Total: 2
+2026-09-05T11:58:52.406+08:00 DEBUG 20356 --- [my-chat] [omcat-handler-3] c.m.m.C.selectList                       : ==>  Preparing: SELECT id,conversation_id,turn_id,assistant_ordinal,assistant_text,thinking,parts,created_at FROM chat_assistant_turns WHERE (conversation_id = ?) ORDER BY assistant_ordinal ASC
+2026-09-05T11:58:52.407+08:00 DEBUG 20356 --- [my-chat] [omcat-handler-3] c.m.m.C.selectList                       : ==> Parameters: chat_1788538831787_7t9scbxnz(String)
+2026-09-05T11:58:52.546+08:00 DEBUG 20356 --- [my-chat] [omcat-handler-3] c.m.m.C.selectList                       : <==      Total: 1
+2026-09-05T11:58:53.790+08:00 DEBUG 20356 --- [my-chat] [omcat-handler-4] c.m.m.ChatSessionsMapper.deleteById      : ==>  Preparing: DELETE FROM chat_sessions WHERE conversation_id=?
+2026-09-05T11:58:53.791+08:00 DEBUG 20356 --- [my-chat] [omcat-handler-4] c.m.m.ChatSessionsMapper.deleteById      : ==> Parameters: chat_1788538831787_7t9scbxnz(String)
+2026-09-05T11:58:53.794+08:00 DEBUG 20356 --- [my-chat] [omcat-handler-4] c.m.m.ChatSessionsMapper.deleteById      : <==    Updates: 1
+2026-09-05T11:58:53.797+08:00 DEBUG 20356 --- [my-chat] [omcat-handler-4] c.m.m.SpringAiChatMemoryMapper.delete    : ==>  Preparing: DELETE FROM spring_ai_chat_memory WHERE (conversation_id = ?)
+2026-09-05T11:58:53.797+08:00 DEBUG 20356 --- [my-chat] [omcat-handler-4] c.m.m.SpringAiChatMemoryMapper.delete    : ==> Parameters: chat_1788538831787_7t9scbxnz(String)
+2026-09-05T11:58:53.798+08:00 DEBUG 20356 --- [my-chat] [omcat-handler-4] c.m.m.SpringAiChatMemoryMapper.delete    : <==    Updates: 2
+2026-09-05T11:58:53.800+08:00 DEBUG 20356 --- [my-chat] [omcat-handler-4] c.m.m.ChatAssistantTurnMapper.delete     : ==>  Preparing: DELETE FROM chat_assistant_turns WHERE (conversation_id = ?)
+2026-09-05T11:58:53.801+08:00 DEBUG 20356 --- [my-chat] [omcat-handler-4] c.m.m.ChatAssistantTurnMapper.delete     : ==> Parameters: chat_1788538831787_7t9scbxnz(String)
+2026-09-05T11:58:53.803+08:00 DEBUG 20356 --- [my-chat] [omcat-handler-4] c.m.m.ChatAssistantTurnMapper.delete     : <==    Updates: 1
+2026-09-05T11:58:53.804+08:00 DEBUG 20356 --- [my-chat] [omcat-handler-4] c.m.m.C.deleteById                       : ==>  Preparing: DELETE FROM chat_session_summary WHERE conversation_id=?
+2026-09-05T11:58:53.804+08:00 DEBUG 20356 --- [my-chat] [omcat-handler-4] c.m.m.C.deleteById                       : ==> Parameters: chat_1788538831787_7t9scbxnz(String)
+2026-09-05T11:58:53.810+08:00 DEBUG 20356 --- [my-chat] [omcat-handler-4] c.m.m.C.deleteById                       : <==    Updates: 0
+2026-09-05T11:58:54.652+08:00 DEBUG 20356 --- [my-chat] [omcat-handler-5] c.m.m.C.selectList                       : ==>  Preparing: SELECT id,conversation_id,turn_id,assistant_ordinal,assistant_text,thinking,parts,created_at FROM chat_assistant_turns WHERE (conversation_id = ?) ORDER BY assistant_ordinal ASC
+2026-09-05T11:58:54.652+08:00 DEBUG 20356 --- [my-chat] [omcat-handler-5] c.m.m.C.selectList                       : ==> Parameters: chat_1788536547930_k65m1uf7t(String)
+2026-09-05T11:58:54.656+08:00 DEBUG 20356 --- [my-chat] [omcat-handler-5] c.m.m.C.selectList                       : <==      Total: 1
+2026-09-05T11:58:55.909+08:00 DEBUG 20356 --- [my-chat] [omcat-handler-6] c.m.m.ChatSessionsMapper.deleteById      : ==>  Preparing: DELETE FROM chat_sessions WHERE conversation_id=?
+2026-09-05T11:58:55.910+08:00 DEBUG 20356 --- [my-chat] [omcat-handler-6] c.m.m.ChatSessionsMapper.deleteById      : ==> Parameters: chat_1788536547930_k65m1uf7t(String)
+2026-09-05T11:58:55.913+08:00 DEBUG 20356 --- [my-chat] [omcat-handler-6] c.m.m.ChatSessionsMapper.deleteById      : <==    Updates: 1
+2026-09-05T11:58:55.914+08:00 DEBUG 20356 --- [my-chat] [omcat-handler-6] c.m.m.SpringAiChatMemoryMapper.delete    : ==>  Preparing: DELETE FROM spring_ai_chat_memory WHERE (conversation_id = ?)
+2026-09-05T11:58:55.915+08:00 DEBUG 20356 --- [my-chat] [omcat-handler-6] c.m.m.SpringAiChatMemoryMapper.delete    : ==> Parameters: chat_1788536547930_k65m1uf7t(String)
+2026-09-05T11:58:55.925+08:00 DEBUG 20356 --- [my-chat] [omcat-handler-6] c.m.m.SpringAiChatMemoryMapper.delete    : <==    Updates: 2
+2026-09-05T11:58:55.926+08:00 DEBUG 20356 --- [my-chat] [omcat-handler-6] c.m.m.ChatAssistantTurnMapper.delete     : ==>  Preparing: DELETE FROM chat_assistant_turns WHERE (conversation_id = ?)
+2026-09-05T11:58:55.926+08:00 DEBUG 20356 --- [my-chat] [omcat-handler-6] c.m.m.ChatAssistantTurnMapper.delete     : ==> Parameters: chat_1788536547930_k65m1uf7t(String)
+2026-09-05T11:58:55.927+08:00 DEBUG 20356 --- [my-chat] [omcat-handler-6] c.m.m.ChatAssistantTurnMapper.delete     : <==    Updates: 1
+2026-09-05T11:58:55.929+08:00 DEBUG 20356 --- [my-chat] [omcat-handler-6] c.m.m.C.deleteById                       : ==>  Preparing: DELETE FROM chat_session_summary WHERE conversation_id=?
+2026-09-05T11:58:55.930+08:00 DEBUG 20356 --- [my-chat] [omcat-handler-6] c.m.m.C.deleteById                       : ==> Parameters: chat_1788536547930_k65m1uf7t(String)
+2026-09-05T11:58:55.931+08:00 DEBUG 20356 --- [my-chat] [omcat-handler-6] c.m.m.C.deleteById                       : <==    Updates: 0
+2026-09-05T11:59:26.004+08:00 DEBUG 20356 --- [my-chat] [omcat-handler-7] c.m.mapper.ChatSessionsMapper.insert     : ==>  Preparing: INSERT INTO chat_sessions ( conversation_id, title, created_at, updated_at ) VALUES ( ?, ?, ?, ? )
+2026-09-05T11:59:26.005+08:00 DEBUG 20356 --- [my-chat] [omcat-handler-7] c.m.mapper.ChatSessionsMapper.insert     : ==> Parameters: chat_1788580765977_6kvmf3z32(String), chat_1788580765977_6kvmf3z32(String), 2026-09-05T11:59:25.999598400(LocalDateTime), 2026-09-05T11:59:25.999598400(LocalDateTime)
+2026-09-05T11:59:26.018+08:00 DEBUG 20356 --- [my-chat] [omcat-handler-7] c.m.mapper.ChatSessionsMapper.insert     : <==    Updates: 1
+2026-09-05T11:59:26.155+08:00 DEBUG 20356 --- [my-chat] [omcat-handler-8] c.m.m.ChatSessionsMapper.selectById      : ==>  Preparing: SELECT conversation_id,user_id,title,kb_id,created_at,work_dir,updated_at FROM chat_sessions WHERE conversation_id=?
+2026-09-05T11:59:26.155+08:00 DEBUG 20356 --- [my-chat] [omcat-handler-8] c.m.m.ChatSessionsMapper.selectById      : ==> Parameters: chat_1788580765977_6kvmf3z32(String)
+2026-09-05T11:59:26.159+08:00 DEBUG 20356 --- [my-chat] [omcat-handler-8] c.m.m.ChatSessionsMapper.selectById      : <==      Total: 1
+2026-09-05T11:59:26.159+08:00  INFO 20356 --- [my-chat] [omcat-handler-8] com.mychat.controller.ChatController     : 会话 chat_1788580765977_6kvmf3z32 使用默认工作目录: E:\Program files\projects\My-Chat\my-chat-server\src\main\resources\workspace
+2026-09-05T11:59:26.160+08:00 DEBUG 20356 --- [my-chat] [omcat-handler-8] c.m.m.ChatSessionsMapper.selectById      : ==>  Preparing: SELECT conversation_id,user_id,title,kb_id,created_at,work_dir,updated_at FROM chat_sessions WHERE conversation_id=?
+2026-09-05T11:59:26.161+08:00 DEBUG 20356 --- [my-chat] [omcat-handler-8] c.m.m.ChatSessionsMapper.selectById      : ==> Parameters: chat_1788580765977_6kvmf3z32(String)
+2026-09-05T11:59:26.164+08:00 DEBUG 20356 --- [my-chat] [omcat-handler-8] c.m.m.ChatSessionsMapper.selectById      : <==      Total: 1
+2026-09-05T11:59:26.186+08:00 DEBUG 20356 --- [my-chat] [omcat-handler-8] c.m.m.S.selectList                       : ==>  Preparing: SELECT id,conversation_id,type,content,timestamp,sequence_id FROM spring_ai_chat_memory WHERE (conversation_id = ? AND type IN (?,?,?,?)) ORDER BY sequence_id ASC,id ASC
+2026-09-05T11:59:26.187+08:00 DEBUG 20356 --- [my-chat] [omcat-handler-8] c.m.m.S.selectList                       : ==> Parameters: chat_1788580765977_6kvmf3z32(String), USER(String), ASSISTANT(String), user(String), assistant(String)
+2026-09-05T11:59:26.190+08:00 DEBUG 20356 --- [my-chat] [omcat-handler-8] c.m.m.S.selectList                       : <==      Total: 0
+2026-09-05T11:59:26.270+08:00  WARN 20356 --- [my-chat] [omcat-handler-8] s.w.s.m.m.a.RequestMappingHandlerAdapter : !!!
 Performing asynchronous handling through the default Spring MVC SimpleAsyncTaskExecutor.
 This executor is not suitable for production use under load.
 Please, configure an AsyncTaskExecutor through the WebMvc config.
 -------------------------------
 !!!
-2026-09-05T00:20:32.242+08:00 DEBUG 18508 --- [my-chat] [oundedElastic-1] o.s.a.c.c.advisor.SimpleLoggerAdvisor    : request: ChatClientRequest[prompt=Prompt{messages=[UserMessage{content='你是任务编排器（Orchestrator）。根据用户目标、近期对话与已完成步骤，决定下一步动作。
+2026-09-05T11:59:26.426+08:00 DEBUG 20356 --- [my-chat] [oundedElastic-1] o.s.a.c.c.advisor.SimpleLoggerAdvisor    : request: ChatClientRequest[prompt=Prompt{messages=[UserMessage{content='你是任务编排器（Orchestrator）。根据用户目标、近期对话与已完成步骤，决定下一步动作。
 不要自己调用工具；只输出 JSON 决策，由系统调度专用 Worker。
 
 可选 nextAction（必须是下列英文标签之一）：
@@ -141,7 +150,7 @@ Please, configure an AsyncTaskExecutor through the WebMvc config.
 （尚无已完成步骤）
 
 用户本轮目标：
-联网搜索纳斯达克今日行情
+网络检索美国西部比较发达的城市有哪些
 
 按以下 JSON 返回（JSON 本身不要再包一层 markdown 代码块；但 finish 时 instruction 字符串内可以使用 Markdown）：
 {
@@ -180,10 +189,10 @@ Here is the JSON Schema instance your output must adhere to:
   "additionalProperties" : false
 }```
 }]
-2026-09-05T00:20:34.876+08:00 DEBUG 18508 --- [my-chat] [oundedElastic-1] o.s.a.c.c.advisor.SimpleLoggerAdvisor    : response: {
+2026-09-05T11:59:29.309+08:00 DEBUG 20356 --- [my-chat] [oundedElastic-1] o.s.a.c.c.advisor.SimpleLoggerAdvisor    : response: {
   "metadata" : {
     "empty" : false,
-    "id" : "913e50f8-1b54-461a-9f70-ccd673c5bd4f",
+    "id" : "d66e912f-b754-45cd-90a9-e1d194635298",
     "model" : "deepseek-v4-flash",
     "promptMetadata" : [ ],
     "rateLimit" : {
@@ -195,21 +204,21 @@ Here is the JSON Schema instance your output must adhere to:
       "tokensReset" : "PT0S"
     },
     "usage" : {
-      "promptTokens" : 1232,
-      "completionTokens" : 61,
-      "totalTokens" : 1293,
-      "cacheReadInputTokens" : 1152,
+      "promptTokens" : 1233,
+      "completionTokens" : 77,
+      "totalTokens" : 1310,
+      "cacheReadInputTokens" : 768,
       "nativeUsage" : {
-        "completion_tokens" : 61,
-        "prompt_tokens" : 1232,
-        "total_tokens" : 1293,
+        "completion_tokens" : 77,
+        "prompt_tokens" : 1233,
+        "total_tokens" : 1310,
         "prompt_tokens_details" : {
-          "cached_tokens" : 1152,
+          "cached_tokens" : 768,
           "valid" : true
         },
         "valid" : true,
-        "prompt_cache_miss_tokens" : 80,
-        "prompt_cache_hit_tokens" : 1152
+        "prompt_cache_miss_tokens" : 465,
+        "prompt_cache_hit_tokens" : 768
       }
     }
   },
@@ -225,14 +234,14 @@ Here is the JSON Schema instance your output must adhere to:
       "metadata" : {
         "role" : "assistant",
         "messageType" : "ASSISTANT",
-        "finishReason" : "STOP",
         "refusal" : "",
-        "annotations" : [ { } ],
+        "finishReason" : "STOP",
         "index" : 0,
-        "id" : "913e50f8-1b54-461a-9f70-ccd673c5bd4f",
+        "annotations" : [ { } ],
+        "id" : "d66e912f-b754-45cd-90a9-e1d194635298",
         "reasoningContent" : ""
       },
-      "text" : "{\"reasoning\":\"用户需要联网搜索纳斯达克今日行情，应选择search动作。\",\"nextAction\":\"search\",\"instruction\":\"请联网搜索纳斯达克指数今日行情，包括最新点位、涨跌幅、交易时间等关键信息。\",\"complexity\":\"single\",\"kbScope\":null}",
+      "text" : "{\n  \"complexity\": \"single\",\n  \"instruction\": \"联网搜索美国西部比较发达的城市有哪些，请列出主要城市并简要说明其经济或发达程度特点。\",\n  \"kbScope\": \"vector\",\n  \"nextAction\": \"search\",\n  \"reasoning\": \"用户需要网络检索信息，属于单次搜索任务，选中 search。\"\n}",
       "toolCalls" : [ ]
     }
   },
@@ -248,27 +257,23 @@ Here is the JSON Schema instance your output must adhere to:
       "metadata" : {
         "role" : "assistant",
         "messageType" : "ASSISTANT",
-        "finishReason" : "STOP",
         "refusal" : "",
-        "annotations" : [ { } ],
+        "finishReason" : "STOP",
         "index" : 0,
-        "id" : "913e50f8-1b54-461a-9f70-ccd673c5bd4f",
+        "annotations" : [ { } ],
+        "id" : "d66e912f-b754-45cd-90a9-e1d194635298",
         "reasoningContent" : ""
       },
-      "text" : "{\"reasoning\":\"用户需要联网搜索纳斯达克今日行情，应选择search动作。\",\"nextAction\":\"search\",\"instruction\":\"请联网搜索纳斯达克指数今日行情，包括最新点位、涨跌幅、交易时间等关键信息。\",\"complexity\":\"single\",\"kbScope\":null}",
+      "text" : "{\n  \"complexity\": \"single\",\n  \"instruction\": \"联网搜索美国西部比较发达的城市有哪些，请列出主要城市并简要说明其经济或发达程度特点。\",\n  \"kbScope\": \"vector\",\n  \"nextAction\": \"search\",\n  \"reasoning\": \"用户需要网络检索信息，属于单次搜索任务，选中 search。\"\n}",
       "toolCalls" : [ ]
     }
   } ]
 }
-2026-09-05T00:20:34.879+08:00  INFO 18508 --- [my-chat] [oundedElastic-1] c.m.s.agent.AgentOrchestratorService     : Orchestrator step=1/6 action=search complexity=single kbScope=null reasoning=用户需要联网搜索纳斯达克今日行情，应选择search动作。
-2026-09-05T00:20:34.892+08:00  INFO 18508 --- [my-chat] [oundedElastic-1] com.mychat.config.AgentDebugLog          : agent-debug {"sessionId":"aa38c5","hypothesisId":"H4","location":"TolerantMcpToolCallbackProvider.java:listOne.ok","message":"listTools ok","timestamp":1788538834892,"data":{"tools":"get_weather","client":"mcp-weather-server","protocol":"Implementation[name=mcp-weather-server, title=null, version=1.0.0, description=null, icons=null, websiteUrl=null]","toolCount":1}}
-2026-09-05T00:20:34.894+08:00  INFO 18508 --- [my-chat] [oundedElastic-1] com.mychat.config.AgentDebugLog          : agent-debug {"sessionId":"aa38c5","hypothesisId":"H1","location":"SmitheryMcpConfiguration.java:httpRequest","message":"smithery outbound MCP HTTP","timestamp":1788538834894,"data":{"ctxClass":"io.modelcontextprotocol.common.DefaultMcpTransportContext","bodySnippet":"{\"jsonrpc\":\"2.0\",\"method\":\"tools/list\",\"id\":\"7f413651-2\",\"params\":{}}","method":"POST","rpc":"tools/list","hasAuthHeader":true,"endpoint":"https://mcp.smithery.run/2625705206"}}
-2026-09-05T00:20:36.261+08:00  WARN 18508 --- [my-chat] [oundedElastic-1] c.m.c.TolerantMcpToolCallbackProvider    : MCP [smithery-toolbox] listTools 失败，已跳过该连接: Failed to send message: AggregateResponseEvent[responseInfo=jdk.internal.net.http.ResponseInfoImpl@30c2eb69, data={"error":"Internal Server Error"}
+2026-09-05T11:59:29.315+08:00  INFO 20356 --- [my-chat] [oundedElastic-1] c.m.s.agent.AgentOrchestratorService     : Orchestrator step=1/6 action=search complexity=single kbScope=null reasoning=用户需要网络检索信息，属于单次搜索任务，选中 search。
+2026-09-05T11:59:31.231+08:00  WARN 20356 --- [my-chat] [oundedElastic-1] c.m.c.TolerantMcpToolCallbackProvider    : MCP [smithery-toolbox] listTools 失败，已跳过该连接: Failed to send message: AggregateResponseEvent[responseInfo=jdk.internal.net.http.ResponseInfoImpl@1aa73fa7, data={"error":"Internal Server Error"}
 ]
-2026-09-05T00:20:36.262+08:00  INFO 18508 --- [my-chat] [oundedElastic-1] com.mychat.config.AgentDebugLog          : agent-debug {"sessionId":"aa38c5","hypothesisId":"H4","location":"TolerantMcpToolCallbackProvider.java:listOne.fail","message":"listTools failed","timestamp":1788538836262,"data":{"exMsg":"Failed to send message: AggregateResponseEvent[responseInfo=jdk.internal.net.http.ResponseInfoImpl@30c2eb69, data={\"error\":\"Internal Server Error\"}\n]","smithery":true,"exType":"java.lang.RuntimeException","client":"smithery-toolbox","causeType":""}}
-2026-09-05T00:20:36.266+08:00  WARN 18508 --- [my-chat] [oundedElastic-1] c.m.c.TolerantMcpToolCallbackProvider    : MCP [smithery-toolbox] 已挂载兜底工具 exa_search
-2026-09-05T00:20:36.267+08:00  INFO 18508 --- [my-chat] [oundedElastic-1] com.mychat.config.AgentDebugLog          : agent-debug {"sessionId":"aa38c5","hypothesisId":"H6","location":"TolerantMcpToolCallbackProvider.java:fallback","message":"registered smithery fallback tool","timestamp":1788538836267,"data":{"mcpName":"exa.search","exposed":"exa_search","client":"smithery-toolbox"}}
-2026-09-05T00:20:36.321+08:00 DEBUG 18508 --- [my-chat] [oundedElastic-1] o.s.a.c.c.advisor.SimpleLoggerAdvisor    : request: ChatClientRequest[prompt=Prompt{messages=[SystemMessage{textContent='当前请求已路由到 search（联网检索）。不要编造实时数据。
+2026-09-05T11:59:31.234+08:00  WARN 20356 --- [my-chat] [oundedElastic-1] c.m.c.TolerantMcpToolCallbackProvider    : MCP [smithery-toolbox] 已挂载兜底工具 exa_search
+2026-09-05T11:59:31.283+08:00 DEBUG 20356 --- [my-chat] [oundedElastic-1] o.s.a.c.c.advisor.SimpleLoggerAdvisor    : request: ChatClientRequest[prompt=Prompt{messages=[SystemMessage{textContent='当前请求已路由到 search（联网检索）。不要编造实时数据。
 
 只调用本轮 ChatClient 工具列表里实际出现的工具。不要调用未出现的名字。
 
@@ -283,12 +288,12 @@ Here is the JSON Schema instance your output must adhere to:
 （无）
 
 【本步任务】
-请联网搜索纳斯达克指数今日行情，包括最新点位、涨跌幅、交易时间等关键信息。
-', metadata={messageType=USER}, messageType=USER}], modelOptions=org.springframework.ai.openai.OpenAiChatOptions@ef1bf69e}, context={chat_memory_conversation_id=orch-search-f5b32cc8-820b-43eb-b8b6-5153fbabd908}]
-2026-09-05T00:20:37.224+08:00 DEBUG 18508 --- [my-chat] [oundedElastic-1] o.s.a.c.c.advisor.SimpleLoggerAdvisor    : response: {
+联网搜索美国西部比较发达的城市有哪些，请列出主要城市并简要说明其经济或发达程度特点。
+', metadata={messageType=USER}, messageType=USER}], modelOptions=org.springframework.ai.openai.OpenAiChatOptions@58bac8ad}, context={chat_memory_conversation_id=orch-search-35f55076-755e-4b0c-90ab-13964e4982da}]
+2026-09-05T11:59:32.597+08:00 DEBUG 20356 --- [my-chat] [oundedElastic-1] o.s.a.c.c.advisor.SimpleLoggerAdvisor    : response: {
   "metadata" : {
     "empty" : false,
-    "id" : "331476ef-6eb1-4a7b-8d23-850c9a50ff86",
+    "id" : "76875f65-538f-4529-82fd-9da1b7ece8d8",
     "model" : "deepseek-v4-flash",
     "promptMetadata" : [ ],
     "rateLimit" : {
@@ -301,13 +306,13 @@ Here is the JSON Schema instance your output must adhere to:
     },
     "usage" : {
       "promptTokens" : 1659,
-      "completionTokens" : 69,
-      "totalTokens" : 1728,
+      "completionTokens" : 108,
+      "totalTokens" : 1767,
       "cacheReadInputTokens" : 1536,
       "nativeUsage" : {
-        "completion_tokens" : 69,
+        "completion_tokens" : 108,
         "prompt_tokens" : 1659,
-        "total_tokens" : 1728,
+        "total_tokens" : 1767,
         "prompt_tokens_details" : {
           "cached_tokens" : 1536,
           "valid" : true
@@ -329,23 +334,29 @@ Here is the JSON Schema instance your output must adhere to:
       "messageType" : "ASSISTANT",
       "metadata" : {
         "openai.tool_calls.additional_properties" : {
-          "call_00_Rcp4tgbifBCza6BOuKTB8058" : "{\"index\":0}"
+          "call_00_xgSSeAEO7BfynZV4MSYH2631" : "{\"index\":0}",
+          "call_01_juWI0PfWta2k6ZIIA8Mg3230" : "{\"index\":1}"
         },
         "role" : "assistant",
         "messageType" : "ASSISTANT",
-        "finishReason" : "TOOL_CALLS",
         "refusal" : "",
-        "annotations" : [ { } ],
+        "finishReason" : "TOOL_CALLS",
         "index" : 0,
-        "id" : "331476ef-6eb1-4a7b-8d23-850c9a50ff86",
+        "annotations" : [ { } ],
+        "id" : "76875f65-538f-4529-82fd-9da1b7ece8d8",
         "reasoningContent" : ""
       },
-      "text" : "I'll search for the latest NASDAQ index market information for you.",
+      "text" : "好的，我来帮你联网搜索美国西部比较发达的城市及其特点。",
       "toolCalls" : [ {
-        "id" : "call_00_Rcp4tgbifBCza6BOuKTB8058",
+        "id" : "call_00_xgSSeAEO7BfynZV4MSYH2631",
         "type" : "function",
         "name" : "exa_search",
-        "arguments" : "{\"query\": \"纳斯达克指数今日行情 最新点位 涨跌幅\"}"
+        "arguments" : "{\"query\": \"美国西部比较发达的城市 主要城市 经济中心城市名单\"}"
+      }, {
+        "id" : "call_01_juWI0PfWta2k6ZIIA8Mg3230",
+        "type" : "function",
+        "name" : "exa_search",
+        "arguments" : "{\"query\": \"most developed major cities in western United States economy\"}"
       } ]
     }
   },
@@ -360,35 +371,38 @@ Here is the JSON Schema instance your output must adhere to:
       "messageType" : "ASSISTANT",
       "metadata" : {
         "openai.tool_calls.additional_properties" : {
-          "call_00_Rcp4tgbifBCza6BOuKTB8058" : "{\"index\":0}"
+          "call_00_xgSSeAEO7BfynZV4MSYH2631" : "{\"index\":0}",
+          "call_01_juWI0PfWta2k6ZIIA8Mg3230" : "{\"index\":1}"
         },
         "role" : "assistant",
         "messageType" : "ASSISTANT",
-        "finishReason" : "TOOL_CALLS",
         "refusal" : "",
-        "annotations" : [ { } ],
+        "finishReason" : "TOOL_CALLS",
         "index" : 0,
-        "id" : "331476ef-6eb1-4a7b-8d23-850c9a50ff86",
+        "annotations" : [ { } ],
+        "id" : "76875f65-538f-4529-82fd-9da1b7ece8d8",
         "reasoningContent" : ""
       },
-      "text" : "I'll search for the latest NASDAQ index market information for you.",
+      "text" : "好的，我来帮你联网搜索美国西部比较发达的城市及其特点。",
       "toolCalls" : [ {
-        "id" : "call_00_Rcp4tgbifBCza6BOuKTB8058",
+        "id" : "call_00_xgSSeAEO7BfynZV4MSYH2631",
         "type" : "function",
         "name" : "exa_search",
-        "arguments" : "{\"query\": \"纳斯达克指数今日行情 最新点位 涨跌幅\"}"
+        "arguments" : "{\"query\": \"美国西部比较发达的城市 主要城市 经济中心城市名单\"}"
+      }, {
+        "id" : "call_01_juWI0PfWta2k6ZIIA8Mg3230",
+        "type" : "function",
+        "name" : "exa_search",
+        "arguments" : "{\"query\": \"most developed major cities in western United States economy\"}"
       } ]
     }
   } ]
 }
-2026-09-05T00:20:37.226+08:00 DEBUG 18508 --- [my-chat] [oundedElastic-1] o.s.a.m.tool.DefaultToolCallingManager   : Executing tool call: exa_search
-2026-09-05T00:20:37.239+08:00  INFO 18508 --- [my-chat] [oundedElastic-1] com.mychat.config.AgentDebugLog          : agent-debug {"sessionId":"aa38c5","hypothesisId":"H6","location":"FallbackSmitheryToolCallback.java:call","message":"smithery fallback callTool","timestamp":1788538837238,"data":{"exposedName":"exa_search","mcpName":"exa.search","argKeys":"query"}}
-2026-09-05T00:20:37.255+08:00  INFO 18508 --- [my-chat] [oundedElastic-1] com.mychat.config.AgentDebugLog          : agent-debug {"sessionId":"aa38c5","hypothesisId":"H1","location":"SmitheryMcpConfiguration.java:httpRequest","message":"smithery outbound MCP HTTP","timestamp":1788538837255,"data":{"ctxClass":"io.modelcontextprotocol.common.DefaultMcpTransportContext","bodySnippet":"{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"id\":\"7f413651-3\",\"params\":{\"name\":\"exa.search\",\"arguments\":{\"query\":\"纳斯达克指数今日行情 最新点位 涨跌幅\"}}}","method":"POST","rpc":"tools/call","hasAuthHeader":true,"endpoint":"https://mcp.smithery.run/2625705206"}}
-2026-09-05T00:20:39.739+08:00  INFO 18508 --- [my-chat] [oundedElastic-2] com.mychat.config.AgentDebugLog          : agent-debug {"sessionId":"aa38c5","hypothesisId":"H9","location":"SmitheryMcpConfiguration.java:authError","message":"smithery HTTP 401/403","timestamp":1788538839739,"data":{"method":"POST","hasReqSession":false,"hasReqAuth":true,"wwwAuth":"","uri":"https://mcp.smithery.run/2625705206","respContentType":"text/html; charset=UTF-8","status":403}}
-2026-09-05T00:20:39.742+08:00  WARN 18508 --- [my-chat] [oundedElastic-1] c.m.config.FallbackSmitheryToolCallback  : Smithery fallback callTool 失败 name=exa.search: Authorization error when sending message
-2026-09-05T00:20:39.742+08:00  INFO 18508 --- [my-chat] [oundedElastic-1] com.mychat.config.AgentDebugLog          : agent-debug {"sessionId":"aa38c5","hypothesisId":"H6","location":"FallbackSmitheryToolCallback.java:error","message":"smithery fallback callTool failed","timestamp":1788538839742,"data":{"mcpName":"exa.search","exMsg":"Authorization error when sending message","exType":"io.modelcontextprotocol.client.transport.McpHttpClientTransportAuthorizationException"}}
-2026-09-05T00:20:39.743+08:00  INFO 18508 --- [my-chat] [oundedElastic-1] com.mychat.config.AgentDebugLog          : agent-debug {"sessionId":"aa38c5","hypothesisId":"H9","location":"FallbackSmitheryToolCallback.java:authEx","message":"callTool authorization exception details","timestamp":1788538839743,"data":{"method":"POST","respContentType":"text/html; charset=UTF-8","hasReqSession":false,"status":403,"wwwAuth":""}}
-2026-09-05T00:20:39.748+08:00 DEBUG 18508 --- [my-chat] [oundedElastic-1] o.s.a.c.c.advisor.SimpleLoggerAdvisor    : request: ChatClientRequest[prompt=Prompt{messages=[SystemMessage{textContent='当前请求已路由到 search（联网检索）。不要编造实时数据。
+2026-09-05T11:59:32.600+08:00 DEBUG 20356 --- [my-chat] [oundedElastic-1] o.s.a.m.tool.DefaultToolCallingManager   : Executing tool call: exa_search
+2026-09-05T11:59:36.137+08:00  WARN 20356 --- [my-chat] [oundedElastic-1] c.m.config.FallbackSmitheryToolCallback  : Smithery fallback callTool 被上游拒绝 name=exa.search HTTP 403
+2026-09-05T11:59:36.138+08:00 DEBUG 20356 --- [my-chat] [oundedElastic-1] o.s.a.m.tool.DefaultToolCallingManager   : Executing tool call: exa_search
+2026-09-05T11:59:38.467+08:00  WARN 20356 --- [my-chat] [oundedElastic-1] c.m.config.FallbackSmitheryToolCallback  : Smithery fallback callTool 被上游拒绝 name=exa.search HTTP 403
+2026-09-05T11:59:38.475+08:00 DEBUG 20356 --- [my-chat] [oundedElastic-1] o.s.a.c.c.advisor.SimpleLoggerAdvisor    : request: ChatClientRequest[prompt=Prompt{messages=[SystemMessage{textContent='当前请求已路由到 search（联网检索）。不要编造实时数据。
 
 只调用本轮 ChatClient 工具列表里实际出现的工具。不要调用未出现的名字。
 
@@ -403,12 +417,12 @@ Here is the JSON Schema instance your output must adhere to:
 （无）
 
 【本步任务】
-请联网搜索纳斯达克指数今日行情，包括最新点位、涨跌幅、交易时间等关键信息。
-', metadata={messageType=USER}, messageType=USER}, AssistantMessage [messageType=ASSISTANT, toolCalls=[ToolCall[id=call_00_Rcp4tgbifBCza6BOuKTB8058, type=function, name=exa_search, arguments={"query": "纳斯达克指数今日行情 最新点位 涨跌幅"}]], textContent=I'll search for the latest NASDAQ index market information for you., metadata={openai.tool_calls.additional_properties={call_00_Rcp4tgbifBCza6BOuKTB8058={"index":0}}, role=assistant, messageType=ASSISTANT, finishReason=TOOL_CALLS, refusal=, annotations=[{}], index=0, id=331476ef-6eb1-4a7b-8d23-850c9a50ff86, reasoningContent=}], ToolResponseMessage{responses=[ToolResponse[id=call_00_Rcp4tgbifBCza6BOuKTB8058, name=exa_search, responseData=[MCP HTTP 403] 上游拒绝 tools/call（Cloudflare/WAF HTML，不是 JSON-RPC 鉴权失败）。]], messageType=TOOL, metadata={messageType=TOOL}}], modelOptions=org.springframework.ai.openai.OpenAiChatOptions@ef1bf69e}, context={chat_memory_conversation_id=orch-search-f5b32cc8-820b-43eb-b8b6-5153fbabd908}]
-2026-09-05T00:20:40.651+08:00 DEBUG 18508 --- [my-chat] [oundedElastic-1] o.s.a.c.c.advisor.SimpleLoggerAdvisor    : response: {
+联网搜索美国西部比较发达的城市有哪些，请列出主要城市并简要说明其经济或发达程度特点。
+', metadata={messageType=USER}, messageType=USER}, AssistantMessage [messageType=ASSISTANT, toolCalls=[ToolCall[id=call_00_xgSSeAEO7BfynZV4MSYH2631, type=function, name=exa_search, arguments={"query": "美国西部比较发达的城市 主要城市 经济中心城市名单"}], ToolCall[id=call_01_juWI0PfWta2k6ZIIA8Mg3230, type=function, name=exa_search, arguments={"query": "most developed major cities in western United States economy"}]], textContent=好的，我来帮你联网搜索美国西部比较发达的城市及其特点。, metadata={openai.tool_calls.additional_properties={call_00_xgSSeAEO7BfynZV4MSYH2631={"index":0}, call_01_juWI0PfWta2k6ZIIA8Mg3230={"index":1}}, role=assistant, messageType=ASSISTANT, refusal=, finishReason=TOOL_CALLS, index=0, annotations=[{}], id=76875f65-538f-4529-82fd-9da1b7ece8d8, reasoningContent=}], ToolResponseMessage{responses=[ToolResponse[id=call_00_xgSSeAEO7BfynZV4MSYH2631, name=exa_search, responseData=[MCP HTTP 403] 上游拒绝 tools/call（Cloudflare/WAF HTML，不是 JSON-RPC 鉴权失败）。], ToolResponse[id=call_01_juWI0PfWta2k6ZIIA8Mg3230, name=exa_search, responseData=[MCP HTTP 403] 上游拒绝 tools/call（Cloudflare/WAF HTML，不是 JSON-RPC 鉴权失败）。]], messageType=TOOL, metadata={messageType=TOOL}}], modelOptions=org.springframework.ai.openai.OpenAiChatOptions@58bac8ad}, context={chat_memory_conversation_id=orch-search-35f55076-755e-4b0c-90ab-13964e4982da}]
+2026-09-05T11:59:44.578+08:00 DEBUG 20356 --- [my-chat] [oundedElastic-1] o.s.a.c.c.advisor.SimpleLoggerAdvisor    : response: {
   "metadata" : {
     "empty" : false,
-    "id" : "711db292-df45-4be4-a495-3ffab04747b4",
+    "id" : "aaeb68bd-068a-4075-a51c-8c3a90624ebc",
     "model" : "deepseek-v4-flash",
     "promptMetadata" : [ ],
     "rateLimit" : {
@@ -420,20 +434,20 @@ Here is the JSON Schema instance your output must adhere to:
       "tokensReset" : "PT0S"
     },
     "usage" : {
-      "promptTokens" : 1767,
-      "completionTokens" : 74,
-      "totalTokens" : 1841,
+      "promptTokens" : 1842,
+      "completionTokens" : 657,
+      "totalTokens" : 2499,
       "cacheReadInputTokens" : 1536,
       "nativeUsage" : {
-        "completion_tokens" : 74,
-        "prompt_tokens" : 1767,
-        "total_tokens" : 1841,
+        "completion_tokens" : 657,
+        "prompt_tokens" : 1842,
+        "total_tokens" : 2499,
         "prompt_tokens_details" : {
           "cached_tokens" : 1536,
           "valid" : true
         },
         "valid" : true,
-        "prompt_cache_miss_tokens" : 231,
+        "prompt_cache_miss_tokens" : 306,
         "prompt_cache_hit_tokens" : 1536
       }
     }
@@ -442,126 +456,6 @@ Here is the JSON Schema instance your output must adhere to:
     "metadata" : {
       "contentFilters" : [ ],
       "empty" : true,
-      "finishReason" : "TOOL_CALLS"
-    },
-    "output" : {
-      "media" : [ ],
-      "messageType" : "ASSISTANT",
-      "metadata" : {
-        "openai.tool_calls.additional_properties" : {
-          "call_00_D7zxz8Ok7UZoQDYgLRbO4250" : "{\"index\":0}"
-        },
-        "role" : "assistant",
-        "messageType" : "ASSISTANT",
-        "finishReason" : "TOOL_CALLS",
-        "refusal" : "",
-        "annotations" : [ { } ],
-        "index" : 0,
-        "id" : "711db292-df45-4be4-a495-3ffab04747b4",
-        "reasoningContent" : ""
-      },
-      "text" : "搜索引擎返回了错误（403 Cloudflare/WAF 拦截），我无法成功联网获取数据。让我再尝试一次搜索。",
-      "toolCalls" : [ {
-        "id" : "call_00_D7zxz8Ok7UZoQDYgLRbO4250",
-        "type" : "function",
-        "name" : "exa_search",
-        "arguments" : "{\"query\": \"NASDAQ composite index today closing price\"}"
-      } ]
-    }
-  },
-  "results" : [ {
-    "metadata" : {
-      "contentFilters" : [ ],
-      "empty" : true,
-      "finishReason" : "TOOL_CALLS"
-    },
-    "output" : {
-      "media" : [ ],
-      "messageType" : "ASSISTANT",
-      "metadata" : {
-        "openai.tool_calls.additional_properties" : {
-          "call_00_D7zxz8Ok7UZoQDYgLRbO4250" : "{\"index\":0}"
-        },
-        "role" : "assistant",
-        "messageType" : "ASSISTANT",
-        "finishReason" : "TOOL_CALLS",
-        "refusal" : "",
-        "annotations" : [ { } ],
-        "index" : 0,
-        "id" : "711db292-df45-4be4-a495-3ffab04747b4",
-        "reasoningContent" : ""
-      },
-      "text" : "搜索引擎返回了错误（403 Cloudflare/WAF 拦截），我无法成功联网获取数据。让我再尝试一次搜索。",
-      "toolCalls" : [ {
-        "id" : "call_00_D7zxz8Ok7UZoQDYgLRbO4250",
-        "type" : "function",
-        "name" : "exa_search",
-        "arguments" : "{\"query\": \"NASDAQ composite index today closing price\"}"
-      } ]
-    }
-  } ]
-}
-2026-09-05T00:20:40.652+08:00 DEBUG 18508 --- [my-chat] [oundedElastic-1] o.s.a.m.tool.DefaultToolCallingManager   : Executing tool call: exa_search
-2026-09-05T00:20:40.655+08:00  INFO 18508 --- [my-chat] [oundedElastic-1] com.mychat.config.AgentDebugLog          : agent-debug {"sessionId":"aa38c5","hypothesisId":"H6","location":"FallbackSmitheryToolCallback.java:call","message":"smithery fallback callTool","timestamp":1788538840655,"data":{"exposedName":"exa_search","mcpName":"exa.search","argKeys":"query"}}
-2026-09-05T00:20:40.658+08:00  INFO 18508 --- [my-chat] [oundedElastic-1] com.mychat.config.AgentDebugLog          : agent-debug {"sessionId":"aa38c5","hypothesisId":"H1","location":"SmitheryMcpConfiguration.java:httpRequest","message":"smithery outbound MCP HTTP","timestamp":1788538840658,"data":{"ctxClass":"io.modelcontextprotocol.common.DefaultMcpTransportContext","bodySnippet":"{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"id\":\"7f413651-4\",\"params\":{\"name\":\"exa.search\",\"arguments\":{\"query\":\"NASDAQ composite index today closing price\"}}}","method":"POST","rpc":"tools/call","hasAuthHeader":true,"endpoint":"https://mcp.smithery.run/2625705206"}}
-2026-09-05T00:20:43.066+08:00  INFO 18508 --- [my-chat] [oundedElastic-3] com.mychat.config.AgentDebugLog          : agent-debug {"sessionId":"aa38c5","hypothesisId":"H9","location":"SmitheryMcpConfiguration.java:authError","message":"smithery HTTP 401/403","timestamp":1788538843066,"data":{"method":"POST","hasReqSession":false,"hasReqAuth":true,"wwwAuth":"","uri":"https://mcp.smithery.run/2625705206","respContentType":"text/html; charset=UTF-8","status":403}}
-2026-09-05T00:20:43.070+08:00  WARN 18508 --- [my-chat] [oundedElastic-1] c.m.config.FallbackSmitheryToolCallback  : Smithery fallback callTool 失败 name=exa.search: Authorization error when sending message
-2026-09-05T00:20:43.070+08:00  INFO 18508 --- [my-chat] [oundedElastic-1] com.mychat.config.AgentDebugLog          : agent-debug {"sessionId":"aa38c5","hypothesisId":"H6","location":"FallbackSmitheryToolCallback.java:error","message":"smithery fallback callTool failed","timestamp":1788538843070,"data":{"mcpName":"exa.search","exMsg":"Authorization error when sending message","exType":"io.modelcontextprotocol.client.transport.McpHttpClientTransportAuthorizationException"}}
-2026-09-05T00:20:43.072+08:00  INFO 18508 --- [my-chat] [oundedElastic-1] com.mychat.config.AgentDebugLog          : agent-debug {"sessionId":"aa38c5","hypothesisId":"H9","location":"FallbackSmitheryToolCallback.java:authEx","message":"callTool authorization exception details","timestamp":1788538843072,"data":{"method":"POST","respContentType":"text/html; charset=UTF-8","hasReqSession":false,"status":403,"wwwAuth":""}}
-2026-09-05T00:20:43.076+08:00 DEBUG 18508 --- [my-chat] [oundedElastic-1] o.s.a.c.c.advisor.SimpleLoggerAdvisor    : request: ChatClientRequest[prompt=Prompt{messages=[SystemMessage{textContent='当前请求已路由到 search（联网检索）。不要编造实时数据。
-
-只调用本轮 ChatClient 工具列表里实际出现的工具。不要调用未出现的名字。
-
-## 网页搜索
-- Smithery 命名空间搜索工具对外名是 **exa_search**（参数 query）。对应 MCP 名 exa.search。
-- 天气用本地 MCP **get_weather**（若列表里有）。
-- 禁止调用 get_toolbox_status、search_toolbox、connections.search；这些名字当前不会出现在工具列表中。
-
-## 失败时
-工具返回错误（含 Cloudflare 403、500、Unknown tool）：如实说明未成功联网；不要改去调文件工具 ls/cat 凑数。
-', messageType=SYSTEM, metadata={messageType=SYSTEM}}, UserMessage{content='【会话上下文｜只读参考，用于消解「刚才/那个文件」等指代；不要复述整段历史】
-（无）
-
-【本步任务】
-请联网搜索纳斯达克指数今日行情，包括最新点位、涨跌幅、交易时间等关键信息。
-', metadata={messageType=USER}, messageType=USER}, AssistantMessage [messageType=ASSISTANT, toolCalls=[ToolCall[id=call_00_Rcp4tgbifBCza6BOuKTB8058, type=function, name=exa_search, arguments={"query": "纳斯达克指数今日行情 最新点位 涨跌幅"}]], textContent=I'll search for the latest NASDAQ index market information for you., metadata={openai.tool_calls.additional_properties={call_00_Rcp4tgbifBCza6BOuKTB8058={"index":0}}, role=assistant, messageType=ASSISTANT, finishReason=TOOL_CALLS, refusal=, annotations=[{}], index=0, id=331476ef-6eb1-4a7b-8d23-850c9a50ff86, reasoningContent=}], ToolResponseMessage{responses=[ToolResponse[id=call_00_Rcp4tgbifBCza6BOuKTB8058, name=exa_search, responseData=[MCP HTTP 403] 上游拒绝 tools/call（Cloudflare/WAF HTML，不是 JSON-RPC 鉴权失败）。]], messageType=TOOL, metadata={messageType=TOOL}}, AssistantMessage [messageType=ASSISTANT, toolCalls=[ToolCall[id=call_00_D7zxz8Ok7UZoQDYgLRbO4250, type=function, name=exa_search, arguments={"query": "NASDAQ composite index today closing price"}]], textContent=搜索引擎返回了错误（403 Cloudflare/WAF 拦截），我无法成功联网获取数据。让我再尝试一次搜索。, metadata={openai.tool_calls.additional_properties={call_00_D7zxz8Ok7UZoQDYgLRbO4250={"index":0}}, role=assistant, messageType=ASSISTANT, finishReason=TOOL_CALLS, refusal=, annotations=[{}], index=0, id=711db292-df45-4be4-a495-3ffab04747b4, reasoningContent=}], ToolResponseMessage{responses=[ToolResponse[id=call_00_D7zxz8Ok7UZoQDYgLRbO4250, name=exa_search, responseData=[MCP HTTP 403] 上游拒绝 tools/call（Cloudflare/WAF HTML，不是 JSON-RPC 鉴权失败）。]], messageType=TOOL, metadata={messageType=TOOL}}], modelOptions=org.springframework.ai.openai.OpenAiChatOptions@ef1bf69e}, context={chat_memory_conversation_id=orch-search-f5b32cc8-820b-43eb-b8b6-5153fbabd908}]
-2026-09-05T00:20:46.089+08:00 DEBUG 18508 --- [my-chat] [oundedElastic-1] o.s.a.c.c.advisor.SimpleLoggerAdvisor    : response: {
-  "metadata" : {
-    "empty" : false,
-    "id" : "39e81152-fe59-4ff5-b11c-3c7e1815aeb4",
-    "model" : "deepseek-v4-flash",
-    "promptMetadata" : [ ],
-    "rateLimit" : {
-      "requestsLimit" : 0,
-      "requestsRemaining" : 0,
-      "requestsReset" : "PT0S",
-      "tokensLimit" : 0,
-      "tokensRemaining" : 0,
-      "tokensReset" : "PT0S"
-    },
-    "usage" : {
-      "promptTokens" : 1881,
-      "completionTokens" : 293,
-      "totalTokens" : 2174,
-      "cacheReadInputTokens" : 1792,
-      "nativeUsage" : {
-        "completion_tokens" : 293,
-        "prompt_tokens" : 1881,
-        "total_tokens" : 2174,
-        "prompt_tokens_details" : {
-          "cached_tokens" : 1792,
-          "valid" : true
-        },
-        "valid" : true,
-        "prompt_cache_miss_tokens" : 89,
-        "prompt_cache_hit_tokens" : 1792
-      }
-    }
-  },
-  "result" : {
-    "metadata" : {
-      "contentFilters" : [ ],
-      "empty" : true,
       "finishReason" : "STOP"
     },
     "output" : {
@@ -570,14 +464,14 @@ Here is the JSON Schema instance your output must adhere to:
       "metadata" : {
         "role" : "assistant",
         "messageType" : "ASSISTANT",
-        "finishReason" : "STOP",
         "refusal" : "",
-        "annotations" : [ { } ],
+        "finishReason" : "STOP",
         "index" : 0,
-        "id" : "39e81152-fe59-4ff5-b11c-3c7e1815aeb4",
+        "annotations" : [ { } ],
+        "id" : "aaeb68bd-068a-4075-a51c-8c3a90624ebc",
         "reasoningContent" : ""
       },
-      "text" : "抱歉，我需要如实向您说明情况。\n\n**联网搜索失败说明：**\n\n我的网页搜索工具连续两次都返回了 **403 错误**（Cloudflare/WAF 防护拦截），无法成功访问网络获取数据。因此，我**未能成功获取**纳斯达克指数的实时联网行情。\n\n由于没有获取到可验证的实时数据，按照要求我不会编造或猜测具体的点位和涨跌幅数值。\n\n**关于您要查询的内容，我可以提供一些背景参考**（请注意这不是本次联网获取的实时数据，无法保证时效）：\n\n- **纳斯达克综合指数（NASDAQ Composite）** 是美国三大主要股指之一，以科技股为主。\n- 其交易时间（美国东部时间）通常为：**9:30 - 16:00**（盘中），另有盘前和盘后交易时段。\n- 由于当前查询未能成功联网，最新的**点位和涨跌数据无法提供**。\n\n---\n\n**建议您可以这样做：**\n\n1. **稍后重试**：如果您再次发起查询，我可以重新尝试联网搜索。\n2. **通过其他途径查询**：您也可以直接访问财经网站（如 Yahoo Finance、东方财富、新浪财经等）或股票交易软件查看实时行情，这些渠道能提供准确即时的 NASDAQ 指数数据。\n\n如果网络恢复，请告诉我，我会立即重新为您搜索纳斯达克的最新行情。非常抱歉本次未能完成联网查询。",
+      "text" : "搜索工具返回了错误（网络层面的 Cloudflare 403 拒绝），我如实告诉您：本次**未能成功完成联网搜索**。\n\n不过我依然可以根据自己对美国地理和经济的了解，为您整理美国西部比较发达的城市清单。以下信息并非本次实时搜索所得，仅供参考：\n\n---\n\n### 美国西部主要发达城市\n\n**加利福尼亚州（西部核心区）**\n\n| 城市 | 经济发展特点 |\n|------|------------|\n| **洛杉矶** | 美国第二大城市，全球娱乐产业中心（好莱坞）、航空航天、传媒、制造业发达，GDP 极高 |\n| **旧金山** | 湾区金融中心，毗邻硅谷，科技创新、金融、高科技产业密集 |\n| **圣何塞** | 硅谷核心城市，聚集苹果、谷歌等科技巨头总部，高科技产业全球领先 |\n| **圣地亚哥** | 生物科技、国防军工（海军基地）、旅游业发达 |\n| **萨克拉门托** | 加州州府，政府行政中心 + 服务业 |\n\n**华盛顿州**\n\n| 城市 | 特点 |\n|------|------|\n| **西雅图** | 全球科技与航空重镇，微软、亚马逊、波音总部所在地，高科技 + 咖啡文化 |\n\n**俄勒冈州**\n\n| 城市 | 特点 |\n|------|------|\n| **波特兰** | 高科技、户外运动品牌、制造业与创意产业较发达 |\n\n**科罗拉多州（落基山区西部）**\n\n| 城市 | 特点 |\n|------|------|\n| **丹佛** | 落基山脉区域经济/金融/科技中心，能源与航空业发达 |\n\n**亚利桑那州**\n\n| 城市 | 特点 |\n|------|------|\n| **菲尼克斯（凤凰城）** | 美国发展最快都市之一，半导体制造、金融服务、航空航天基地 |\n\n**内华达州**\n\n| 城市 | 特点 |\n|------|------|\n| **拉斯维加斯** | 全球旅游、会展、赌场娱乐业中心 |\n\n**犹他州**\n\n| 城市 | 特点 |\n|------|------|\n| **盐湖城** | 区域金融与科技中心（\"硅坡\"Silicone Slopes\"），户外产业发达 |\n\n**夏威夷/阿拉斯加** 属西部偏远州，主要城市夏威夷的火奴鲁鲁（旅游）规模较小。\n\n---\n\n### 简要总结特点\n- **加州是西部龙头**：洛杉矶 + 旧金山湾区贡献了西部绝大部分的经济产值。\n- 行业类型高度多元化：**科技（硅谷/西雅图）、娱乐影视（好莱坞）、航空（波音、航天）、生物科技、国防、旅游会展**。\n- 近年西南部阳光带城市（凤凰城、拉斯维加斯等）增长迅速，产业向制造与高科技外包延伸。\n\n---\n\n⚠️ **重要说明**：由于本次搜索接口被网络拒绝（403），以上内容基于我的内置知识整理，并非实时网页结果的引用。\n\n如果您需要，我可以稍后再尝试一次联网搜索，获取更精确、可标注来源的最新数据。您希望我重试联网搜索吗？",
       "toolCalls" : [ ]
     }
   },
@@ -593,28 +487,28 @@ Here is the JSON Schema instance your output must adhere to:
       "metadata" : {
         "role" : "assistant",
         "messageType" : "ASSISTANT",
-        "finishReason" : "STOP",
         "refusal" : "",
-        "annotations" : [ { } ],
+        "finishReason" : "STOP",
         "index" : 0,
-        "id" : "39e81152-fe59-4ff5-b11c-3c7e1815aeb4",
+        "annotations" : [ { } ],
+        "id" : "aaeb68bd-068a-4075-a51c-8c3a90624ebc",
         "reasoningContent" : ""
       },
-      "text" : "抱歉，我需要如实向您说明情况。\n\n**联网搜索失败说明：**\n\n我的网页搜索工具连续两次都返回了 **403 错误**（Cloudflare/WAF 防护拦截），无法成功访问网络获取数据。因此，我**未能成功获取**纳斯达克指数的实时联网行情。\n\n由于没有获取到可验证的实时数据，按照要求我不会编造或猜测具体的点位和涨跌幅数值。\n\n**关于您要查询的内容，我可以提供一些背景参考**（请注意这不是本次联网获取的实时数据，无法保证时效）：\n\n- **纳斯达克综合指数（NASDAQ Composite）** 是美国三大主要股指之一，以科技股为主。\n- 其交易时间（美国东部时间）通常为：**9:30 - 16:00**（盘中），另有盘前和盘后交易时段。\n- 由于当前查询未能成功联网，最新的**点位和涨跌数据无法提供**。\n\n---\n\n**建议您可以这样做：**\n\n1. **稍后重试**：如果您再次发起查询，我可以重新尝试联网搜索。\n2. **通过其他途径查询**：您也可以直接访问财经网站（如 Yahoo Finance、东方财富、新浪财经等）或股票交易软件查看实时行情，这些渠道能提供准确即时的 NASDAQ 指数数据。\n\n如果网络恢复，请告诉我，我会立即重新为您搜索纳斯达克的最新行情。非常抱歉本次未能完成联网查询。",
+      "text" : "搜索工具返回了错误（网络层面的 Cloudflare 403 拒绝），我如实告诉您：本次**未能成功完成联网搜索**。\n\n不过我依然可以根据自己对美国地理和经济的了解，为您整理美国西部比较发达的城市清单。以下信息并非本次实时搜索所得，仅供参考：\n\n---\n\n### 美国西部主要发达城市\n\n**加利福尼亚州（西部核心区）**\n\n| 城市 | 经济发展特点 |\n|------|------------|\n| **洛杉矶** | 美国第二大城市，全球娱乐产业中心（好莱坞）、航空航天、传媒、制造业发达，GDP 极高 |\n| **旧金山** | 湾区金融中心，毗邻硅谷，科技创新、金融、高科技产业密集 |\n| **圣何塞** | 硅谷核心城市，聚集苹果、谷歌等科技巨头总部，高科技产业全球领先 |\n| **圣地亚哥** | 生物科技、国防军工（海军基地）、旅游业发达 |\n| **萨克拉门托** | 加州州府，政府行政中心 + 服务业 |\n\n**华盛顿州**\n\n| 城市 | 特点 |\n|------|------|\n| **西雅图** | 全球科技与航空重镇，微软、亚马逊、波音总部所在地，高科技 + 咖啡文化 |\n\n**俄勒冈州**\n\n| 城市 | 特点 |\n|------|------|\n| **波特兰** | 高科技、户外运动品牌、制造业与创意产业较发达 |\n\n**科罗拉多州（落基山区西部）**\n\n| 城市 | 特点 |\n|------|------|\n| **丹佛** | 落基山脉区域经济/金融/科技中心，能源与航空业发达 |\n\n**亚利桑那州**\n\n| 城市 | 特点 |\n|------|------|\n| **菲尼克斯（凤凰城）** | 美国发展最快都市之一，半导体制造、金融服务、航空航天基地 |\n\n**内华达州**\n\n| 城市 | 特点 |\n|------|------|\n| **拉斯维加斯** | 全球旅游、会展、赌场娱乐业中心 |\n\n**犹他州**\n\n| 城市 | 特点 |\n|------|------|\n| **盐湖城** | 区域金融与科技中心（\"硅坡\"Silicone Slopes\"），户外产业发达 |\n\n**夏威夷/阿拉斯加** 属西部偏远州，主要城市夏威夷的火奴鲁鲁（旅游）规模较小。\n\n---\n\n### 简要总结特点\n- **加州是西部龙头**：洛杉矶 + 旧金山湾区贡献了西部绝大部分的经济产值。\n- 行业类型高度多元化：**科技（硅谷/西雅图）、娱乐影视（好莱坞）、航空（波音、航天）、生物科技、国防、旅游会展**。\n- 近年西南部阳光带城市（凤凰城、拉斯维加斯等）增长迅速，产业向制造与高科技外包延伸。\n\n---\n\n⚠️ **重要说明**：由于本次搜索接口被网络拒绝（403），以上内容基于我的内置知识整理，并非实时网页结果的引用。\n\n如果您需要，我可以稍后再尝试一次联网搜索，获取更精确、可标注来源的最新数据。您希望我重试联网搜索吗？",
       "toolCalls" : [ ]
     }
   } ]
 }
-2026-09-05T00:20:46.111+08:00  INFO 18508 --- [my-chat] [oundedElastic-1] c.m.s.agent.AgentOrchestratorService     : Orchestrator single-shot auto-finish after step=1 action=search
-2026-09-05T00:20:46.112+08:00 DEBUG 18508 --- [my-chat] [oundedElastic-1] c.m.s.agent.AgentOrchestratorService     : streamFinalAnswer promptChars=563 draftChars=236
-2026-09-05T00:20:46.149+08:00 DEBUG 18508 --- [my-chat] [oundedElastic-1] o.s.a.c.c.advisor.SimpleLoggerAdvisor    : request: ChatClientRequest[prompt=Prompt{messages=[SystemMessage{textContent='你是面向用户的助手。根据「用户目标」「参考材料」和「答复草稿」，直接输出最终答复正文。
+2026-09-05T11:59:44.606+08:00  INFO 20356 --- [my-chat] [oundedElastic-1] c.m.s.agent.AgentOrchestratorService     : Orchestrator single-shot auto-finish after step=1 action=search
+2026-09-05T11:59:44.610+08:00 DEBUG 20356 --- [my-chat] [oundedElastic-1] c.m.s.agent.AgentOrchestratorService     : streamFinalAnswer promptChars=2415 draftChars=1162
+2026-09-05T11:59:44.644+08:00 DEBUG 20356 --- [my-chat] [oundedElastic-1] o.s.a.c.c.advisor.SimpleLoggerAdvisor    : request: ChatClientRequest[prompt=Prompt{messages=[SystemMessage{textContent='你是面向用户的助手。根据「用户目标」「参考材料」和「答复草稿」，直接输出最终答复正文。
 要求：
 1. 默认 Markdown（标题、列表、代码块）；用户另有格式要求时除外。
 2. 把材料中的关键内容写进答复；不要只给「向用户作答 / 首先给出…」这类提纲或元指令。
 3. 草稿若已完整，可润色后输出；若草稿偏弱，必须基于材料写完整答复。
 4. 只输出用户可见正文，不要前言、不要解释你在流式输出。
 ', messageType=SYSTEM, metadata={messageType=SYSTEM}}, UserMessage{content='用户目标：
-联网搜索纳斯达克今日行情
+网络检索美国西部比较发达的城市有哪些
 
 会话上下文（只读参考，含摘要+近期原文；不要复述整段历史）：
 （无）
@@ -623,34 +517,146 @@ Here is the JSON Schema instance your output must adhere to:
 ### 联网补充（step 1）
 ---
 
-**建议您可以这样做：**
+### 美国西部主要发达城市
 
-1. **稍后重试**：如果您再次发起查询，我可以重新尝试联网搜索。
-2. **通过其他途径查询**：您也可以直接访问财经网站（如 Yahoo Finance、东方财富、新浪财经等）或股票交易软件查看实时行情，这些渠道能提供准确即时的 NASDAQ 指数数据。
+**加利福尼亚州（西部核心区）**
 
-如果网络恢复，请告诉我，我会立即重新为您搜索纳斯达克的最新行情。非常抱歉本次未能完成联网查询。
+| 城市 | 经济发展特点 |
+|------|------------|
+| **洛杉矶** | 美国第二大城市，全球娱乐产业中心（好莱坞）、航空航天、传媒、制造业发达，GDP 极高 |
+| **旧金山** | 湾区金融中心，毗邻硅谷，科技创新、金融、高科技产业密集 |
+| **圣何塞** | 硅谷核心城市，聚集苹果、谷歌等科技巨头总部，高科技产业全球领先 |
+| **圣地亚哥** | 生物科技、国防军工（海军基地）、旅游业发达 |
+| **萨克拉门托** | 加州州府，政府行政中心 + 服务业 |
+
+**华盛顿州**
+
+| 城市 | 特点 |
+|------|------|
+| **西雅图** | 全球科技与航空重镇，微软、亚马逊、波音总部所在地，高科技 + 咖啡文化 |
+
+**俄勒冈州**
+
+| 城市 | 特点 |
+|------|------|
+| **波特兰** | 高科技、户外运动品牌、制造业与创意产业较发达 |
+
+**科罗拉多州（落基山区西部）**
+
+| 城市 | 特点 |
+|------|------|
+| **丹佛** | 落基山脉区域经济/金融/科技中心，能源与航空业发达 |
+
+**亚利桑那州**
+
+| 城市 | 特点 |
+|------|------|
+| **菲尼克斯（凤凰城）** | 美国发展最快都市之一，半导体制造、金融服务、航空航天基地 |
+
+**内华达州**
+
+| 城市 | 特点 |
+|------|------|
+| **拉斯维加斯** | 全球旅游、会展、赌场娱乐业中心 |
+
+**犹他州**
+
+| 城市 | 特点 |
+|------|------|
+| **盐湖城** | 区域金融与科技中心（"硅坡"Silicone Slopes"），户外产业发达 |
+
+**夏威夷/阿拉斯加** 属西部偏远州，主要城市夏威夷的火奴鲁鲁（旅游）规模较小。
+
+---
+
+### 简要总结特点
+- **加州是西部龙头**：洛杉矶 + 旧金山湾区贡献了西部绝大部分的经济产值。
+- 行业类型高度多元化：**科技（硅谷/西雅图）、娱乐影视（好莱坞）、航空（波音、航天）、生物科技、国防、旅游会展**。
+- 近年西南部阳光带城市（凤凰城、拉斯维加斯等）增长迅速，产业向制造与高科技外包延伸。
+
+---
+
+⚠️ **重要说明**：由于本次搜索接口被网络拒绝（403），以上内容基于我的内置知识整理，并非实时网页结果的引用。
+
+如果您需要，我可以稍后再尝试一次联网搜索，获取更精确、可标注来源的最新数据。您希望我重试联网搜索吗？
 
 
 
 答复草稿：
-针对你的问题「联网搜索纳斯达克今日行情」，整理如下：
+针对你的问题「网络检索美国西部比较发达的城市有哪些」，整理如下：
 
 ## 联网补充
 
 ---
 
-**建议您可以这样做：**
+### 美国西部主要发达城市
 
-1. **稍后重试**：如果您再次发起查询，我可以重新尝试联网搜索。
-2. **通过其他途径查询**：您也可以直接访问财经网站（如 Yahoo Finance、东方财富、新浪财经等）或股票交易软件查看实时行情，这些渠道能提供准确即时的 NASDAQ 指数数据。
+**加利福尼亚州（西部核心区）**
 
-如果网络恢复，请告诉我，我会立即重新为您搜索纳斯达克的最新行情。非常抱歉本次未能完成联网查询。
+| 城市 | 经济发展特点 |
+|------|------------|
+| **洛杉矶** | 美国第二大城市，全球娱乐产业中心（好莱坞）、航空航天、传媒、制造业发达，GDP 极高 |
+| **旧金山** | 湾区金融中心，毗邻硅谷，科技创新、金融、高科技产业密集 |
+| **圣何塞** | 硅谷核心城市，聚集苹果、谷歌等科技巨头总部，高科技产业全球领先 |
+| **圣地亚哥** | 生物科技、国防军工（海军基地）、旅游业发达 |
+| **萨克拉门托** | 加州州府，政府行政中心 + 服务业 |
+
+**华盛顿州**
+
+| 城市 | 特点 |
+|------|------|
+| **西雅图** | 全球科技与航空重镇，微软、亚马逊、波音总部所在地，高科技 + 咖啡文化 |
+
+**俄勒冈州**
+
+| 城市 | 特点 |
+|------|------|
+| **波特兰** | 高科技、户外运动品牌、制造业与创意产业较发达 |
+
+**科罗拉多州（落基山区西部）**
+
+| 城市 | 特点 |
+|------|------|
+| **丹佛** | 落基山脉区域经济/金融/科技中心，能源与航空业发达 |
+
+**亚利桑那州**
+
+| 城市 | 特点 |
+|------|------|
+| **菲尼克斯（凤凰城）** | 美国发展最快都市之一，半导体制造、金融服务、航空航天基地 |
+
+**内华达州**
+
+| 城市 | 特点 |
+|------|------|
+| **拉斯维加斯** | 全球旅游、会展、赌场娱乐业中心 |
+
+**犹他州**
+
+| 城市 | 特点 |
+|------|------|
+| **盐湖城** | 区域金融与科技中心（"硅坡"Silicone Slopes"），户外产业发达 |
+
+**夏威夷/阿拉斯加** 属西部偏远州，主要城市夏威夷的火奴鲁鲁（旅游）规模较小。
+
+---
+
+### 简要总结特点
+- **加州是西部龙头**：洛杉矶 + 旧金山湾区贡献了西部绝大部分的经济产值。
+- 行业类型高度多元化：**科技（硅谷/西雅图）、娱乐影视（好莱坞）、航空（波音、航天）、生物科技、国防、旅游会展**。
+- 近年西南部阳光带城市（凤凰城、拉斯维加斯等）增长迅速，产业向制造与高科技外包延伸。
+
+---
+
+⚠️ **重要说明**：由于本次搜索接口被网络拒绝（403），以上内容基于我的内置知识整理，并非实时网页结果的引用。
+
+如果您需要，我可以稍后再尝试一次联网搜索，获取更精确、可标注来源的最新数据。您希望我重试联网搜索吗？
 
 请直接输出最终答复：', metadata={messageType=USER}, messageType=USER}], modelOptions=org.springframework.ai.openai.OpenAiChatOptions@ce515e3f}, context={}]
-2026-09-05T00:20:47.305+08:00 DEBUG 18508 --- [my-chat] [ndedElastic-116] o.s.a.c.c.advisor.SimpleLoggerAdvisor    : response: {
+2026-09-05T11:59:48.735+08:00 DEBUG 20356 --- [my-chat] [ndedElastic-492] o.s.a.c.c.advisor.SimpleLoggerAdvisor    : response: {
   "metadata" : {
     "empty" : true,
-    "id" : "73c90ac3-ed83-4378-924f-e1c9e97709fb",
+    "id" : "f5a07244-43b9-4816-b995-c19a2f890ad1",
     "model" : "deepseek-v4-flash",
     "promptMetadata" : [ ],
     "rateLimit" : {
@@ -662,15 +668,15 @@ Here is the JSON Schema instance your output must adhere to:
       "tokensReset" : "PT0S"
     },
     "usage" : {
-      "promptTokens" : 419,
-      "completionTokens" : 117,
-      "totalTokens" : 536,
+      "promptTokens" : 1417,
+      "completionTokens" : 657,
+      "totalTokens" : 2074,
       "cacheReadInputTokens" : null,
       "cacheWriteInputTokens" : null,
       "nativeUsage" : {
-        "promptTokens" : 419,
-        "totalTokens" : 536,
-        "completionTokens" : 117
+        "promptTokens" : 1417,
+        "totalTokens" : 2074,
+        "completionTokens" : 657
       }
     }
   },
@@ -686,14 +692,14 @@ Here is the JSON Schema instance your output must adhere to:
       "metadata" : {
         "role" : "assistant",
         "messageType" : "ASSISTANT",
-        "finishReason" : "STOP",
         "refusal" : "",
-        "annotations" : [ ],
+        "finishReason" : "STOP",
         "index" : 0,
-        "id" : "73c90ac3-ed83-4378-924f-e1c9e97709fb",
+        "annotations" : [ ],
+        "id" : "f5a07244-43b9-4816-b995-c19a2f890ad1",
         "reasoningContent" : ""
       },
-      "text" : "抱歉，本次联网搜索未能成功获取到纳斯达克的实时行情数据。\n\n建议您通过以下途径查询：\n\n1. **稍后重试**：如果您再次发起查询，我可以重新尝试联网搜索。\n2. **通过其他途径查询**：您也可以直接访问财经网站（如 Yahoo Finance、东方财富、新浪财经等）或股票交易软件查看实时行情，这些渠道能提供准确即时的 NASDAQ 指数数据。\n\n如果网络恢复，请告诉我，我会立即重新为您搜索纳斯达克的最新行情。非常抱歉本次未能完成联网查询。",
+      "text" : "美国西部地域辽阔，发达城市主要集中在**加利福尼亚州、华盛顿州、科罗拉多州**等核心区域。以下是按州划分的主要发达城市及各自的经济特点：\n\n---\n\n### 🇺🇸 美国西部主要发达城市\n\n#### 加利福尼亚州（西部经济核心区）\n| 城市 | 经济发展特点 |\n|------|------------|\n| **洛杉矶** | 美国第二大城市，全球娱乐产业中心（好莱坞）、航空航天、传媒、制造业发达，GDP 极高 |\n| **旧金山** | 湾区金融中心，毗邻硅谷，科技创新、金融、高科技产业密集 |\n| **圣何塞** | 硅谷核心城市，聚集苹果、谷歌等科技巨头总部，高科技产业全球领先 |\n| **圣地亚哥** | 生物科技、国防军工（海军基地）、旅游业发达 |\n| **萨克拉门托** | 加州州府，政府行政中心 + 服务业 |\n\n#### 华盛顿州\n| 城市 | 特点 |\n|------|------|\n| **西雅图** | 全球科技与航空重镇，微软、亚马逊、波音总部所在地，高科技 + 咖啡文化 |\n\n#### 俄勒冈州\n| 城市 | 特点 |\n|------|------|\n| **波特兰** | 高科技、户外运动品牌、制造业与创意产业较发达 |\n\n#### 科罗拉多州（落基山区西部）\n| 城市 | 特点 |\n|------|------|\n| **丹佛** | 落基山脉区域经济/金融/科技中心，能源与航空业发达 |\n\n#### 亚利桑那州\n| 城市 | 特点 |\n|------|------|\n| **菲尼克斯（凤凰城）** | 美国发展最快都市之一，半导体制造、金融服务、航空航天基地 |\n\n#### 内华达州\n| 城市 | 特点 |\n|------|------|\n| **拉斯维加斯** | 全球旅游、会展、赌场娱乐业中心 |\n\n#### 犹他州\n| 城市 | 特点 |\n|------|------|\n| **盐湖城** | 区域金融与科技中心（\"硅坡\"Silicone Slopes\"），户外产业发达 |\n\n> 注：夏威夷、阿拉斯加属西部偏远州，主要城市**火奴鲁鲁**以旅游业为主，整体经济体量相对较小。\n\n---\n\n### 📌 整体特点小结\n\n1. **加州是西部龙头**：洛杉矶 + 旧金山湾区贡献了西部绝大部分的经济产值。\n2. **行业高度多元化**：涵盖科技（硅谷/西雅图）、娱乐影视（好莱坞）、航空（波音、航天）、生物科技、国防、旅游会展等。\n3. **西南部城市增长迅速**：凤凰城、拉斯维加斯等\"阳光带\"城市近年发展快，正向半导体制造、金融后台及高科技外包延伸。\n\n---\n\n⚠️ **说明**：以上内容是基于现有知识与公开资料整理，并非实时网页检索的直接引用。如需获取可标注来源的最新数据（如 GDP 排名、人口统计等），建议开启**联网搜索**功能查询，我可以帮你重新检索核实。",
       "toolCalls" : [ ]
     }
   },
@@ -709,32 +715,82 @@ Here is the JSON Schema instance your output must adhere to:
       "metadata" : {
         "role" : "assistant",
         "messageType" : "ASSISTANT",
-        "finishReason" : "STOP",
         "refusal" : "",
-        "annotations" : [ ],
+        "finishReason" : "STOP",
         "index" : 0,
-        "id" : "73c90ac3-ed83-4378-924f-e1c9e97709fb",
+        "annotations" : [ ],
+        "id" : "f5a07244-43b9-4816-b995-c19a2f890ad1",
         "reasoningContent" : ""
       },
-      "text" : "抱歉，本次联网搜索未能成功获取到纳斯达克的实时行情数据。\n\n建议您通过以下途径查询：\n\n1. **稍后重试**：如果您再次发起查询，我可以重新尝试联网搜索。\n2. **通过其他途径查询**：您也可以直接访问财经网站（如 Yahoo Finance、东方财富、新浪财经等）或股票交易软件查看实时行情，这些渠道能提供准确即时的 NASDAQ 指数数据。\n\n如果网络恢复，请告诉我，我会立即重新为您搜索纳斯达克的最新行情。非常抱歉本次未能完成联网查询。",
+      "text" : "美国西部地域辽阔，发达城市主要集中在**加利福尼亚州、华盛顿州、科罗拉多州**等核心区域。以下是按州划分的主要发达城市及各自的经济特点：\n\n---\n\n### 🇺🇸 美国西部主要发达城市\n\n#### 加利福尼亚州（西部经济核心区）\n| 城市 | 经济发展特点 |\n|------|------------|\n| **洛杉矶** | 美国第二大城市，全球娱乐产业中心（好莱坞）、航空航天、传媒、制造业发达，GDP 极高 |\n| **旧金山** | 湾区金融中心，毗邻硅谷，科技创新、金融、高科技产业密集 |\n| **圣何塞** | 硅谷核心城市，聚集苹果、谷歌等科技巨头总部，高科技产业全球领先 |\n| **圣地亚哥** | 生物科技、国防军工（海军基地）、旅游业发达 |\n| **萨克拉门托** | 加州州府，政府行政中心 + 服务业 |\n\n#### 华盛顿州\n| 城市 | 特点 |\n|------|------|\n| **西雅图** | 全球科技与航空重镇，微软、亚马逊、波音总部所在地，高科技 + 咖啡文化 |\n\n#### 俄勒冈州\n| 城市 | 特点 |\n|------|------|\n| **波特兰** | 高科技、户外运动品牌、制造业与创意产业较发达 |\n\n#### 科罗拉多州（落基山区西部）\n| 城市 | 特点 |\n|------|------|\n| **丹佛** | 落基山脉区域经济/金融/科技中心，能源与航空业发达 |\n\n#### 亚利桑那州\n| 城市 | 特点 |\n|------|------|\n| **菲尼克斯（凤凰城）** | 美国发展最快都市之一，半导体制造、金融服务、航空航天基地 |\n\n#### 内华达州\n| 城市 | 特点 |\n|------|------|\n| **拉斯维加斯** | 全球旅游、会展、赌场娱乐业中心 |\n\n#### 犹他州\n| 城市 | 特点 |\n|------|------|\n| **盐湖城** | 区域金融与科技中心（\"硅坡\"Silicone Slopes\"），户外产业发达 |\n\n> 注：夏威夷、阿拉斯加属西部偏远州，主要城市**火奴鲁鲁**以旅游业为主，整体经济体量相对较小。\n\n---\n\n### 📌 整体特点小结\n\n1. **加州是西部龙头**：洛杉矶 + 旧金山湾区贡献了西部绝大部分的经济产值。\n2. **行业高度多元化**：涵盖科技（硅谷/西雅图）、娱乐影视（好莱坞）、航空（波音、航天）、生物科技、国防、旅游会展等。\n3. **西南部城市增长迅速**：凤凰城、拉斯维加斯等\"阳光带\"城市近年发展快，正向半导体制造、金融后台及高科技外包延伸。\n\n---\n\n⚠️ **说明**：以上内容是基于现有知识与公开资料整理，并非实时网页检索的直接引用。如需获取可标注来源的最新数据（如 GDP 排名、人口统计等），建议开启**联网搜索**功能查询，我可以帮你重新检索核实。",
       "toolCalls" : [ ]
     }
   } ]
 }
-2026-09-05T00:20:47.313+08:00  WARN 18508 --- [my-chat] [ndedElastic-117] c.m.s.a.ChatOrchestrateStreamService     : qualityLoop=true 但未解析到 write 路径，已跳过质量环 turnId=chat_1788538831787_7t9scbxnz-6e86075e-3376-4888-ace2-18ce86b2999b
-2026-09-05T00:20:47.354+08:00 DEBUG 18508 --- [my-chat] [ndedElastic-118] c.m.m.C.selectList                       : ==>  Preparing: SELECT id,conversation_id,turn_id,assistant_ordinal,assistant_text,thinking,parts,created_at FROM chat_assistant_turns WHERE (conversation_id = ?) ORDER BY assistant_ordinal DESC LIMIT 1
-2026-09-05T00:20:47.356+08:00 DEBUG 18508 --- [my-chat] [ndedElastic-118] c.m.m.C.selectList                       : ==> Parameters: chat_1788538831787_7t9scbxnz(String)
-2026-09-05T00:20:47.368+08:00 DEBUG 18508 --- [my-chat] [ndedElastic-118] c.m.m.C.selectList                       : <==      Total: 0
-2026-09-05T00:20:47.372+08:00 DEBUG 18508 --- [my-chat] [ndedElastic-118] c.m.m.C.selectList                       : ==>  Preparing: SELECT id,conversation_id,turn_id,assistant_ordinal,assistant_text,thinking,parts,created_at FROM chat_assistant_turns WHERE (conversation_id = ? AND turn_id = ?)
-2026-09-05T00:20:47.372+08:00 DEBUG 18508 --- [my-chat] [ndedElastic-118] c.m.m.C.selectList                       : ==> Parameters: chat_1788538831787_7t9scbxnz(String), chat_1788538831787_7t9scbxnz-6e86075e-3376-4888-ace2-18ce86b2999b(String)
-2026-09-05T00:20:47.373+08:00 DEBUG 18508 --- [my-chat] [ndedElastic-118] c.m.m.C.selectList                       : <==      Total: 0
-2026-09-05T00:20:47.377+08:00 DEBUG 18508 --- [my-chat] [ndedElastic-118] c.m.m.ChatAssistantTurnMapper.insert     : ==>  Preparing: INSERT INTO chat_assistant_turns ( conversation_id, turn_id, assistant_ordinal, assistant_text, parts ) VALUES ( ?, ?, ?, ?, ? )
-2026-09-05T00:20:47.382+08:00 DEBUG 18508 --- [my-chat] [ndedElastic-118] c.m.m.ChatAssistantTurnMapper.insert     : ==> Parameters: chat_1788538831787_7t9scbxnz(String), chat_1788538831787_7t9scbxnz-6e86075e-3376-4888-ace2-18ce86b2999b(String), 0(Integer), 抱歉，本次联网搜索未能成功获取到纳斯达克的实时行情数据。
+2026-09-05T11:59:48.742+08:00  WARN 20356 --- [my-chat] [ndedElastic-493] c.m.s.a.ChatOrchestrateStreamService     : qualityLoop=true 但未解析到 write 路径，已跳过质量环 turnId=chat_1788580765977_6kvmf3z32-68a3fac6-6b51-480c-827b-1443df4bcadc
+2026-09-05T11:59:48.785+08:00 DEBUG 20356 --- [my-chat] [ndedElastic-494] c.m.m.C.selectList                       : ==>  Preparing: SELECT id,conversation_id,turn_id,assistant_ordinal,assistant_text,thinking,parts,created_at FROM chat_assistant_turns WHERE (conversation_id = ?) ORDER BY assistant_ordinal DESC LIMIT 1
+2026-09-05T11:59:48.787+08:00 DEBUG 20356 --- [my-chat] [ndedElastic-494] c.m.m.C.selectList                       : ==> Parameters: chat_1788580765977_6kvmf3z32(String)
+2026-09-05T11:59:48.789+08:00 DEBUG 20356 --- [my-chat] [ndedElastic-494] c.m.m.C.selectList                       : <==      Total: 0
+2026-09-05T11:59:48.795+08:00 DEBUG 20356 --- [my-chat] [ndedElastic-494] c.m.m.C.selectList                       : ==>  Preparing: SELECT id,conversation_id,turn_id,assistant_ordinal,assistant_text,thinking,parts,created_at FROM chat_assistant_turns WHERE (conversation_id = ? AND turn_id = ?)
+2026-09-05T11:59:48.796+08:00 DEBUG 20356 --- [my-chat] [ndedElastic-494] c.m.m.C.selectList                       : ==> Parameters: chat_1788580765977_6kvmf3z32(String), chat_1788580765977_6kvmf3z32-68a3fac6-6b51-480c-827b-1443df4bcadc(String)
+2026-09-05T11:59:48.799+08:00 DEBUG 20356 --- [my-chat] [ndedElastic-494] c.m.m.C.selectList                       : <==      Total: 0
+2026-09-05T11:59:48.806+08:00 DEBUG 20356 --- [my-chat] [ndedElastic-494] c.m.m.ChatAssistantTurnMapper.insert     : ==>  Preparing: INSERT INTO chat_assistant_turns ( conversation_id, turn_id, assistant_ordinal, assistant_text, parts ) VALUES ( ?, ?, ?, ?, ? )
+2026-09-05T11:59:48.816+08:00 DEBUG 20356 --- [my-chat] [ndedElastic-494] c.m.m.ChatAssistantTurnMapper.insert     : ==> Parameters: chat_1788580765977_6kvmf3z32(String), chat_1788580765977_6kvmf3z32-68a3fac6-6b51-480c-827b-1443df4bcadc(String), 0(Integer), 美国西部地域辽阔，发达城市主要集中在**加利福尼亚州、华盛顿州、科罗拉多州**等核心区域。以下是按州划分的主要发达城市及各自的经济特点：
 
-建议您通过以下途径查询：
+---
 
-1. **稍后重试**：如果您再次发起查询，我可以重新尝试联网搜索。
-2. **通过其他途径查询**：您也可以直接访问财经网站（如 Yahoo Finance、东方财富、新浪财经等）或股票交易软件查看实时行情，这些渠道能提供准确即时的 NASDAQ 指数数据。
+### 🇺🇸 美国西部主要发达城市
 
-如果网络恢复，请告诉我，我会立即重新为您搜索纳斯达克的最新行情。非常抱歉本次未能完成联网查询。(String), [{"type":"route","id":"route-315e68cf-dbed-4b15-b5e9-879f5c2a508b","name":"orchestrate","status":"done","resultPreview":"主聊天默认多步编排（Orchestrator-Workers），跨能力 Worker 接力"},{"type":"step","id":"step-1","name":"search","args":{"stepIndex":1,"instruction":"请联网搜索纳斯达克指数今日行情，包括最新点位、涨跌幅、交易时间等关键信息。"},"status":"done","resultPreview":"用户需要联网搜索纳斯达克今日行情，应选择search动作。\n---\n抱歉，我需要如实向您说明情况。\n\n**联网搜索失败说明：**\n\n我的网页搜索工具连续两次都返回了 **403 错误**（Cloudflare/WAF 防护拦截），无法成功访问网络获取数据。因此，我**未能成功获取**纳斯达克指数的实时联网行情。\n\n由于没有获取到可验证的实时数据，按照要求我不会编造或猜测具体的点位和涨跌幅数值。\n\n**关于您要查询的内容，我可以提供一些背景参考**（请注意这不是本次联网获取的实时数据，无法保证时效）：\n\n- **纳斯达克综合指数（NASDAQ Composite）** 是美国三大主要股指之一，以科技股为主。\n- 其交易时间（美国东部时间）通常为：**9:30 - 16:00**（盘中），另有盘前和盘后交易时段。\n- 由于当前查询未能成功联网，最新的**点位和涨跌数据无法提供**。\n\n---\n\n**建议您可以这样做：**\n\n1. **稍后重试**：如果您再次发起查询，我可以重新尝试联网搜索。\n2. **通过其他途径查询**：您也可以直接访问财经网站（如 Yahoo Finance、东方财富、新浪财经等）或股票交易软件查看实时行情，这些渠道能提供准确即时的 NASDAQ 指数数据。\n\n如果网络恢复，请告诉我，我会立即重新为您搜索纳斯达克的最新行情。非常抱歉本次未能完成联网查询。","truncated":false},{"type":"step","id":"step-2","name":"finish","args":{"stepIndex":2,"instruction":""},"status":"done","resultPreview":"single-shot: complexity=single，Worker 观察已足够作答\n---\n针对你的问题「联网搜索纳斯达克今日行情」，整理如下：\n\n## 联网补充\n\n---\n\n**建议您可以这样做：**\n\n1. **稍后重试**：如果您再次发起查询，我可以重新尝试联网搜索。\n2. **通过其他途径查询**：您也可以直接访问财经网站（如 Yahoo Finance、东方财富、新浪财经等）或股票交易软件查看实时行情，这些渠道能提供准确即时的 NASDAQ 指数数据。\n\n如果网络恢复，请告诉我，我会立即重新为您搜索纳斯达克的最新行情。非常抱歉本次未能完成联网查询。","truncated":false}](PGobject)
-2026-09-05T00:20:47.393+08:00 DEBUG 18508 --- [my-chat] [ndedElastic-118] c.m.m.ChatAssistantTurnMapper.insert     : <==    Updates: 1
+#### 加利福尼亚州（西部经济核心区）
+| 城市 | 经济发展特点 |
+|------|------------|
+| **洛杉矶** | 美国第二大城市，全球娱乐产业中心（好莱坞）、航空航天、传媒、制造业发达，GDP 极高 |
+| **旧金山** | 湾区金融中心，毗邻硅谷，科技创新、金融、高科技产业密集 |
+| **圣何塞** | 硅谷核心城市，聚集苹果、谷歌等科技巨头总部，高科技产业全球领先 |
+| **圣地亚哥** | 生物科技、国防军工（海军基地）、旅游业发达 |
+| **萨克拉门托** | 加州州府，政府行政中心 + 服务业 |
+
+#### 华盛顿州
+| 城市 | 特点 |
+|------|------|
+| **西雅图** | 全球科技与航空重镇，微软、亚马逊、波音总部所在地，高科技 + 咖啡文化 |
+
+#### 俄勒冈州
+| 城市 | 特点 |
+|------|------|
+| **波特兰** | 高科技、户外运动品牌、制造业与创意产业较发达 |
+
+#### 科罗拉多州（落基山区西部）
+| 城市 | 特点 |
+|------|------|
+| **丹佛** | 落基山脉区域经济/金融/科技中心，能源与航空业发达 |
+
+#### 亚利桑那州
+| 城市 | 特点 |
+|------|------|
+| **菲尼克斯（凤凰城）** | 美国发展最快都市之一，半导体制造、金融服务、航空航天基地 |
+
+#### 内华达州
+| 城市 | 特点 |
+|------|------|
+| **拉斯维加斯** | 全球旅游、会展、赌场娱乐业中心 |
+
+#### 犹他州
+| 城市 | 特点 |
+|------|------|
+| **盐湖城** | 区域金融与科技中心（"硅坡"Silicone Slopes"），户外产业发达 |
+
+> 注：夏威夷、阿拉斯加属西部偏远州，主要城市**火奴鲁鲁**以旅游业为主，整体经济体量相对较小。
+
+---
+
+### 📌 整体特点小结
+
+1. **加州是西部龙头**：洛杉矶 + 旧金山湾区贡献了西部绝大部分的经济产值。
+2. **行业高度多元化**：涵盖科技（硅谷/西雅图）、娱乐影视（好莱坞）、航空（波音、航天）、生物科技、国防、旅游会展等。
+3. **西南部城市增长迅速**：凤凰城、拉斯维加斯等"阳光带"城市近年发展快，正向半导体制造、金融后台及高科技外包延伸。
+
+---
+
+⚠️ **说明**：以上内容是基于现有知识与公开资料整理，并非实时网页检索的直接引用。如需获取可标注来源的最新数据（如 GDP 排名、人口统计等），建议开启**联网搜索**功能查询，我可以帮你重新检索核实。(String), [{"type":"route","id":"route-f485f0f9-3890-4455-871b-8751996e806a","name":"orchestrate","status":"done","resultPreview":"主聊天默认多步编排（Orchestrator-Workers），跨能力 Worker 接力"},{"type":"step","id":"step-1","name":"search","args":{"stepIndex":1,"instruction":"联网搜索美国西部比较发达的城市有哪些，请列出主要城市并简要说明其经济或发达程度特点。"},"status":"done","resultPreview":"用户需要网络检索信息，属于单次搜索任务，选中 search。\n---\n搜索工具返回了错误（网络层面的 Cloudflare 403 拒绝），我如实告诉您：本次**未能成功完成联网搜索**。\n\n不过我依然可以根据自己对美国地理和经济的了解，为您整理美国西部比较发达的城市清单。以下信息并非本次实时搜索所得，仅供参考：\n\n---\n\n### 美国西部主要发达城市\n\n**加利福尼亚州（西部核心区）**\n\n| 城市 | 经济发展特点 |\n|------|------------|\n| **洛杉矶** | 美国第二大城市，全球娱乐产业中心（好莱坞）、航空航天、传媒、制造业发达，GDP 极高 |\n| **旧金山** | 湾区金融中心，毗邻硅谷，科技创新、金融、高科技产业密集 |\n| **圣何塞** | 硅谷核心城市，聚集苹果、谷歌等科技巨头总部，高科技产业全球领先 |\n| **圣地亚哥** | 生物科技、国防军工（海军基地）、旅游业发达 |\n| **萨克拉门托** | 加州州府，政府行政中心 + 服务业 |\n\n**华盛顿州**\n\n| 城市 | 特点 |\n|------|------|\n| **西雅图** | 全球科技与航空重镇，微软、亚马逊、波音总部所在地，高科技 + 咖啡文化 |\n\n**俄勒冈州**\n\n| 城市 | 特点 |\n|------|------|\n| **波特兰** | 高科技、户外运动品牌、制造业与创意产业较发达 |\n\n**科罗拉多州（落基山区西部）**\n\n| 城市 | 特点 |\n|------|------|\n| **丹佛** | 落基山脉区域经济/金融/科技中心，能源与航空业发达 |\n\n**亚利桑那州**\n\n| 城市 | 特点 |\n|------|------|\n| **菲尼克斯（凤凰城）** | 美国发展最快都市之一，半导体制造、金融服务、航空航天基地 |\n\n**内华达州**\n\n| 城市 | 特点 |\n|------|------|\n| **拉斯维加斯** | 全球旅游、会展、赌场娱乐业中心 |\n\n**犹他州**\n\n| 城市 | 特点 |\n|------|------|\n| **盐湖城** | 区域金融与科技中心（\"硅坡\"Silicone Slopes\"），户外产业发达 |\n\n**夏威夷/阿拉斯加** 属西部偏远州，主要城市夏威夷的火奴鲁鲁（旅游）规模较小。\n\n---\n\n### 简要总结特点\n- **加州是西部龙头**：洛杉矶 + 旧金山湾区贡献了西部绝大部分的经济产值。\n- 行业类型高度多元化：**科技（硅谷/西雅图）、娱乐影视（好莱坞）、航空（波音、航天）、生物科技、国防、旅游会展**。\n- 近年西南部阳光带城市（凤凰城、拉斯维加斯等）增长迅速，产业向制造与高科技外包延伸。\n\n---\n\n⚠️ **重要说明**：由于本次搜索接口被网络拒绝（403），以上内容基于我的内置知识整理，并非实时网页结果的引用。\n\n如果您需要，我可以稍后再尝试一次联网搜索，获取更精确、可标注来源的最新数据。您希望我重试联网搜索吗？","truncated":false},{"type":"step","id":"step-2","name":"finish","args":{"stepIndex":2,"instruction":""},"status":"done","resultPreview":"single-shot: complexity=single，Worker 观察已足够作答\n---\n针对你的问题「网络检索美国西部比较发达的城市有哪些」，整理如下：\n\n## 联网补充\n\n---\n\n### 美国西部主要发达城市\n\n**加利福尼亚州（西部核心区）**\n\n| 城市 | 经济发展特点 |\n|------|------------|\n| **洛杉矶** | 美国第二大城市，全球娱乐产业中心（好莱坞）、航空航天、传媒、制造业发达，GDP 极高 |\n| **旧金山** | 湾区金融中心，毗邻硅谷，科技创新、金融、高科技产业密集 |\n| **圣何塞** | 硅谷核心城市，聚集苹果、谷歌等科技巨头总部，高科技产业全球领先 |\n| **圣地亚哥** | 生物科技、国防军工（海军基地）、旅游业发达 |\n| **萨克拉门托** | 加州州府，政府行政中心 + 服务业 |\n\n**华盛顿州**\n\n| 城市 | 特点 |\n|------|------|\n| **西雅图** | 全球科技与航空重镇，微软、亚马逊、波音总部所在地，高科技 + 咖啡文化 |\n\n**俄勒冈州**\n\n| 城市 | 特点 |\n|------|------|\n| **波特兰** | 高科技、户外运动品牌、制造业与创意产业较发达 |\n\n**科罗拉多州（落基山区西部）**\n\n| 城市 | 特点 |\n|------|------|\n| **丹佛** | 落基山脉区域经济/金融/科技中心，能源与航空业发达 |\n\n**亚利桑那州**\n\n| 城市 | 特点 |\n|------|------|\n| **菲尼克斯（凤凰城）** | 美国发展最快都市之一，半导体制造、金融服务、航空航天基地 |\n\n**内华达州**\n\n| 城市 | 特点 |\n|------|------|\n| **拉斯维加斯** | 全球旅游、会展、赌场娱乐业中心 |\n\n**犹他州**\n\n| 城市 | 特点 |\n|------|------|\n| **盐湖城** | 区域金融与科技中心（\"硅坡\"Silicone Slopes\"），户外产业发达 |\n\n**夏威夷/阿拉斯加** 属西部偏远州，主要城市夏威夷的火奴鲁鲁（旅游）规模较小。\n\n---\n\n### 简要总结特点\n- **加州是西部龙头**：洛杉矶 + 旧金山湾区贡献了西部绝大部分的经济产值。\n- 行业类型高度多元化：**科技（硅谷/西雅图）、娱乐影视（好莱坞）、航空（波音、航天）、生物科技、国防、旅游会展**。\n- 近年西南部阳光带城市（凤凰城、拉斯维加斯等）增长迅速，产业向制造与高科技外包延伸。\n\n---\n\n⚠️ **重要说明**：由于本次搜索接口被网络拒绝（403），以上内容基于我的内置知识整理，并非实时网页结果的引用。\n\n如果您需要，我可以稍后再尝试一次联网搜索，获取更精确、可标注来源的最新数据。您希望我重试联网搜索吗？","truncated":false}](PGobject)
+2026-09-05T11:59:48.849+08:00 DEBUG 20356 --- [my-chat] [ndedElastic-494] c.m.m.ChatAssistantTurnMapper.insert     : <==    Updates: 1

@@ -93,3 +93,15 @@ app:
       # 从 https://smithery.ai/account/api-keys 获取，通过环境变量注入，勿写死进仓库
       api-key: ${SMITHERY_API_KEY}
       connection-name: smithery-toolbox
+  search:
+    # 联网搜索走供应商 REST，不经 mcp.smithery.run（该网关 listTools 500 / callTool 403）
+    # EXA_API_KEY 必须来自 https://dashboard.exa.ai/api-keys，不要填 SMITHERY_API_KEY
+    exa:
+      api-key: ${EXA_API_KEY:}
+      base-url: https://api.exa.ai
+    bocha:
+      api-key: ${BOCHA_API_KEY:}
+      base-url: https://api.bocha.cn
+    tavily:
+      api-key: ${TAVILY_API_KEY:}
+      base-url: https://api.tavily.com

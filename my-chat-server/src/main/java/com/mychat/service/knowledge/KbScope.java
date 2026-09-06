@@ -12,7 +12,7 @@ public enum KbScope {
     VECTOR;
 
     /**
-     * 解析编排器输出；仅 catalog 走目录，其余（含空/非法）默认向量。
+     * 解析编排器输出；若是 catalog， 走目录，其余（含空/非法）默认走向量相似度匹配。
      */
     public static KbScope from(String raw) {
         if (raw != null && "catalog".equalsIgnoreCase(raw.trim())) {

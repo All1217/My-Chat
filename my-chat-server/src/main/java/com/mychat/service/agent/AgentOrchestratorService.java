@@ -205,10 +205,19 @@ public class AgentOrchestratorService {
 
     /**
      * 按 action 调用对应 Worker。retrieve_kb 的检索 query 用用户原问，范围由 kbScope 决定。
+     *
+     * @param action           本步 Worker：retrieve_kb / file / search / general
+     * @param instruction      编排器给本步的子任务（写入 Worker「本步任务」）
+     * @param kbId             会话绑定的知识库；仅 retrieve_kb 需要
+     * @param workDir          会话工作目录；file / search 用来定位文件或工具上下文
+     * @param dialogueHistory  会话近期摘要（只读，消解「刚才/那个文件」；可空）
+     * @param userGoal         用户原问；retrieve_kb 用作向量检索 query
+     * @param kbScope          retrieve_kb 检索范围：catalog=文档目录，vector=相似度检索；其它 action 为空
      */
     private WorkerOutcome runWorker(
             String action, String instruction, String kbId, String workDir,
             String dialogueHistory, String userGoal, String kbScope) {
+        // 生成会话上下文：远期摘要 + 近期会话
         String task = WorkerPromptSupport.buildWorkerUserMessage(dialogueHistory, instruction);
         return switch (action) {
             case "retrieve_kb" -> kbWorker.run(task, kbId, userGoal, instruction, kbScope);

@@ -132,7 +132,8 @@ public class KnowledgeRetrievalService {
     }
 
     /**
-     * 按编排器 kbScope 装配上下文。CATALOG 只拼目录；VECTOR 检索，0 hit 仍可回退目录。
+     * 按编排器给出的范围约束 kbScope 装配上下文，给接下来正式知识库检索做准备
+     * CATALOG: 只拼目录；VECTOR: 检索，0 hit 仍可回退目录。
      */
     public RagContext buildRagContext(String kbId, String query, KbScope scope) {
         if (!StringUtils.hasText(kbId)) {
@@ -150,7 +151,9 @@ public class KnowledgeRetrievalService {
                     formatCatalog(kb, readyDocs, true), true, 0, catalogCitations(readyDocs));
         }
 
+        // 获取最相似的前几片向量，若kb已配置参数则用配置值，否则默认
         int topK = KnowledgeBaseSettings.topKOrDefault(kb != null ? kb.getTopK() : null);
+        // 相似度阈值同理
         double threshold = KnowledgeBaseSettings.thresholdOrDefault(kb != null ? kb.getSimilarityThreshold() : null);
         List<Document> hits = StringUtils.hasText(q)
                 ? searchChunks(id, q, topK, threshold)
@@ -167,7 +170,7 @@ public class KnowledgeRetrievalService {
     }
 
     /**
-     * 把用户问题与检索上下文拼成生成侧 user 消息。
+     * 把用户问题与检索上下文拼成正式提示词
      */
     public static String wrapUserWithContext(String userText, String ragContext) {
         String question = userText != null ? userText : "";

@@ -62,9 +62,11 @@ public final class WorkerPromptSupport {
     }
 
     /**
-     * 知识库检索 query：只用用户原问，避免把会话历史拿去 embedding。
+     * 生成知识库检索需要使用的 query
      */
     public static String kbSearchQuery(String userGoal, String instruction) {
+        // 优先用用户原问题 userGoal, 这个为空才退回 instruction
+        // StringUtils.hasText 用于判空
         if (StringUtils.hasText(userGoal)) {
             return userGoal.trim();
         }
@@ -72,7 +74,7 @@ public final class WorkerPromptSupport {
     }
 
     /**
-     * 生成侧 user：会话任务 + 已检索上下文（不再交给 QuestionAnswerAdvisor）。
+     * 正式提示词：会话任务 + 已检索上下文
      */
     public static String buildKbWorkerUserPrompt(String workerUserMessage, String ragContext) {
         return KnowledgeRetrievalService.wrapUserWithContext(workerUserMessage, ragContext);

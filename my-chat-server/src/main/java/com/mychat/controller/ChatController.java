@@ -22,7 +22,8 @@ import java.util.List;
 /**
  * 主聊天 HTTP 入口：校验 ndjson、绑工作区、解析 kbId、处理附件后交给管道。
  * <p>
- * 怎么读：本类 → {@link ChatUploadEnrichment}（附件）→ {@link ChatOrchestrateStreamService}（NDJSON 管道）
+ * 怎么读：本类 → {@link ChatUploadEnrichment}（附件）→ {@link ChatOrchestrateStreamService}（门面）
+ * → {@link com.mychat.service.agent.pipeline.ChatTurnPipeline}（Stage 管道）
  * → {@link com.mychat.service.agent.AgentOrchestratorService}（编排循环与 Worker）。
  * 主路固定 Orchestrator，不走 Routing；Routing 仅 {@code POST /ai/agent/route}（Demo）。
  * 附件仅 txt/md/pdf，图片双拒。

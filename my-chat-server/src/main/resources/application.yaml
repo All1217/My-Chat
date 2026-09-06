@@ -54,6 +54,10 @@ spring:
       client:
         enabled: true
         type: SYNC
+        # 默认 true 会在创建 mcpSyncClients 时对每个连接 initialize()；
+        # Smithery 404 / 天气服务未起时整条 Bean 链失败，主聊天无法启动。
+        # 改为惰性握手：listTools / 首次调用再 initialize，单连接失败由 TolerantMcpToolCallbackProvider 跳过。
+        initialized: false
         # 远程 Smithery / Exa 搜索可能较慢，适当放宽超时
         request-timeout: 60s
         toolcallback:

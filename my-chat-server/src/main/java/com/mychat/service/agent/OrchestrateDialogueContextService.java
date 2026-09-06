@@ -20,7 +20,8 @@ import java.util.stream.Collectors;
 /**
  * 编排读路径对话上下文：滚动摘要 + 近期原文窗口。
  * <p>
- * 不挂 {@code MessageChatMemoryAdvisor(chatId)}；写 Memory 仍由主聊天回合末手动 persist。
+ * 怎么读：由 {@link com.mychat.service.agent.pipeline.stage.LoadDialogueContextStage} 调用。
+ * 不挂 {@code MessageChatMemoryAdvisor(chatId)}；写 Memory 仍由 {@link com.mychat.service.agent.pipeline.ChatTurnFinalizer} 在回合末 persist。
  * 摘要在本方法构建时惰性更新，避免与 Worker 临时 conversationId 双写。
  */
 @Slf4j

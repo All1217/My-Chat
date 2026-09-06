@@ -24,8 +24,8 @@ import java.util.List;
 /**
  * 回合内编排循环：decideNext → switch 调 Worker → 可选 auto-finish。
  * <p>
- * 怎么读：入口 {@code ChatController} → 管道 {@link ChatOrchestrateStreamService}
- * → 本类循环 → {@link com.mychat.service.agent.worker}。
+ * 怎么读：入口 {@code ChatController} → {@link ChatOrchestrateStreamService} 委托
+ * {@link com.mychat.service.agent.pipeline.ChatTurnPipeline} → 本类循环 → {@link com.mychat.service.agent.worker}。
  * 主路固定 Orchestrator；Routing 是 Demo，不是本类的前置分类。
  * <p>
  * Worker 用 {@code orch-*} 临时 conversationId，不写会话 chatId。

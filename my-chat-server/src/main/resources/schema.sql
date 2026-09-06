@@ -232,3 +232,32 @@ COMMENT ON COLUMN async_job.ref_id IS '业务主键，如 document_meta.id；演
 COMMENT ON COLUMN async_job.payload IS 'JSON 字符串，handler 入参';
 COMMENT ON COLUMN async_job.error_message IS '失败原因（截断）';
 COMMENT ON COLUMN async_job.finished_at IS '进入终态的时间';
+
+-- 大模型目录：OpenAI 兼容协议的可切换对话模型（全局默认；Embedding 仍走 YAML）
+CREATE TABLE IF NOT EXISTS llm_model
+(
+    id         VARCHAR(64) PRIMARY KEY,
+    name       VARCHAR(100) NOT NULL,
+    provider   VARCHAR(50)  NOT NULL,
+    base_url   VARCHAR(500) NOT NULL,
+    api_key    VARCHAR(500) NOT NULL,
+    model_id   VARCHAR(200) NOT NULL,
+    max_tokens INT          NOT NULL DEFAULT 8192,
+    enabled    BOOLEAN      NOT NULL DEFAULT TRUE,
+    is_default BOOLEAN      NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP             DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP             DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_llm_model_default ON llm_model (is_default);
+COMMENT ON TABLE llm_model IS 'OpenAI 兼容对话模型目录：设置页维护，运行时按 is_default 切换 ChatClient';
+COMMENT ON COLUMN llm_model.id IS '模型配置唯一ID（UUID）';
+COMMENT ON COLUMN llm_model.name IS '展示名称，如 DeepSeek Flash';
+COMMENT ON COLUMN llm_model.provider IS '供应商预设键：deepseek / openai / qwen / ollama / siliconflow / custom';
+COMMENT ON COLUMN llm_model.base_url IS 'OpenAI 兼容 API 根地址';
+COMMENT ON COLUMN llm_model.api_key IS '调用密钥（接口回传时脱敏）';
+COMMENT ON COLUMN llm_model.model_id IS '供应商侧模型名，如 deepseek-v4-flash';
+COMMENT ON COLUMN llm_model.max_tokens IS '单次生成 token 上限';
+COMMENT ON COLUMN llm_model.enabled IS '是否启用；禁用后不可设为默认';
+COMMENT ON COLUMN llm_model.is_default IS '是否为当前全局默认（应用层保证至多一行 true）';
+COMMENT ON COLUMN llm_model.created_at IS '创建时间';
+COMMENT ON COLUMN llm_model.updated_at IS '更新时间，由应用层维护';

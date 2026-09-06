@@ -1,77 +1,23 @@
 package com.mychat.service.agent;
 
-import com.mychat.common.ChatStreamEvent;
-import com.mychat.service.agent.quality.AgentEvaluatorOptimizerService;
-import com.mychat.service.chat.ChatAssistantTurnService;
-import com.mychat.config.WorkspaceContext;
-import com.mychat.entity.dto.EvaluateOptimizeRequest;
-import com.mychat.entity.dto.OrchestrateRequest;
-import com.mychat.utils.ChatStreamEventWriter;
-import com.mychat.utils.NdjsonStreamSupport;
-import com.mychat.utils.WorkspaceUtil;
-import com.mychat.utils.WritePathExtractor;
-import com.mychat.vo.EvaluateOptimizeResultVO;
-import com.mychat.vo.EvaluateOptimizeRoundVO;
-import com.mychat.vo.OrchestrateResultVO;
-import com.mychat.vo.OrchestrateStepVO;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.memory.ChatMemory;
-import org.springframework.ai.chat.messages.AssistantMessage;
-import org.springframework.ai.chat.messages.UserMessage;
+import com.mychat.service.agent.pipeline.ChatTurnPipeline;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
-import reactor.core.publisher.SignalType;
-import reactor.core.publisher.Sinks;
-import reactor.core.scheduler.Schedulers;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.UUID;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * 主聊天 NDJSON 管道：驱动编排、推 step/text_delta、可选质量环、回合落库。
+ * 主聊天 NDJSON 管道门面：对外签名不变，内部委托 {@link ChatTurnPipeline}。
  * <p>
- * 怎么读：上接 {@code ChatController}，下接 {@link AgentOrchestratorService}。
- * 读：{@link OrchestrateDialogueContextService} 注入摘要+近期原文；
- * 写：回合 {@code ON_COMPLETE} 时 {@link #persistOrchestrateExchange}。
- * Worker 用 {@code orch-*}，不把会话 chatId 交给 MessageChatMemoryAdvisor。
+ * 怎么读：上接 {@code ChatController}，下接 {@link ChatTurnPipeline}（Stage 有序列表）。
+ * 读上下文 / 编排 / 质量环 / 落库分别在各 Stage 与 Finalizer；Worker 仍用 {@code orch-*}。
  * 附件拼装在入口由 {@link ChatUploadEnrichment} 完成，本类只收已经分好的 agentInput / memoryUserText。
  */
-@Slf4j
 @Service
 public class ChatOrchestrateStreamService {
 
-    private static final String AGENT_MODE_ORCHESTRATE = "orchestrate";
-    private static final String DEFAULT_QUALITY_CRITERIA =
-            "文件存在、非空，且内容符合用户目标。";
+    private final ChatTurnPipeline chatTurnPipeline;
 
-    private final AgentOrchestratorService agentOrchestratorService;
-    private final AgentEvaluatorOptimizerService agentEvaluatorOptimizerService;
-    private final ChatAssistantTurnService chatAssistantTurnService;
-    private final ChatMemory chatMemory;
-    private final WorkspaceUtil workspaceUtil;
-    private final ChatStreamEventWriter eventWriter;
-    private final OrchestrateDialogueContextService dialogueContextService;
-
-    public ChatOrchestrateStreamService(
-            AgentOrchestratorService agentOrchestratorService,
-            AgentEvaluatorOptimizerService agentEvaluatorOptimizerService,
-            ChatAssistantTurnService chatAssistantTurnService,
-            ChatMemory chatMemory,
-            WorkspaceUtil workspaceUtil,
-            ChatStreamEventWriter eventWriter,
-            OrchestrateDialogueContextService dialogueContextService) {
-        this.agentOrchestratorService = agentOrchestratorService;
-        this.agentEvaluatorOptimizerService = agentEvaluatorOptimizerService;
-        this.chatAssistantTurnService = chatAssistantTurnService;
-        this.chatMemory = chatMemory;
-        this.workspaceUtil = workspaceUtil;
-        this.eventWriter = eventWriter;
-        this.dialogueContextService = dialogueContextService;
+    public ChatOrchestrateStreamService(ChatTurnPipeline chatTurnPipeline) {
+        this.chatTurnPipeline = chatTurnPipeline;
     }
 
     /**
@@ -89,230 +35,7 @@ public class ChatOrchestrateStreamService {
             String kbId,
             boolean qualityLoop,
             String criteria) {
-        String turnId = chatId + "-" + UUID.randomUUID();
-        AtomicInteger seq = new AtomicInteger(0);
-        // sink=边生成边推给前端的「直播通道」
-        Sinks.Many<ChatStreamEvent> sink = Sinks.many().replay().limit(1024);
-        // accumulated=本回合事件清单，结束后用来落库/回放
-        List<ChatStreamEvent> accumulated = Collections.synchronizedList(new ArrayList<>());
-        // 更新事件堆栈
-        NdjsonStreamSupport.emitTracked(sink, accumulated, ChatStreamEvent.route(
-                turnId, seq, AGENT_MODE_ORCHESTRATE,
-                "主聊天默认多步编排（Orchestrator-Workers），跨能力 Worker 接力"));
-
-        String workDir = WorkspaceContext.get();
-        // 读路径：滚动摘要 + 近期原文（惰性更新摘要表）；不经 MessageChatMemoryAdvisor
-        String dialogueHistory = dialogueContextService.buildForOrchestrate(chatId);
-        OrchestrateRequest request = new OrchestrateRequest();
-        request.setInput(agentInput);
-        request.setKbId(kbId);
-        request.setWorkDir(workDir);
-        request.setDialogueHistory(dialogueHistory);
-
-        Mono<Void> drive = Mono.fromCallable(
-                        // 传入一个 Callable ，预约待执行的编排任务
-                        () -> agentOrchestratorService.orchestrate(
-                                request, step -> emitOrchestrateStep(sink, accumulated, turnId, seq, step))
-                )
-                .subscribeOn(Schedulers.boundedElastic()) // 使用什么线程池执行任务
-                // 规定编排任务执行完后下一步干什么：可能是最终答复 + 回答质量判定
-                .flatMap(
-                        result -> streamOrchestrateFinalAnswer(result, originalPrompt, dialogueHistory, sink, turnId, seq, accumulated)
-                                .then(Mono.defer(() -> runQualityLoopIfNeeded(
-                                        qualityLoop, criteria, originalPrompt, workDir,
-                                        result != null ? result.getSteps() : null,
-                                        accumulated, sink, turnId, seq)
-                                ))
-                )
-                .doOnError(e -> NdjsonStreamSupport.emitError(sink, turnId, seq, e, accumulated))
-                .doFinally(signal -> {
-                    // 读路径：dialogueHistory 注入决策/Worker/最终流式；Worker 用 orch-*，不写 chatId。
-                    // 写路径：回合结束显式落库短 USER+ASSISTANT（不含附件正文）。
-                    if (signal == SignalType.ON_COMPLETE) {
-                        persistOrchestrateExchange(chatId, memoryUserText, accumulated);
-                    }
-                    completeSink(sink, turnId, seq, signal, chatId, accumulated);
-                })
-                .then();
-
-        return NdjsonStreamSupport.mergeNdjson(sink, drive, eventWriter);
+        return chatTurnPipeline.streamOrchestrate(
+                agentInput, memoryUserText, originalPrompt, chatId, kbId, qualityLoop, criteria);
     }
-
-    private Mono<Void> streamOrchestrateFinalAnswer(
-            OrchestrateResultVO result,
-            String userGoal,
-            String dialogueHistory,
-            Sinks.Many<ChatStreamEvent> sink,
-            String turnId,
-            AtomicInteger seq,
-            List<ChatStreamEvent> accumulated) {
-        if (result == null) {
-            return Mono.empty();
-        }
-        StringBuilder streamed = new StringBuilder();
-        return agentOrchestratorService.streamFinalAnswer(userGoal, result, dialogueHistory)
-                .doOnNext(delta -> {
-                    streamed.append(delta);
-                    NdjsonStreamSupport.emitTracked(sink, accumulated,
-                            ChatStreamEvent.textDelta(turnId, seq, delta));
-                })
-                .then(Mono.fromRunnable(() -> {
-                    if (streamed.isEmpty() && StringUtils.hasText(result.getFinalAnswer())) {
-                        log.warn("streamFinalAnswer 无增量，回退整段 finalAnswer turnId={}", turnId);
-                        NdjsonStreamSupport.emitTracked(sink, accumulated, ChatStreamEvent.textDelta(
-                                turnId, seq, result.getFinalAnswer()));
-                    }
-                }));
-    }
-
-    private void persistOrchestrateExchange(String chatId, String userPrompt, List<ChatStreamEvent> events) {
-        if (!StringUtils.hasText(chatId) || !StringUtils.hasText(userPrompt) || events == null) {
-            return;
-        }
-        StringBuilder assistant = new StringBuilder();
-        for (ChatStreamEvent e : events) {
-            // 与流式路径一致：保留空格/换行 delta，勿用 hasText 丢掉 Markdown 结构空白
-            if (e != null
-                    && ChatStreamEvent.TYPE_TEXT_DELTA.equals(e.type())
-                    && e.text() != null
-                    && !e.text().isEmpty()) {
-                assistant.append(e.text());
-            }
-        }
-        if (assistant.isEmpty()) {
-            return;
-        }
-        try {
-            chatMemory.add(chatId, List.of(
-                    new UserMessage(userPrompt),
-                    new AssistantMessage(assistant.toString())));
-        } catch (Exception e) {
-            log.error("编排回合写入会话 Memory 失败 chatId={}: {}", chatId, e.getMessage(), e);
-        }
-    }
-
-    /** 把编排步推成 NDJSON step；retrieve_kb 的 citations / kbScope 写入 args。 */
-    private void emitOrchestrateStep(
-            Sinks.Many<ChatStreamEvent> sink,
-            List<ChatStreamEvent> accumulated,
-            String turnId,
-            AtomicInteger seq,
-            OrchestrateStepVO step) {
-        if (step == null) {
-            return;
-        }
-        NdjsonStreamSupport.emitTracked(sink, accumulated, ChatStreamEvent.step(
-                turnId,
-                seq,
-                step.getIndex(),
-                step.getAction(),
-                step.getReasoning(),
-                step.getInstruction(),
-                step.getObservation(),
-                step.getCitations(),
-                step.getKbScope()));
-    }
-
-    private Mono<Void> runQualityLoopIfNeeded(
-            boolean qualityLoop,
-            String criteria,
-            String userGoal,
-            String workDir,
-            List<OrchestrateStepVO> orchSteps,
-            List<ChatStreamEvent> accumulated,
-            Sinks.Many<ChatStreamEvent> sink,
-            String turnId,
-            AtomicInteger seq) {
-        if (!qualityLoop) {
-            return Mono.empty();
-        }
-        return Mono.fromRunnable(() -> {
-                    String path = WritePathExtractor.fromToolEvents(accumulated);
-                    if (!StringUtils.hasText(path) && orchSteps != null) {
-                        path = WritePathExtractor.fromOrchestrateSteps(orchSteps);
-                    }
-                    if (!StringUtils.hasText(path)) {
-                        path = WritePathExtractor.hintFromText(userGoal);
-                    }
-                    if (!StringUtils.hasText(path)) {
-                        log.warn("qualityLoop=true 但未解析到 write 路径，已跳过质量环 turnId={}", turnId);
-                        return;
-                    }
-
-                    EvaluateOptimizeRequest eoReq = new EvaluateOptimizeRequest();
-                    eoReq.setGoal(userGoal);
-                    eoReq.setPath(path);
-                    eoReq.setCriteria(StringUtils.hasText(criteria) ? criteria.trim() : DEFAULT_QUALITY_CRITERIA);
-                    eoReq.setWorkDir(StringUtils.hasText(workDir)
-                            ? workDir
-                            : workspaceUtil.getWorkspaceRoot().toString());
-
-                    log.info("主聊天质量环启动 path={} turnId={}", path, turnId);
-                    EvaluateOptimizeResultVO eoResult = agentEvaluatorOptimizerService.evaluateOptimize(eoReq);
-                    emitQualityLoopSteps(sink, accumulated, turnId, seq, eoResult);
-                    if (eoResult != null) {
-                        String summary = "\n\n（写盘质量环："
-                                + (eoResult.isPassed() ? "已通过" : "未完全通过")
-                                + "，原因=" + eoResult.getFinishedReason()
-                                + "，path=" + eoResult.getPath() + "）";
-                        NdjsonStreamSupport.emitTracked(sink, accumulated,
-                                ChatStreamEvent.textDelta(turnId, seq, summary));
-                    }
-                })
-                .subscribeOn(Schedulers.boundedElastic())
-                .onErrorResume(e -> {
-                    log.warn("质量环执行失败 turnId={}: {}", turnId, e.getMessage());
-                    NdjsonStreamSupport.emitTracked(sink, accumulated, ChatStreamEvent.step(
-                            turnId, seq, 0, "evaluate_optimize",
-                            "质量环异常", e.getMessage() != null ? e.getMessage() : "error", null));
-                    return Mono.empty();
-                })
-                .then();
-    }
-
-    private void emitQualityLoopSteps(
-            Sinks.Many<ChatStreamEvent> sink,
-            List<ChatStreamEvent> accumulated,
-            String turnId,
-            AtomicInteger seq,
-            EvaluateOptimizeResultVO eoResult) {
-        if (eoResult == null || eoResult.getRounds() == null) {
-            return;
-        }
-        int i = 1;
-        for (EvaluateOptimizeRoundVO round : eoResult.getRounds()) {
-            String reasoning = round.getReasoning() != null ? round.getReasoning() : "";
-            String feedback = round.getFeedback() != null ? round.getFeedback() : "";
-            String obs = "evaluationPass=" + round.isEvaluationPass()
-                    + ", ruleCheckPassed=" + round.isRuleCheckPassed()
-                    + (StringUtils.hasText(feedback) ? "\n" + feedback : "");
-            NdjsonStreamSupport.emitTracked(sink, accumulated, ChatStreamEvent.step(
-                    turnId, seq, i++, "evaluate_optimize", reasoning,
-                    "iteration=" + round.getIteration(), obs));
-        }
-    }
-
-    private void completeSink(
-            Sinks.Many<ChatStreamEvent> sink,
-            String turnId,
-            AtomicInteger seq,
-            SignalType signal,
-            String chatId,
-            List<ChatStreamEvent> accumulated) {
-        if (signal == SignalType.ON_COMPLETE) {
-            NdjsonStreamSupport.emitTracked(sink, accumulated, ChatStreamEvent.done(turnId, seq));
-        }
-        sink.tryEmitComplete();
-
-        boolean cancelledOrError = signal == SignalType.CANCEL || signal == SignalType.ON_ERROR;
-        List<ChatStreamEvent> snapshot = List.copyOf(accumulated);
-        Mono.fromRunnable(() -> chatAssistantTurnService.saveTurnFromEvents(
-                        chatId, turnId, snapshot, cancelledOrError))
-                .subscribeOn(Schedulers.boundedElastic())
-                .subscribe(
-                        null,
-                        err -> log.error("异步保存助手回合失败 turnId={}", turnId, err)
-                );
-    }
-
 }

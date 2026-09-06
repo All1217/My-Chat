@@ -2,11 +2,11 @@
 
 # 主聊天总体时序图
 
-从`my-chat-server/src/main/java/com/mychat/controller/ChatController.java`的`/ai/normalChat/chat`出发的时序图（成功路径；质量环在可解析 write 路径时才跑）：
+从`my-chat-server/src/main/java/com/mychat/controller/ChatController.java`的`/ai/normalChat/chat`出发的时序图（成功路径；质量环在可解析 write 路径时才跑）。源文件：[main-chat-sequence.mmd](../资源/Assets/main-chat-sequence.mmd)（管道拆分后已更新；下图若未重导则以 mmd 为准）。
 
 ![](../资源/Assets/main-chat-sequence.png)
 
-要点：`sink` 边推 NDJSON 给前端；`accumulated` 回合结束写 Memory 与 `chat_assistant_turns`；编排本身是同步循环，最终答复再 token 流式。
+要点：`ChatTurnPipeline` 按显式 Stage 顺序驱动（`emit_route` → `load_dialogue` → `orchestrate` → `stream_final` → `quality_loop`）；`sink` 边推 NDJSON 给前端；`ChatTurnFinalizer` 在 `doFinally` 写 Memory 与 `chat_assistant_turns`。编排本身是同步循环，最终答复再 token 流式。加长流程只需新增 `ChatTurnStage` 并插入管道列表，不要把 Memory/done 做成普通 Stage。
 
 # Orchestrate 长对话上下文（滚动摘要 + 近期原文）
 

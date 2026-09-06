@@ -2,62 +2,70 @@ sequenceDiagram
     participant FE as Frontend
     participant Ctrl as ChatController
     participant Sessions as ChatSessionsService
-    participant Stream as ChatOrchestrateStreamService
+    participant Facade as ChatOrchestrateStreamService
+    participant Pipe as ChatTurnPipeline
+    participant Stages as ChatTurnStages
     participant Mem as ChatMemory
     participant Orch as AgentOrchestratorService
     participant WF as OrchestratorWorkflow
     participant Worker as Worker_ChatClients
     participant EO as AgentEvaluatorOptimizerService
+    participant Fin as ChatTurnFinalizer
     participant Turns as ChatAssistantTurnService
 
     FE->>Ctrl: POST /ai/normalChat/chat
     Ctrl->>Ctrl: validate format=ndjson
     Ctrl->>Sessions: getWorkDir / getKbId
     Ctrl->>Ctrl: WorkspaceContext.set
-    Ctrl->>Stream: enrichPromptWithUploadedDocuments
-    Ctrl->>Stream: buildMemoryUserText
-    Ctrl->>Stream: streamOrchestrate
+    Ctrl->>Ctrl: enrichPromptWithUploadedDocuments
+    Ctrl->>Ctrl: buildMemoryUserText
+    Ctrl->>Facade: streamOrchestrate
+    Facade->>Pipe: streamOrchestrate
 
-    Stream->>Stream: create sink + accumulated
-    Stream-->>FE: NDJSON route=orchestrate
-    Stream->>Mem: get(chatId)
-    Stream->>Stream: formatDialogueHistory
-
-    Stream->>Orch: orchestrate(request, onStep)
+    Pipe->>Pipe: ChatTurnContext.open
+    Pipe->>Stages: emit_route
+    Stages-->>FE: NDJSON route=orchestrate
+    Pipe->>Stages: load_dialogue
+    Stages->>Mem: buildForOrchestrate
+    Pipe->>Stages: orchestrate
+    Stages->>Orch: orchestrate(request, onStep)
 
     loop until finish / single-shot / maxSteps
         Orch->>WF: decideNext
         WF-->>Orch: NextAction
         alt action is finish
-            Orch->>Stream: onStep finish
-            Stream-->>FE: NDJSON step
+            Orch->>Stages: onStep finish
+            Stages-->>FE: NDJSON step
         else Worker action
             Orch->>Worker: runWorker
             Worker-->>Orch: observation
-            Orch->>Stream: onStep worker
-            Stream-->>FE: NDJSON step
+            Orch->>Stages: onStep worker
+            Stages-->>FE: NDJSON step
             opt complexity=single and ok
-                Orch->>Stream: onStep autoFinish
-                Stream-->>FE: NDJSON step
+                Orch->>Stages: onStep autoFinish
+                Stages-->>FE: NDJSON step
             end
         end
     end
-    Orch-->>Stream: OrchestrateResultVO
+    Orch-->>Stages: OrchestrateResultVO
 
-    Stream->>Orch: streamFinalAnswer
+    Pipe->>Stages: stream_final
+    Stages->>Orch: streamFinalAnswer
     loop token deltas
-        Orch-->>Stream: text delta
-        Stream-->>FE: NDJSON text_delta
+        Orch-->>Stages: text delta
+        Stages-->>FE: NDJSON text_delta
     end
 
     opt qualityLoop and write path found
-        Stream->>EO: evaluateOptimize
-        EO-->>Stream: result
-        Stream-->>FE: NDJSON evaluate_optimize
+        Pipe->>Stages: quality_loop
+        Stages->>EO: evaluateOptimize
+        EO-->>Stages: result
+        Stages-->>FE: NDJSON evaluate_optimize
     end
 
-    Stream->>Mem: persistOrchestrateExchange
-    Stream->>Turns: saveTurnFromEvents
-    Stream-->>FE: NDJSON done
-    Stream-->>Ctrl: Flux complete
+    Pipe->>Fin: finalizeTurn
+    Fin->>Mem: persistOrchestrateExchange
+    Fin->>Turns: saveTurnFromEvents
+    Fin-->>FE: NDJSON done
+    Pipe-->>Ctrl: Flux complete
     Ctrl->>Ctrl: WorkspaceContext.clear

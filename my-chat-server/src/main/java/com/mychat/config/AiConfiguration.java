@@ -1,27 +1,16 @@
 package com.mychat.config;
 
-import com.mychat.tools.FileTools;
-import com.mychat.tools.WebSearchTools;
-import io.modelcontextprotocol.client.McpSyncClient;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
-import org.springframework.ai.chat.client.advisor.SimpleLoggerAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
 import org.springframework.ai.chat.memory.repository.jdbc.JdbcChatMemoryRepository;
-import org.springframework.ai.mcp.McpToolNamePrefixGenerator;
-import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.tool.execution.DefaultToolExecutionExceptionProcessor;
 import org.springframework.ai.tool.execution.ToolExecutionExceptionProcessor;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.util.CollectionUtils;
 
-import java.util.List;
-
-/** 装配 ChatClient、会话记忆与工具失败回灌策略。 */
+/** 装配会话记忆、工具失败回灌，以及三个按默认模型热切换的 ChatClient。 */
 @Configuration
 public class AiConfiguration {
     @Autowired
@@ -47,68 +36,21 @@ public class AiConfiguration {
         return new DefaultToolExecutionExceptionProcessor(false);
     }
 
-    /**
-     * 普通对话：本地 FileTools + searchWeb + YAML 配置的 MCP 工具。
-     * <p>
-     * Spring AI 2.0：MCP 不会自动挂到 ChatClient，须 {@code defaultToolCallbacks}。
-     * 按连接隔离 listTools，避免 Smithery 500 拖垮本地天气等其它 MCP。
-     */
+    /** 普通对话客户端：转发到当前默认模型的 tool 层。 */
     @Bean
-    public ChatClient toolChatClient(OpenAiChatModel model,
-                                     ChatMemory chatMemory,
-                                     FileTools fileTools,
-                                     WebSearchTools webSearchTools,
-                                     ObjectProvider<List<McpSyncClient>> mcpSyncClients,
-                                     ObjectProvider<McpToolNamePrefixGenerator> prefixGenerator) {
-        ChatClient.Builder builder = ChatClient.builder(model)
-                .defaultSystem("""
-                        涉及文件的查看、创建、写入、修改、删除、重命名、复制操作，请积极调用 FileTools 执行。
-                        网页搜索优先调用 searchWeb（本机直连 Exa REST）。
-                        天气等其它外部能力，调用当前已挂载的 MCP 工具。
-                        """)
-                .defaultAdvisors(
-                        new SimpleLoggerAdvisor(),
-                        MessageChatMemoryAdvisor.builder(chatMemory).build()
-                )
-                .defaultTools(fileTools, webSearchTools);
-
-        List<McpSyncClient> clients = mcpSyncClients.getIfAvailable();
-        if (!CollectionUtils.isEmpty(clients)) {
-            builder.defaultToolCallbacks(new TolerantMcpToolCallbackProvider(
-                    clients, prefixGenerator.getIfAvailable()));
-        }
-
-        return builder.build();
+    public ChatClient toolChatClient(ChatClientRegistry registry) {
+        return new DelegatingChatClient(registry::tool);
     }
 
-    /** 知识库 RAG：不注册任何工具，强制基于检索上下文回答 */
+    /** 知识库 RAG 客户端：转发到当前默认模型的 rag 层。 */
     @Bean
-    public ChatClient ragChatClient(OpenAiChatModel model, ChatMemory chatMemory) {
-        return ChatClient.builder(model)
-                .defaultSystem("""
-                        你是知识库问答助手。请严格基于系统提供的检索上下文回答问题。
-                        若上下文含「文档目录」，请根据目录概括库里有哪些资料，并请用户换一个具体问题；不要编造未列出的文档。
-                        若上下文只有若干检索片段，这些片段不是知识库的全部内容，禁止说「仅覆盖这些章节」或把它们当成全集。
-                        仅当上下文明确为空且没有文档目录时，才告知用户「知识库中未找到相关信息」，不要编造。
-                        不要尝试调用任何外部工具或命令。
-                        """)
-                .defaultAdvisors(
-                        new SimpleLoggerAdvisor(),
-                        MessageChatMemoryAdvisor.builder(chatMemory).build()
-                )
-                .build();
+    public ChatClient ragChatClient(ChatClientRegistry registry) {
+        return new DelegatingChatClient(registry::rag);
     }
 
-    /**
-     * Agent Workflow 专用客户端：无 FileTools / MCP、无会话记忆。
-     * <p>
-     * 用于 Routing 分类器与 general 路由，避免分类阶段误调工具。
-     * 与 {@link #toolChatClient}、{@link #ragChatClient} 并列，职责隔离。
-     */
+    /** 编排 / 分类客户端：转发到当前默认模型的 workflow 层。 */
     @Bean
-    public ChatClient agentWorkflowChatClient(OpenAiChatModel model) {
-        return ChatClient.builder(model)
-                .defaultAdvisors(new SimpleLoggerAdvisor())
-                .build();
+    public ChatClient agentWorkflowChatClient(ChatClientRegistry registry) {
+        return new DelegatingChatClient(registry::workflow);
     }
 }

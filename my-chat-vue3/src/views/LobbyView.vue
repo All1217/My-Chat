@@ -7,7 +7,7 @@
 
         <!-- 卡片网格 -->
         <div class="card-grid">
-            <div v-for="card in cards" :key="card.name" class="feature-card" :style="{ '--accent': card.color }"
+            <div v-for="card in cards" :key="card.id" class="feature-card" :style="{ '--accent': card.color }"
                 @click="handleCardClick(card)">
                 <div class="card-icon-box">
                     <el-icon :size="40" class="card-icon">
@@ -23,70 +23,17 @@
 
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
-import {
-    ChatDotRound,
-    User,
-    Setting,
-    HomeFilled,
-    UploadFilled
-} from '@element-plus/icons-vue'
+import { lobbyApps } from '@/apps/registry'
+import type { AppManifest } from '@/apps/types'
 
 const router = useRouter()
 
-interface FeatureCard {
-    name: string
-    title: string
-    desc: string
-    icon: any
-    color: string
-    route: string
-}
+/** 大厅只渲染注册表，增删功能去 apps/registry.ts。 */
+const cards = lobbyApps
 
-const cards: FeatureCard[] = [
-    {
-        name: 'chat',
-        title: '即刻聊天',
-        desc: '与 AI 自由对话，获取即时回答',
-        icon: ChatDotRound,
-        color: '#437dff',
-        route: 'chat',
-    },
-    {
-        name: 'roleplay',
-        title: '角色扮演',
-        desc: '选择角色，沉浸式情景互动',
-        icon: User,
-        color: '#9d48ff',
-        route: 'chat',
-    },
-    {
-        name: 'settings',
-        title: '设置',
-        desc: '个性化配置你的 AI 助手',
-        icon: Setting,
-        color: '#ff484e',
-        route: 'settings',
-    },
-    {
-        name: 'store',
-        title: '知识库管理',
-        desc: '个性化配置你的 AI 助手',
-        icon: UploadFilled,
-        color: '#9d48ff',
-        route: 'store',
-    },
-    {
-        name: 'home',
-        title: '回到首页',
-        desc: '返回 My Chat 主界面',
-        icon: HomeFilled,
-        color: '#437dff',
-        route: 'home',
-    },
-]
-
-function handleCardClick(card: FeatureCard) {
-    router.push({ name: card.route })
+/** 按功能包登记的路由名跳转。 */
+function handleCardClick(card: AppManifest) {
+    router.push({ name: card.routeName })
 }
 </script>
 

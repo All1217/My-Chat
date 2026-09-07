@@ -1,38 +1,29 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
+import { apps } from '@/apps/registry'
 
-// 定义路由配置
+/** 骨架路由：首页、关于、大厅、带壳的设置。整页应用由 registerAppRoutes 挂上。 */
 const routes: RouteRecordRaw[] = [
   {
     path: '/',
     name: 'home',
-    component: () => import('@/views/HomeView.vue')  // 懒加载
+    component: () => import('@/views/HomeView.vue'),
   },
   {
     path: '/about',
     name: 'about',
-    component: () => import('@/views/AboutView.vue')
-  },
-  {
-    path: '/chat',
-    name: 'chat',
-    component: () => import('@/views/ChatView.vue')
+    component: () => import('@/views/AboutView.vue'),
   },
   {
     path: '/lobby',
     name: 'lobby',
-    component: () => import('@/views/LobbyView.vue')
-  },
-  {
-    path: '/store',
-    name: 'store',
-    component: () => import('@/views/knowledgeStore/KnowledgeStore.vue')
+    component: () => import('@/views/LobbyView.vue'),
   },
   {
     path: '/settings',
     name: 'settings',
     component: () => import('@/views/settings/SettingsView.vue'),
-    redirect: '/settings/model',  // 默认跳转到第一个子页面
+    redirect: '/settings/model',
     children: [
       {
         path: 'model',
@@ -58,9 +49,25 @@ const routes: RouteRecordRaw[] = [
   },
 ]
 
-// 创建路由实例
 const router = createRouter({
-  history: createWebHistory(import.meta.env.BASE_URL),  // HTML5 模式
-  routes
+  history: createWebHistory(import.meta.env.BASE_URL),
+  routes,
 })
+
+/** 把已启用且尚未登记的功能包挂到路由上。 */
+function registerAppRoutes() {
+  for (const app of apps) {
+    if (router.hasRoute(app.routeName)) {
+      continue
+    }
+    router.addRoute({
+      path: app.routePath,
+      name: app.routeName,
+      component: app.component,
+    })
+  }
+}
+
+registerAppRoutes()
+
 export default router

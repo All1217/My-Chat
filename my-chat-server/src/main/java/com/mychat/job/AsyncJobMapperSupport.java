@@ -25,6 +25,7 @@ public final class AsyncJobMapperSupport {
         vo.setTitle(job.getTitle());
         vo.setRefId(job.getRefId());
         vo.setErrorMessage(job.getErrorMessage());
+        vo.setNotifyOnSuccess(job.getNotifyOnSuccess() == null || job.getNotifyOnSuccess());
         vo.setCreatedAt(format(job.getCreatedAt()));
         vo.setUpdatedAt(format(job.getUpdatedAt()));
         vo.setFinishedAt(format(job.getFinishedAt()));

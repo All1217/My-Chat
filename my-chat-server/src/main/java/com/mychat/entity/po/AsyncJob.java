@@ -44,6 +44,10 @@ public class AsyncJob {
     @TableField(value = "error_message")
     private String errorMessage;
 
+    @Schema(description = "成功是否弹窗+音效；失败始终提醒")
+    @TableField(value = "notify_on_success")
+    private Boolean notifyOnSuccess;
+
     @Schema(description = "创建时间")
     @TableField(value = "created_at", fill = FieldFill.INSERT)
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")

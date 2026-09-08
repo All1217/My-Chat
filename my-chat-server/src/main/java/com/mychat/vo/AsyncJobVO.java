@@ -12,6 +12,7 @@ public class AsyncJobVO {
     private String title;
     private String refId;
     private String errorMessage;
+    private Boolean notifyOnSuccess;
     private String createdAt;
     private String updatedAt;
     private String finishedAt;

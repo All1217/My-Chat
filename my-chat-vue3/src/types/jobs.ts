@@ -8,6 +8,8 @@ export interface AsyncJob {
   title: string
   refId?: string | null
   errorMessage?: string | null
+  /** 缺省 true：成功弹窗+音效；false 时成功静默，失败仍提醒 */
+  notifyOnSuccess?: boolean
   createdAt?: string | null
   updatedAt?: string | null
   finishedAt?: string | null

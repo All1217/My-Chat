@@ -82,6 +82,10 @@ export const useNotifyStore = defineStore('notify', () => {
       }
     }
 
+    if (job.status === 'SUCCEEDED' && job.notifyOnSuccess === false) {
+      return
+    }
+
     if (job.jobType === KB_INGEST) {
       ingestBuffer.push(job)
       if (ingestTimer) clearTimeout(ingestTimer)
@@ -104,12 +108,6 @@ export const useNotifyStore = defineStore('notify', () => {
     bindUnlockGesture()
     if (eventSource) return
 
-    try {
-      activeJobs.value = (await jobsApi.listActive()) ?? []
-    } catch {
-      activeJobs.value = []
-    }
-
     eventSource = jobsApi.openJobStream()
     eventSource.addEventListener('job', (ev: MessageEvent) => {
       try {
@@ -124,6 +122,12 @@ export const useNotifyStore = defineStore('notify', () => {
     }
     eventSource.onerror = () => {
       connected.value = false
+    }
+
+    try {
+      activeJobs.value = (await jobsApi.listActive()) ?? []
+    } catch {
+      activeJobs.value = []
     }
   }
 

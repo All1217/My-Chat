@@ -1,4 +1,5 @@
 import { ChatDotRound, HomeFilled, Setting, UploadFilled } from '@element-plus/icons-vue'
+import { marketApp } from '@/apps/market'
 import { roleplayApp } from '@/apps/roleplay'
 import type { AppManifest } from '@/apps/types'
 
@@ -51,7 +52,7 @@ const builtinApps: AppManifest[] = [
 ]
 
 /** 显式登记表：新功能在此 import 并入数组，不要改 LobbyView。 */
-const registeredApps: AppManifest[] = [...builtinApps, roleplayApp]
+const registeredApps: AppManifest[] = [...builtinApps, roleplayApp, marketApp]
 
 /** 比较功能包展示顺序，order 缺省为 100。 */
 function byOrder(a: AppManifest, b: AppManifest): number {

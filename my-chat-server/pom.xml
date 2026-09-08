@@ -141,6 +141,11 @@
             <artifactId>jsoup</artifactId>
             <version>${jsoup.version}</version>
         </dependency>
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
+            <version>4.12.0</version>
+        </dependency>
         <!-- Micrometer Context Propagation: ThreadLocal 跨 reactive 线程传播 -->
         <dependency>
             <groupId>io.micrometer</groupId>

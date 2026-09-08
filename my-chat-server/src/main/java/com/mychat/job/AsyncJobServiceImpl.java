@@ -32,19 +32,25 @@ public class AsyncJobServiceImpl extends ServiceImpl<AsyncJobMapper, AsyncJob> i
     private final AsyncJobMapper asyncJobMapper;
     private final AsyncJobDispatcher asyncJobDispatcher;
 
+    @Override
+    public AsyncJobVO submit(String jobType, String title, String refId, String payload) {
+        return submit(jobType, title, refId, payload, true);
+    }
+
     /**
      * 登记一条新任务并交给后台去跑。
      * <p>
      * 先校验、再 insert（状态 PENDING），然后 {@code dispatch}（异步，不等待），
      * 最后把刚写入的记录返回给调用方（此时多半还是 PENDING）。
      *
-     * @param jobType 业务类型，要和某个 {@code JobHandler.type()} 对得上
-     * @param title   用户看见的通知标题
-     * @param refId   业务主键，例如文档 ID，没有就传 null
-     * @param payload Handler 要用的 JSON 入参，没有就传 null
+     * @param jobType          业务类型，要和某个 {@code JobHandler.type()} 对得上
+     * @param title            用户看见的通知标题
+     * @param refId            业务主键，例如文档 ID，没有就传 null
+     * @param payload          Handler 要用的 JSON 入参，没有就传 null
+     * @param notifyOnSuccess  成功是否弹窗+音效；失败始终提醒
      */
     @Override
-    public AsyncJobVO submit(String jobType, String title, String refId, String payload) {
+    public AsyncJobVO submit(String jobType, String title, String refId, String payload, boolean notifyOnSuccess) {
         if (!StringUtils.hasText(jobType)) {
             throw new IllegalArgumentException("jobType 不能为空");
         }
@@ -58,6 +64,7 @@ public class AsyncJobServiceImpl extends ServiceImpl<AsyncJobMapper, AsyncJob> i
         job.setTitle(title.trim());
         job.setRefId(StringUtils.hasText(refId) ? refId.trim() : null);
         job.setPayload(payload);
+        job.setNotifyOnSuccess(notifyOnSuccess);
         asyncJobMapper.insert(job);
         log.info("提交任务 id={} type={} title={}", job.getId(), job.getJobType(), job.getTitle());
         asyncJobDispatcher.dispatch(job.getId());

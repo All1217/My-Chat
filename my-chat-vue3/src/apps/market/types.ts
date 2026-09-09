@@ -45,3 +45,31 @@ export interface MarketForecastRequest {
   symbol: string
   range: string
 }
+
+/** 已保存的投资策略与 AI 评价。 */
+export interface MarketStrategy {
+  strategyText: string
+  evaluation: string
+  updatedAt: string
+}
+
+export interface MarketStrategyRequest {
+  strategyText: string
+}
+
+/** 自选股列表。 */
+export interface MarketWatchlist {
+  symbols: string[]
+}
+
+export interface MarketWatchlistRequest {
+  symbols: string[]
+}
+
+/** 当天抄底提醒。 */
+export interface MarketWatchlistAlert {
+  pickSymbol: string
+  pickName: string
+  reason: string
+  cached: boolean
+}

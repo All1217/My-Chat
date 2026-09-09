@@ -8,6 +8,10 @@ target/
 src/main/resources/ingest/**
 !src/main/resources/ingest/.gitkeep
 
+# 股市策略 JSON（保留目录）
+data/**
+!data/.gitkeep
+
 ### IntelliJ IDEA ###
 .idea/modules.xml
 .idea/jarRepositories.xml

@@ -8,75 +8,147 @@
       <el-button @click="goLobby">回到大厅</el-button>
     </header>
 
-    <section class="search-card">
-      <el-input
-        v-model="symbol"
-        class="symbol-input"
-        placeholder="股票代码，如 600519、AAPL、159659、513500 或 NASDAQ:.IXIC"
-        clearable
-        @keyup.enter="analyze"
-      />
-      <el-radio-group v-model="range" class="range-group">
-        <el-radio-button value="1M">一个月</el-radio-button>
-        <el-radio-button value="3M">3个月</el-radio-button>
-        <el-radio-button value="6M">半年</el-radio-button>
-        <el-radio-button value="1Y">一年</el-radio-button>
-        <el-radio-button value="3Y">三年</el-radio-button>
-        <el-radio-button value="5Y">五年</el-radio-button>
-        <el-radio-button value="10Y">十年</el-radio-button>
-        <el-radio-button value="ALL">上市以来</el-radio-button>
-      </el-radio-group>
-      <el-button type="primary" :loading="loadingQuote" @click="analyze">分析</el-button>
-    </section>
+    <div class="market-body">
+      <div class="market-left">
+        <section class="search-card">
+          <el-input
+            v-model="symbol"
+            class="symbol-input"
+            placeholder="股票代码，如 600519、AAPL、159659、513500 或 NASDAQ:.IXIC"
+            clearable
+            @keyup.enter="analyze"
+          />
+          <el-radio-group v-model="range" class="range-group">
+            <el-radio-button value="1M">一个月</el-radio-button>
+            <el-radio-button value="3M">3个月</el-radio-button>
+            <el-radio-button value="6M">半年</el-radio-button>
+            <el-radio-button value="1Y">一年</el-radio-button>
+            <el-radio-button value="3Y">三年</el-radio-button>
+            <el-radio-button value="5Y">五年</el-radio-button>
+            <el-radio-button value="10Y">十年</el-radio-button>
+            <el-radio-button value="ALL">上市以来</el-radio-button>
+          </el-radio-group>
+          <el-button type="primary" :loading="loadingQuote" @click="analyze">分析</el-button>
+        </section>
 
-    <section v-if="quote" class="stats-row">
-      <div class="stat-card name-card">
-        <div class="stat-label">{{ quote.market === 'US' ? '美股' : 'A股' }}</div>
-        <div class="stat-value">{{ quote.name }}</div>
-        <div class="stat-sub">{{ quote.symbol }}</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">最新价</div>
-        <div class="stat-value">{{ formatPrice(quote.lastPrice) }}</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">涨跌幅</div>
-        <div class="stat-value" :class="changeClass(quote.changePct)">{{ formatPct(quote.changePct) }}</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">区间最高</div>
-        <div class="stat-value">{{ formatPrice(quote.high) }}</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">区间最低</div>
-        <div class="stat-value">{{ formatPrice(quote.low) }}</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">成交量</div>
-        <div class="stat-value volume">{{ formatVolume(quote.volume) }}</div>
-      </div>
-    </section>
+        <section v-if="quote" class="stats-row">
+          <div class="stat-card name-card">
+            <div class="stat-label">{{ quote.market === 'US' ? '美股' : 'A股' }}</div>
+            <div class="stat-value">{{ quote.name }}</div>
+            <div class="stat-sub">{{ quote.symbol }}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">最新价</div>
+            <div class="stat-value">{{ formatPrice(quote.lastPrice) }}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">涨跌幅</div>
+            <div class="stat-value" :class="changeClass(quote.changePct)">{{ formatPct(quote.changePct) }}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">区间最高</div>
+            <div class="stat-value">{{ formatPrice(quote.high) }}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">区间最低</div>
+            <div class="stat-value">{{ formatPrice(quote.low) }}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">成交量</div>
+            <div class="stat-value volume">{{ formatVolume(quote.volume) }}</div>
+          </div>
+        </section>
 
-    <section v-else class="empty-hint">输入代码并点击分析，查看走势与 AI 情景推演。</section>
+        <section v-else class="empty-hint">输入代码并点击分析，查看走势与 AI 情景推演。</section>
 
-    <section v-if="quote" class="chart-card">
-      <div class="chart-head">
-        <h2>走势图</h2>
-        <span v-if="predicting" class="chart-status">右半段预测生成中…</span>
-        <span v-else-if="forecastError" class="chart-status error">{{ forecastError }}</span>
+        <section v-if="quote" class="chart-card">
+          <div class="chart-head">
+            <h2>走势图</h2>
+            <span v-if="predicting" class="chart-status">右半段预测生成中…</span>
+            <span v-else-if="forecastError" class="chart-status error">{{ forecastError }}</span>
+          </div>
+          <div ref="chartEl" class="chart-el" />
+        </section>
+
+        <section v-if="quote" class="chart-card forecast-card">
+          <div class="chart-head">
+            <h2>未来预测趋势</h2>
+          </div>
+          <div ref="forecastChartEl" class="chart-el forecast-el" />
+        </section>
+
+        <p v-if="summary" class="ai-summary">{{ summary }}</p>
+        <p class="disclaimer">本页展示的未来走势为模型情景推演，不构成投资建议。</p>
+
+        <section class="chart-card watchlist-card">
+          <div class="chart-head">
+            <h2>自选股抄底提醒</h2>
+          </div>
+          <div class="watch-add">
+            <el-input
+              v-model="watchAdd"
+              placeholder="输入代码加入自选，最多 8 只"
+              clearable
+              @keyup.enter="addWatchSymbol"
+            />
+            <el-button type="primary" :loading="savingWatchlist" @click="addWatchSymbol">加入</el-button>
+          </div>
+          <div class="watch-tags">
+            <el-tag
+              v-for="code in watchSymbols"
+              :key="code"
+              closable
+              class="watch-tag"
+              @close="removeWatchSymbol(code)"
+            >
+              {{ code }}
+            </el-tag>
+            <span v-if="watchSymbols.length === 0" class="eval-placeholder">还没有自选股</span>
+          </div>
+          <p v-if="loadingAlert" class="eval-status">正在根据日 K 与策略判断加仓机会…</p>
+          <div v-else-if="alertPick" class="alert-pick">
+            <div class="alert-title">可酌情加仓：{{ alertName || alertPick }}</div>
+            <p class="eval-text">{{ alertReason }}</p>
+          </div>
+          <p v-else class="eval-placeholder">{{ alertReason || '暂无加仓提醒' }}</p>
+        </section>
       </div>
-      <div ref="chartEl" class="chart-el" />
-    </section>
 
-    <section v-if="quote" class="chart-card forecast-card">
-      <div class="chart-head">
-        <h2>未来预测趋势</h2>
-      </div>
-      <div ref="forecastChartEl" class="chart-el forecast-el" />
-    </section>
-
-    <p v-if="summary" class="ai-summary">{{ summary }}</p>
-    <p class="disclaimer">本页展示的未来走势为模型情景推演，不构成投资建议。</p>
+      <aside class="market-right">
+        <section class="side-card">
+          <div class="side-head">
+            <h2>我的投资策略</h2>
+            <el-button type="primary" :loading="savingStrategy" :disabled="optimizingStrategy" @click="saveStrategy">保存</el-button>
+          </div>
+          <el-input
+            v-model="strategyDraft"
+            type="textarea"
+            :rows="10"
+            maxlength="4000"
+            show-word-limit
+            placeholder="写下仓位、止损、持有周期等规则。保存后才会请 AI 评价。"
+          />
+        </section>
+        <section class="side-card eval-card">
+          <div class="side-head">
+            <h2>AI 评价</h2>
+          </div>
+          <p v-if="savingStrategy" class="eval-status">正在生成评价…</p>
+          <p v-else-if="optimizingStrategy" class="eval-status">正在优化策略…</p>
+          <p v-else-if="evaluation" class="eval-text">{{ evaluation }}</p>
+          <p v-else class="eval-placeholder">保存策略后，AI 会在此给出评价</p>
+          <el-button
+            v-if="evaluation"
+            class="optimize-btn"
+            :loading="optimizingStrategy"
+            :disabled="savingStrategy"
+            @click="optimizeStrategy"
+          >
+            让AI直接优化策略
+          </el-button>
+        </section>
+      </aside>
+    </div>
   </div>
 </template>
 
@@ -105,6 +177,18 @@ const chartEl = ref<HTMLElement | null>(null)
 const forecastChartEl = ref<HTMLElement | null>(null)
 const { render } = useMarketChart(chartEl)
 const { render: renderForecast } = useMarketChart(forecastChartEl, 'forecast')
+
+const strategyDraft = ref('')
+const evaluation = ref('')
+const savingStrategy = ref(false)
+const optimizingStrategy = ref(false)
+const watchAdd = ref('')
+const watchSymbols = ref<string[]>([])
+const savingWatchlist = ref(false)
+const loadingAlert = ref(false)
+const alertPick = ref('')
+const alertName = ref('')
+const alertReason = ref('')
 
 let unsubTerminal: (() => void) | undefined
 let pollTimer: ReturnType<typeof setInterval> | undefined
@@ -151,6 +235,107 @@ async function pollForecastOnce(id: string, gen: number) {
 /** 返回功能大厅。 */
 function goLobby() {
   router.push({ name: 'lobby' })
+}
+
+/** 进页只读已保存策略，不触发评价。 */
+async function loadStrategy() {
+  try {
+    const row = await marketApi.getStrategy()
+    strategyDraft.value = row.strategyText ?? ''
+    evaluation.value = row.evaluation ?? ''
+  } catch {
+    strategyDraft.value = ''
+    evaluation.value = ''
+  }
+}
+
+/** 保存后才调用 AI 评价一次。 */
+async function saveStrategy() {
+  savingStrategy.value = true
+  try {
+    const row = await marketApi.saveStrategy({ strategyText: strategyDraft.value })
+    strategyDraft.value = row.strategyText ?? ''
+    evaluation.value = row.evaluation ?? ''
+  } catch {
+    // 失败提示由 http 拦截器弹出
+  } finally {
+    savingStrategy.value = false
+  }
+  void loadAlert()
+}
+
+/** 用当前已保存策略生成优化稿并覆盖原文。 */
+async function optimizeStrategy() {
+  if (!evaluation.value || optimizingStrategy.value) {
+    return
+  }
+  optimizingStrategy.value = true
+  try {
+    const row = await marketApi.optimizeStrategy()
+    strategyDraft.value = row.strategyText ?? ''
+    evaluation.value = row.evaluation ?? ''
+  } catch {
+    // 失败提示由 http 拦截器弹出
+  } finally {
+    optimizingStrategy.value = false
+  }
+  void loadAlert()
+}
+
+/** 读取自选列表。 */
+async function loadWatchlist() {
+  try {
+    const row = await marketApi.getWatchlist()
+    watchSymbols.value = row.symbols ?? []
+  } catch {
+    watchSymbols.value = []
+  }
+}
+
+/** 进页拉取抄底提醒，可能命中当日缓存。 */
+async function loadAlert() {
+  loadingAlert.value = true
+  try {
+    const row = await marketApi.getWatchlistAlert()
+    alertPick.value = row.pickSymbol ?? ''
+    alertName.value = row.pickName ?? ''
+    alertReason.value = row.reason ?? '暂无加仓提醒'
+  } catch {
+    alertPick.value = ''
+    alertName.value = ''
+    alertReason.value = '暂无加仓提醒'
+  } finally {
+    loadingAlert.value = false
+  }
+}
+
+/** 覆盖保存自选并刷新提醒。 */
+async function persistWatchlist(next: string[]) {
+  savingWatchlist.value = true
+  try {
+    const row = await marketApi.saveWatchlist({ symbols: next })
+    watchSymbols.value = row.symbols ?? []
+    await loadAlert()
+  } catch {
+    // 失败提示由 http 拦截器弹出
+  } finally {
+    savingWatchlist.value = false
+  }
+}
+
+/** 加入一只自选股。 */
+async function addWatchSymbol() {
+  const code = watchAdd.value.trim()
+  if (!code) {
+    return
+  }
+  await persistWatchlist([...watchSymbols.value, code])
+  watchAdd.value = ''
+}
+
+/** 从自选中移除。 */
+async function removeWatchSymbol(code: string) {
+  await persistWatchlist(watchSymbols.value.filter((item) => item !== code))
 }
 
 /** 先拉行情画左半，再提交异步预测。 */
@@ -283,6 +468,8 @@ watch([quote, forecastPoints], () => {
 })
 
 onMounted(() => {
+  void loadStrategy()
+  void loadWatchlist().then(() => loadAlert())
   unsubTerminal = notifyStore.onJobTerminal((job) => {
     if (job.jobType !== 'market_forecast') {
       return
@@ -313,6 +500,70 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: flex-start;
   margin-bottom: 24px;
+}
+
+.market-body {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+.market-left {
+  min-width: 0;
+}
+
+.market-right {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.side-card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 16px 18px;
+  box-shadow: 0 8px 28px rgba(67, 125, 255, 0.08);
+}
+
+.side-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+
+  h2 {
+    margin: 0;
+    font-size: 16px;
+    color: #1a1a2e;
+  }
+}
+
+.eval-card {
+  min-height: 180px;
+}
+
+.eval-text {
+  margin: 0;
+  color: #444;
+  line-height: 1.7;
+  font-size: 14px;
+  white-space: pre-wrap;
+}
+
+.eval-placeholder,
+.eval-status {
+  margin: 0;
+  color: #999;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.optimize-btn {
+  width: 100%;
+  margin-top: 12px;
 }
 
 .market-title {
@@ -414,6 +665,41 @@ onUnmounted(() => {
   margin-top: 16px;
 }
 
+.watchlist-card {
+  margin-top: 16px;
+}
+
+.watch-add {
+  display: flex;
+  gap: 8px;
+  margin: 12px 8px 8px;
+}
+
+.watch-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 4px 8px 12px;
+  min-height: 32px;
+  align-items: center;
+}
+
+.watch-tag {
+  --el-tag-bg-color: #f3edff;
+  --el-tag-border-color: #d8c8ff;
+  --el-tag-text-color: #5b3cc4;
+}
+
+.alert-pick {
+  padding: 4px 8px 12px;
+}
+
+.alert-title {
+  font-weight: 700;
+  color: #1a1a2e;
+  margin-bottom: 8px;
+}
+
 .chart-head {
   display: flex;
   justify-content: space-between;
@@ -461,6 +747,14 @@ onUnmounted(() => {
 }
 
 @media (max-width: 1100px) {
+  .market-body {
+    grid-template-columns: 1fr;
+  }
+
+  .market-right {
+    position: static;
+  }
+
   .stats-row {
     grid-template-columns: repeat(3, 1fr);
   }

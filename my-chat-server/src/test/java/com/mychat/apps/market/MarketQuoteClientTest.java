@@ -22,6 +22,7 @@ class MarketQuoteClientTest {
     void parseEastMoneyBar() {
         KlinePointVO bar = MarketQuoteClient.parseEastMoneyBar("2024-01-02,1680,1690,1700,1670,12345,1,1,1,10,1");
         assertEquals("2024-01-02", bar.getDate());
+        assertEquals(1680.0, bar.getOpen());
         assertEquals(1690.0, bar.getClose());
         assertEquals(1700.0, bar.getHigh());
         assertEquals(1670.0, bar.getLow());

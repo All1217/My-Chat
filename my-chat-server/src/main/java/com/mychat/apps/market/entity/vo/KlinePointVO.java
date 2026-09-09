@@ -11,6 +11,7 @@ import lombok.NoArgsConstructor;
 public class KlinePointVO {
 
     private String date;
+    private Double open;
     private Double close;
     private Double high;
     private Double low;

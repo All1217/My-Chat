@@ -79,6 +79,9 @@ logging:
     com.mychat: debug
     org.springframework.web.reactive.function.client.ExchangeFunctions: trace
 app:
+  market:
+    strategy-file: ./data/market-strategy.json
+    watchlist-file: ./data/market-watchlist.json
   workspace:
     root: ./src/main/resources/workspace
   jobs:

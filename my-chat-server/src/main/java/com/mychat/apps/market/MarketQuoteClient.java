@@ -233,6 +233,7 @@ public class MarketQuoteClient {
         try {
             KlinePointVO point = new KlinePointVO();
             point.setDate(parts[0]);
+            point.setOpen(Double.parseDouble(parts[1]));
             point.setClose(Double.parseDouble(parts[2]));
             point.setHigh(Double.parseDouble(parts[3]));
             point.setLow(Double.parseDouble(parts[4]));

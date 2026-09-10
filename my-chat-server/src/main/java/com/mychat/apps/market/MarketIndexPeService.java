@@ -53,16 +53,9 @@ public class MarketIndexPeService {
     MarketIndexPeVO ensureTodayOn(LocalDate today) {
         String dateKey = today.toString();
         IndexPeFile file = readFile();
-        int peN = countPe(file);
-        boolean cacheHit = dateKey.equals(file.cacheDate) && STATUS_SUCCEEDED.equals(file.status);
-        // #region agent log
-        dbg("A", "MarketIndexPeService.ensureTodayOn", "cache check",
-                "{\"dateKey\":\"" + dateKey + "\",\"cacheDate\":\"" + String.valueOf(file.cacheDate)
-                        + "\",\"status\":\"" + String.valueOf(file.status) + "\",\"cacheHit\":" + cacheHit
-                        + ",\"indices\":" + (file.indices == null ? 0 : file.indices.size())
-                        + ",\"peN\":" + peN + "}");
-        // #endregion
-        if (cacheHit && peN > 0) {
+        if (dateKey.equals(file.cacheDate)
+                && STATUS_SUCCEEDED.equals(file.status)
+                && countPe(file) > 0) {
             return toVo(file);
         }
         try {
@@ -82,18 +75,9 @@ public class MarketIndexPeService {
 
     /** 一次 searchWeb，解析三指数后覆盖缓存。 */
     private IndexPeFile refresh(LocalDate today, IndexPeFile previous) {
-        // #region agent log
-        dbg("C", "MarketIndexPeService.refresh", "search start", "{\"today\":\"" + today + "\"}");
-        // #endregion
         String text = searchWorker.run(buildUserPrompt(), null);
         List<MarketIndexPeItemVO> items = parseItems(text);
         boolean anyData = items.stream().anyMatch(i -> i.getPe() != null || i.getPercentile() != null);
-        // #region agent log
-        dbg("C", "MarketIndexPeService.refresh", "search parsed",
-                "{\"textLen\":" + (text == null ? 0 : text.length())
-                        + ",\"snippet\":\"" + snippet(text) + "\",\"anyData\":" + anyData
-                        + ",\"peN\":" + items.stream().filter(i -> i.getPe() != null).count() + "}");
-        // #endregion
         if (!anyData) {
             throw new IllegalArgumentException("模型未返回有效指数估值");
         }
@@ -299,31 +283,6 @@ public class MarketIndexPeService {
         }
         return n;
     }
-
-    /** 截一段模型原文便于排查。 */
-    private static String snippet(String text) {
-        if (text == null) {
-            return "";
-        }
-        String one = text.replace('\\', ' ').replace('"', '\'').replace('\n', ' ');
-        return one.length() > 180 ? one.substring(0, 180) : one;
-    }
-
-    // #region agent log
-    private static void dbg(String hid, String loc, String msg, String data) {
-        try {
-            String line = "{\"sessionId\":\"1a3bec\",\"runId\":\"pre-fix\",\"hypothesisId\":\"" + hid
-                    + "\",\"location\":\"" + loc + "\",\"message\":\"" + msg
-                    + "\",\"data\":" + data + ",\"timestamp\":" + System.currentTimeMillis() + "}\n";
-            java.nio.file.Files.writeString(
-                    java.nio.file.Path.of("E:\\Program files\\projects\\My-Chat\\debug-1a3bec.log"),
-                    line,
-                    java.nio.file.StandardOpenOption.CREATE,
-                    java.nio.file.StandardOpenOption.APPEND);
-        } catch (Exception ignored) {
-        }
-    }
-    // #endregion
 
     private record IndexSpec(String code, String name) {
     }

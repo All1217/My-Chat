@@ -476,9 +476,6 @@ async function analyze() {
   currentForecastId.value = ''
   try {
     predicting.value = true
-    // #region agent log
-    fetch('http://127.0.0.1:7515/ingest/8099cd9c-7c2d-438a-a2f8-a6a8ca6e190c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'1a3bec'},body:JSON.stringify({sessionId:'1a3bec',runId:'pre-fix',hypothesisId:'A',location:'MarketView.vue:analyze',message:'submit start',data:{symbol:code,range:range.value},timestamp:Date.now()})}).catch(()=>{})
-    // #endregion
     const row = await marketApi.submitForecast({ symbol: code, range: range.value })
     if (gen !== analyzeGen) {
       return
@@ -503,11 +500,7 @@ async function analyze() {
     } else {
       startForecastPoll(row.id, gen)
     }
-  } catch (err: unknown) {
-    // #region agent log
-    const ax = err as { message?: string; response?: { status?: number; data?: { code?: number; message?: string } } }
-    fetch('http://127.0.0.1:7515/ingest/8099cd9c-7c2d-438a-a2f8-a6a8ca6e190c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'1a3bec'},body:JSON.stringify({sessionId:'1a3bec',runId:'pre-fix',hypothesisId:'E',location:'MarketView.vue:analyze',message:'submit catch',data:{err:String(err),msg:ax?.message,http:ax?.response?.status,code:ax?.response?.data?.code,apiMsg:ax?.response?.data?.message},timestamp:Date.now()})}).catch(()=>{})
-    // #endregion
+  } catch {
     if (gen !== analyzeGen) {
       return
     }
@@ -595,14 +588,8 @@ async function loadIndexPe() {
   try {
     const row = await marketApi.getIndexPe()
     indexPeRows.value = row.indices ?? []
-    // #region agent log
-    fetch('http://127.0.0.1:7515/ingest/8099cd9c-7c2d-438a-a2f8-a6a8ca6e190c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'1a3bec'},body:JSON.stringify({sessionId:'1a3bec',runId:'pre-fix',hypothesisId:'B',location:'MarketView.vue:loadIndexPe',message:'index-pe ok',data:{status:row?.status,n:(row?.indices||[]).length,pe0:row?.indices?.[0]?.pe ?? null,comment0:row?.indices?.[0]?.comment ?? '',keys:row?Object.keys(row):[]},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
-  } catch (err) {
+  } catch {
     indexPeRows.value = []
-    // #region agent log
-    fetch('http://127.0.0.1:7515/ingest/8099cd9c-7c2d-438a-a2f8-a6a8ca6e190c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'1a3bec'},body:JSON.stringify({sessionId:'1a3bec',runId:'pre-fix',hypothesisId:'B',location:'MarketView.vue:loadIndexPe',message:'index-pe catch',data:{err:String(err)},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
   } finally {
     loadingIndexPe.value = false
   }

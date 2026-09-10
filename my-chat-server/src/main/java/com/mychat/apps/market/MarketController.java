@@ -56,17 +56,8 @@ public class MarketController {
             if (request == null) {
                 throw new IllegalArgumentException("请求体不能为空");
             }
-            // #region agent log
-            dbg("A", "MarketController.forecast", "forecast entry",
-                    "{\"symbol\":\"" + String.valueOf(request.getSymbol())
-                            + "\",\"range\":\"" + String.valueOf(request.getRange()) + "\"}");
-            // #endregion
             return Result.ok(marketForecastService.submit(request.getSymbol(), request.getRange()));
         } catch (IllegalArgumentException e) {
-            // #region agent log
-            dbg("C", "MarketController.forecast", "forecast fail",
-                    "{\"msg\":\"" + String.valueOf(e.getMessage()).replace('"', '\'') + "\"}");
-            // #endregion
             return Result.fail(400, e.getMessage());
         }
     }
@@ -145,42 +136,13 @@ public class MarketController {
         }
     }
 
-    /** 三大指数市盈率与近五年分位；同日已成功则只读缓存。 */
+    /** 三大指数市盈率与近五年分位；同日有估值则只读缓存。 */
     @GetMapping("/index-pe")
     public Result<MarketIndexPeVO> indexPe() {
         try {
-            MarketIndexPeVO vo = marketIndexPeService.ensureToday();
-            // #region agent log
-            int peN = 0;
-            if (vo.getIndices() != null) {
-                peN = (int) vo.getIndices().stream()
-                        .filter(i -> i != null && (i.getPe() != null || i.getPercentile() != null))
-                        .count();
-            }
-            dbg("A", "MarketController.indexPe", "response",
-                    "{\"status\":\"" + String.valueOf(vo.getStatus())
-                            + "\",\"n\":" + (vo.getIndices() == null ? 0 : vo.getIndices().size())
-                            + ",\"peN\":" + peN + "}");
-            // #endregion
-            return Result.ok(vo);
+            return Result.ok(marketIndexPeService.ensureToday());
         } catch (IllegalArgumentException e) {
             return Result.fail(400, e.getMessage());
         }
     }
-
-    // #region agent log
-    private static void dbg(String hid, String loc, String msg, String data) {
-        try {
-            String line = "{\"sessionId\":\"1a3bec\",\"runId\":\"pre-fix\",\"hypothesisId\":\"" + hid
-                    + "\",\"location\":\"" + loc + "\",\"message\":\"" + msg
-                    + "\",\"data\":" + data + ",\"timestamp\":" + System.currentTimeMillis() + "}\n";
-            java.nio.file.Files.writeString(
-                    java.nio.file.Path.of("E:\\Program files\\projects\\My-Chat\\debug-1a3bec.log"),
-                    line,
-                    java.nio.file.StandardOpenOption.CREATE,
-                    java.nio.file.StandardOpenOption.APPEND);
-        } catch (Exception ignored) {
-        }
-    }
-    // #endregion
 }

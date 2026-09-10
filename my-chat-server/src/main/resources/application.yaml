@@ -82,6 +82,8 @@ app:
   market:
     strategy-file: ./data/market-strategy.json
     watchlist-file: ./data/market-watchlist.json
+    crash-risk-file: ./data/market-crash-risk.json
+    index-pe-file: ./data/market-index-pe.json
   workspace:
     root: ./src/main/resources/workspace
   jobs:

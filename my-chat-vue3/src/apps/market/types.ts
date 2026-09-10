@@ -73,3 +73,34 @@ export interface MarketWatchlistAlert {
   reason: string
   cached: boolean
 }
+
+/** 美股大回撤情景预警。 */
+export interface MarketCrashRisk {
+  weekKey: string
+  generatedAt: string
+  window: string
+  trigger: string
+  impact: string
+  status: string
+  jobId: string
+  errorMessage: string
+}
+
+/** 一只指数的市盈率与近五年分位。 */
+export interface MarketIndexPeItem {
+  code: string
+  name: string
+  pe: number | null
+  percentile: number | null
+  sampleSize: number
+  comment: string
+}
+
+/** 三大指数市盈率日缓存。 */
+export interface MarketIndexPe {
+  cacheDate: string
+  generatedAt: string
+  status: string
+  errorMessage: string
+  indices: MarketIndexPeItem[]
+}

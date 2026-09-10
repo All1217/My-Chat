@@ -15,4 +15,10 @@ public class MarketStrategyProperties {
 
     /** 自选股与当日提醒缓存。 */
     private String watchlistFile = "./data/market-watchlist.json";
+
+    /** 美股大回撤情景预警（按 ISO 周缓存）。 */
+    private String crashRiskFile = "./data/market-crash-risk.json";
+
+    /** 三大指数市盈率与五年分位（按自然日缓存）。 */
+    private String indexPeFile = "./data/market-index-pe.json";
 }

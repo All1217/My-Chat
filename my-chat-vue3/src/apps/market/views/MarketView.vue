@@ -10,6 +10,26 @@
 
     <div class="market-body">
       <div class="market-left">
+        <section class="index-pe-card">
+          <div class="chart-head">
+            <h2>美股指数估值</h2>
+          </div>
+          <p v-if="loadingIndexPe" class="eval-status index-pe-status">正在检索指数估值…</p>
+          <div v-else-if="indexPeRows.length === 0" class="eval-placeholder index-pe-status">暂无指数估值</div>
+          <div v-else class="index-pe-grid">
+            <div v-for="row in indexPeRows" :key="row.code" class="index-pe-item">
+              <div class="stat-label">{{ row.name }}</div>
+              <div class="stat-value">{{ formatPe(row.pe) }}</div>
+              <div class="index-pe-pct">近五年分位 {{ formatPercentile(row.percentile) }}</div>
+              <div class="index-pe-bar">
+                <div class="index-pe-bar-fill" :style="{ width: percentileWidth(row.percentile) }" />
+              </div>
+              <p class="index-pe-comment">{{ row.comment || '—' }}</p>
+            </div>
+          </div>
+          <p class="index-pe-note">根据公开网络资料整理，仅为参考，不构成投资建议。</p>
+        </section>
+
         <section class="search-card">
           <el-input
             v-model="symbol"
@@ -147,6 +167,29 @@
             让AI直接优化策略
           </el-button>
         </section>
+        <section class="side-card crash-card">
+          <div class="side-head">
+            <h2>股灾风险预警</h2>
+          </div>
+          <p v-if="crashRefreshing" class="eval-status">正在更新本周预警…</p>
+          <template v-if="crashWindow || crashTrigger || crashImpact">
+            <div class="crash-block">
+              <div class="crash-label">时间窗口</div>
+              <p class="eval-text">{{ crashWindow || '—' }}</p>
+            </div>
+            <div class="crash-block">
+              <div class="crash-label">触发因素</div>
+              <p class="eval-text">{{ crashTrigger || '—' }}</p>
+            </div>
+            <div class="crash-block">
+              <div class="crash-label">可能影响</div>
+              <p class="eval-text">{{ crashImpact || '—' }}</p>
+            </div>
+          </template>
+          <p v-else-if="!crashRefreshing" class="eval-placeholder">本周预警生成后将显示在这里</p>
+          <p v-if="crashError" class="eval-status crash-error">{{ crashError }}</p>
+          <p class="crash-disclaimer">以上为联网检索后的情景分析，不是可兑现的预测，不构成投资建议。</p>
+        </section>
       </aside>
     </div>
   </div>
@@ -157,7 +200,7 @@ import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { marketApi } from '@/apps/market/api'
 import { useMarketChart } from '@/apps/market/composables/useMarketChart'
-import type { KlinePoint, MarketQuote } from '@/apps/market/types'
+import type { KlinePoint, MarketIndexPeItem, MarketQuote } from '@/apps/market/types'
 import { useNotifyStore } from '@/stores/notify'
 
 const router = useRouter()
@@ -189,10 +232,19 @@ const loadingAlert = ref(false)
 const alertPick = ref('')
 const alertName = ref('')
 const alertReason = ref('')
+const crashWindow = ref('')
+const crashTrigger = ref('')
+const crashImpact = ref('')
+const crashRefreshing = ref(false)
+const crashError = ref('')
+const loadingIndexPe = ref(false)
+const indexPeRows = ref<MarketIndexPeItem[]>([])
 
 let unsubTerminal: (() => void) | undefined
 let pollTimer: ReturnType<typeof setInterval> | undefined
+let crashPollTimer: ReturnType<typeof setInterval> | undefined
 let pollTicks = 0
+let crashPollTicks = 0
 const POLL_MS = 1500
 const POLL_MAX_TICKS = 40
 
@@ -200,6 +252,13 @@ function stopForecastPoll() {
   if (pollTimer) {
     clearInterval(pollTimer)
     pollTimer = undefined
+  }
+}
+
+function stopCrashPoll() {
+  if (crashPollTimer) {
+    clearInterval(crashPollTimer)
+    crashPollTimer = undefined
   }
 }
 
@@ -338,6 +397,69 @@ async function removeWatchSymbol(code: string) {
   await persistWatchlist(watchSymbols.value.filter((item) => item !== code))
 }
 
+/** 把预警接口结果填进右列。 */
+function applyCrashRisk(row: {
+  window?: string
+  trigger?: string
+  impact?: string
+  status?: string
+  errorMessage?: string
+}) {
+  crashWindow.value = row.window ?? ''
+  crashTrigger.value = row.trigger ?? ''
+  crashImpact.value = row.impact ?? ''
+  crashRefreshing.value = row.status === 'RUNNING'
+  crashError.value = row.status === 'FAILED' ? (row.errorMessage || '本周预警更新失败') : ''
+}
+
+/** 进页拉取预警；本周任务进行中则轮询。 */
+async function loadCrashRisk() {
+  try {
+    const row = await marketApi.getCrashRisk()
+    applyCrashRisk(row)
+    if (row.status === 'RUNNING') {
+      startCrashPoll()
+    } else {
+      stopCrashPoll()
+    }
+  } catch {
+    crashRefreshing.value = false
+    if (!crashWindow.value && !crashTrigger.value && !crashImpact.value) {
+      crashError.value = ''
+    }
+  }
+}
+
+/** 轮询 GET /crash-risk 直到本周成功或失败。 */
+function startCrashPoll() {
+  if (crashPollTimer) {
+    return
+  }
+  crashPollTicks = 0
+  crashPollTimer = setInterval(() => {
+    void pollCrashOnce()
+  }, POLL_MS)
+}
+
+async function pollCrashOnce() {
+  crashPollTicks += 1
+  try {
+    const row = await marketApi.getCrashRisk()
+    applyCrashRisk(row)
+    if (row.status !== 'RUNNING') {
+      stopCrashPoll()
+      return
+    }
+  } catch {
+    // 下次再试
+  }
+  if (crashPollTicks >= POLL_MAX_TICKS) {
+    stopCrashPoll()
+    crashRefreshing.value = false
+    crashError.value = '预警等待超时'
+  }
+}
+
 /** 先拉行情画左半，再提交异步预测。 */
 async function analyze() {
   const code = symbol.value.trim()
@@ -467,10 +589,59 @@ watch([quote, forecastPoints], () => {
   }
 })
 
+/** 进页拉取三大指数市盈率；同日命中缓存，跨日同步刷新。 */
+async function loadIndexPe() {
+  loadingIndexPe.value = true
+  try {
+    const row = await marketApi.getIndexPe()
+    indexPeRows.value = row.indices ?? []
+    // #region agent log
+    fetch('http://127.0.0.1:7515/ingest/8099cd9c-7c2d-438a-a2f8-a6a8ca6e190c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'1a3bec'},body:JSON.stringify({sessionId:'1a3bec',runId:'pre-fix',hypothesisId:'B',location:'MarketView.vue:loadIndexPe',message:'index-pe ok',data:{status:row?.status,n:(row?.indices||[]).length,pe0:row?.indices?.[0]?.pe ?? null,comment0:row?.indices?.[0]?.comment ?? '',keys:row?Object.keys(row):[]},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+  } catch (err) {
+    indexPeRows.value = []
+    // #region agent log
+    fetch('http://127.0.0.1:7515/ingest/8099cd9c-7c2d-438a-a2f8-a6a8ca6e190c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'1a3bec'},body:JSON.stringify({sessionId:'1a3bec',runId:'pre-fix',hypothesisId:'B',location:'MarketView.vue:loadIndexPe',message:'index-pe catch',data:{err:String(err)},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+  } finally {
+    loadingIndexPe.value = false
+  }
+}
+
+/** 市盈率保留一位小数。 */
+function formatPe(value: number | null | undefined) {
+  if (value == null || Number.isNaN(value)) {
+    return '—'
+  }
+  return value.toFixed(1)
+}
+
+/** 分位显示为整数百分数。 */
+function formatPercentile(value: number | null | undefined) {
+  if (value == null || Number.isNaN(value)) {
+    return '—'
+  }
+  return `${Math.round(value)}%`
+}
+
+/** 分位进度条宽度。 */
+function percentileWidth(value: number | null | undefined) {
+  if (value == null || Number.isNaN(value)) {
+    return '0%'
+  }
+  return `${Math.max(0, Math.min(100, value))}%`
+}
+
 onMounted(() => {
   void loadStrategy()
   void loadWatchlist().then(() => loadAlert())
+  void loadCrashRisk()
+  void loadIndexPe()
   unsubTerminal = notifyStore.onJobTerminal((job) => {
+    if (job.jobType === 'market_crash_risk') {
+      void loadCrashRisk()
+      return
+    }
     if (job.jobType !== 'market_forecast') {
       return
     }
@@ -482,6 +653,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   stopForecastPoll()
+  stopCrashPoll()
   unsubTerminal?.()
 })
 </script>
@@ -566,6 +738,31 @@ onUnmounted(() => {
   margin-top: 12px;
 }
 
+.crash-card {
+  min-height: 160px;
+}
+
+.crash-block {
+  margin-bottom: 10px;
+}
+
+.crash-label {
+  font-size: 12px;
+  color: #999;
+  margin-bottom: 4px;
+}
+
+.crash-disclaimer {
+  margin: 12px 0 0;
+  font-size: 12px;
+  color: #bbb;
+  line-height: 1.6;
+}
+
+.crash-error {
+  color: #e11d48;
+}
+
 .market-title {
   margin: 0;
   font-size: 32px;
@@ -592,6 +789,64 @@ onUnmounted(() => {
   box-shadow: 0 8px 28px rgba(67, 125, 255, 0.08);
   margin-bottom: 20px;
   flex-wrap: wrap;
+}
+
+.index-pe-card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 12px 16px 10px;
+  box-shadow: 0 8px 28px rgba(67, 125, 255, 0.08);
+  margin-bottom: 16px;
+}
+
+.index-pe-status {
+  padding: 8px 8px 4px;
+}
+
+.index-pe-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  padding: 8px 4px 4px;
+}
+
+.index-pe-item {
+  background: #f8f6ff;
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.index-pe-pct {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #888;
+}
+
+.index-pe-bar {
+  margin-top: 8px;
+  height: 6px;
+  border-radius: 999px;
+  background: #ece6ff;
+  overflow: hidden;
+}
+
+.index-pe-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #9d48ff, #437dff);
+}
+
+.index-pe-comment {
+  margin: 10px 0 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #444;
+}
+
+.index-pe-note {
+  margin: 8px 8px 4px;
+  font-size: 12px;
+  color: #bbb;
 }
 
 .symbol-input {
@@ -757,6 +1012,10 @@ onUnmounted(() => {
 
   .stats-row {
     grid-template-columns: repeat(3, 1fr);
+  }
+
+  .index-pe-grid {
+    grid-template-columns: 1fr;
   }
 }
 

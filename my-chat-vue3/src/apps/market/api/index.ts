@@ -8,6 +8,8 @@ import type {
   MarketWatchlist,
   MarketWatchlistAlert,
   MarketWatchlistRequest,
+  MarketCrashRisk,
+  MarketIndexPe,
 } from '@/apps/market/types'
 
 export const marketApi = {
@@ -40,4 +42,10 @@ export const marketApi = {
       silent: true,
       timeout: 120000,
     }),
+
+  getCrashRisk: () =>
+    ragClient.get<MarketCrashRisk>('/ai/apps/market/crash-risk', { silent: true, timeout: 30000 }),
+
+  getIndexPe: () =>
+    ragClient.get<MarketIndexPe>('/ai/apps/market/index-pe', { silent: true, timeout: 120000 }),
 }

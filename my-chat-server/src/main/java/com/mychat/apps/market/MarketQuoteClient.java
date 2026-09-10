@@ -64,11 +64,6 @@ public class MarketQuoteClient {
     public MarketQuoteVO fetch(String rawSymbol, String rangeKey) {
         String range = MarketCalendar.requireRange(rangeKey);
         ResolvedSymbol symbol = MarketSymbolParser.parse(rawSymbol);
-        // #region agent log
-        dbg("D", "MarketQuoteClient.fetch", "parsed symbol",
-                "{\"raw\":\"" + String.valueOf(rawSymbol) + "\",\"market\":\"" + symbol.market()
-                        + "\",\"sym\":\"" + symbol.symbol() + "\",\"range\":\"" + range + "\"}");
-        // #endregion
         MarketQuoteVO quote = symbol.cn() ? fetchCn(symbol, range) : fetchUs(symbol, range);
         if (quote.getHistory() == null || quote.getHistory().size() < 8) {
             throw new IllegalArgumentException("该时间段内行情过少，请换一只股票或更长时间段");
@@ -128,11 +123,6 @@ public class MarketQuoteClient {
                 ResolvedSymbol em = new ResolvedSymbol(
                         symbol.symbol(), "US", mkt + "." + symbol.symbol());
                 MarketQuoteVO quote = fetchCn(em, range);
-                // #region agent log
-                dbg("B", "MarketQuoteClient.fetchUs", "eastmoney us ok",
-                        "{\"secid\":\"" + em.eastMoneySecId() + "\",\"bars\":"
-                                + quote.getHistory().size() + "}");
-                // #endregion
                 return quote;
             } catch (IllegalArgumentException e) {
                 last = e;
@@ -155,16 +145,11 @@ public class MarketQuoteClient {
             Request request = new Request.Builder()
                     .url(uri.toString())
                     .header("User-Agent", UA)
+                    .header("Referer", "https://quote.eastmoney.com/")
                     .get()
                     .build();
             try (Response response = okHttp.newCall(request).execute()) {
                 String body = response.body() == null ? "" : response.body().string();
-                // #region agent log
-                dbg("B", "MarketQuoteClient.getJsonOkHttp", "http result",
-                        "{\"host\":\"" + (uri.getHost() == null ? "" : uri.getHost())
-                                + "\",\"code\":" + response.code() + ",\"bytes\":" + body.length()
-                                + ",\"ok\":" + response.isSuccessful() + "}");
-                // #endregion
                 if (!response.isSuccessful() || body.isBlank()) {
                     throw new IllegalArgumentException("无法识别或暂无行情");
                 }
@@ -173,12 +158,6 @@ public class MarketQuoteClient {
                 throw e;
             } catch (Exception e) {
                 last = e;
-                // #region agent log
-                dbg("B", "MarketQuoteClient.getJsonOkHttp", "http ex",
-                        "{\"host\":\"" + (uri.getHost() == null ? "" : uri.getHost())
-                                + "\",\"attempt\":" + attempt + ",\"ex\":\"" + e.getClass().getSimpleName()
-                                + "\",\"msg\":\"" + String.valueOf(e.getMessage()).replace('"', '\'') + "\"}");
-                // #endregion
                 if (attempt == 1) {
                     continue;
                 }
@@ -196,6 +175,7 @@ public class MarketQuoteClient {
                     .uri(uri)
                     .accept(MediaType.APPLICATION_JSON)
                     .header("User-Agent", UA)
+                    .header("Referer", "https://quote.eastmoney.com/")
                     .retrieve()
                     .body(String.class);
             if (body == null || body.isBlank()) {
@@ -283,19 +263,4 @@ public class MarketQuoteClient {
         return t.isBlank() ? fallback : t;
     }
 
-    // #region agent log
-    private static void dbg(String hid, String loc, String msg, String data) {
-        try {
-            String line = "{\"sessionId\":\"1a3bec\",\"runId\":\"pre-fix\",\"hypothesisId\":\"" + hid
-                    + "\",\"location\":\"" + loc + "\",\"message\":\"" + msg
-                    + "\",\"data\":" + data + ",\"timestamp\":" + System.currentTimeMillis() + "}\n";
-            java.nio.file.Files.writeString(
-                    java.nio.file.Path.of("E:\\Program files\\projects\\My-Chat\\debug-1a3bec.log"),
-                    line,
-                    java.nio.file.StandardOpenOption.CREATE,
-                    java.nio.file.StandardOpenOption.APPEND);
-        } catch (Exception ignored) {
-        }
-    }
-    // #endregion
 }

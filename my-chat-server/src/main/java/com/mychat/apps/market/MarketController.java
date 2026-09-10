@@ -3,7 +3,9 @@ package com.mychat.apps.market;
 import com.mychat.apps.market.entity.dto.MarketForecastRequest;
 import com.mychat.apps.market.entity.dto.MarketStrategyRequest;
 import com.mychat.apps.market.entity.dto.MarketWatchlistRequest;
+import com.mychat.apps.market.entity.vo.MarketCrashRiskVO;
 import com.mychat.apps.market.entity.vo.MarketForecastVO;
+import com.mychat.apps.market.entity.vo.MarketIndexPeVO;
 import com.mychat.apps.market.entity.vo.MarketQuoteVO;
 import com.mychat.apps.market.entity.vo.MarketStrategyVO;
 import com.mychat.apps.market.entity.vo.MarketWatchlistAlertVO;
@@ -22,7 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-/** 股市分析 API：同步行情、异步预测、策略读写与评价。 */
+/** 股市分析 API：行情、预测、策略、自选提醒、股灾预警与指数市盈率。 */
 @Slf4j
 @RestController
 @RequestMapping("/ai/apps/market")
@@ -32,6 +34,8 @@ public class MarketController {
     private final MarketForecastService marketForecastService;
     private final MarketStrategyService marketStrategyService;
     private final MarketWatchlistService marketWatchlistService;
+    private final MarketCrashRiskService marketCrashRiskService;
+    private final MarketIndexPeService marketIndexPeService;
 
     /** 拉取基本信息与历史 K 线，不写库。 */
     @GetMapping("/quote")
@@ -126,6 +130,39 @@ public class MarketController {
     public Result<MarketWatchlistAlertVO> watchlistAlert() {
         try {
             return Result.ok(marketWatchlistService.alert());
+        } catch (IllegalArgumentException e) {
+            return Result.fail(400, e.getMessage());
+        }
+    }
+
+    /** 本周美股大回撤情景预警；跨周则提交后台搜索任务。 */
+    @GetMapping("/crash-risk")
+    public Result<MarketCrashRiskVO> crashRisk() {
+        try {
+            return Result.ok(marketCrashRiskService.ensureCurrentWeek());
+        } catch (IllegalArgumentException e) {
+            return Result.fail(400, e.getMessage());
+        }
+    }
+
+    /** 三大指数市盈率与近五年分位；同日已成功则只读缓存。 */
+    @GetMapping("/index-pe")
+    public Result<MarketIndexPeVO> indexPe() {
+        try {
+            MarketIndexPeVO vo = marketIndexPeService.ensureToday();
+            // #region agent log
+            int peN = 0;
+            if (vo.getIndices() != null) {
+                peN = (int) vo.getIndices().stream()
+                        .filter(i -> i != null && (i.getPe() != null || i.getPercentile() != null))
+                        .count();
+            }
+            dbg("A", "MarketController.indexPe", "response",
+                    "{\"status\":\"" + String.valueOf(vo.getStatus())
+                            + "\",\"n\":" + (vo.getIndices() == null ? 0 : vo.getIndices().size())
+                            + ",\"peN\":" + peN + "}");
+            // #endregion
+            return Result.ok(vo);
         } catch (IllegalArgumentException e) {
             return Result.fail(400, e.getMessage());
         }

@@ -30,7 +30,7 @@ spring:
       api-key: ${OPENAI_API_KEY}
       chat:
         options:
-          model: deepseek-v4-flash
+          model: deepseek-flash
           max-tokens: 8192
           extra-body:
             thinking:

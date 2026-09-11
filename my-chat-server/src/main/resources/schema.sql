@@ -1,4 +1,23 @@
--- PGSQL版
+-- My-Chat 数据库一键初始化（PostgreSQL 14+ / schema public）
+--
+-- 新主机执行一次即可建齐全部业务表；全程 IF NOT EXISTS，可重复跑。
+-- 与 application.yaml 默认一致：库名 postgres，schema public。
+--
+--   psql -U postgres -d postgres -f my-chat-server/src/main/resources/schema.sql
+--
+-- 前置：本机 PostgreSQL 已安装 pgvector（否则下一句 CREATE EXTENSION vector 会失败）。
+-- CREATE EXTENSION 需要超级用户，或该库已授予 CREATE。
+-- 不建库：若要用独立库，先 CREATE DATABASE，改 JDBC URL 后再对本文件指向该库。
+-- 不写种子：对话模型默认行由后端 LlmModelSeedRunner 首次启动插入。
+-- 不入库：知识库默认参数、股市自选/策略仍是应用配置或文件。
+--
+-- 扩展必须最先执行：vector_store 依赖 pgvector；失败则后面的表都不会建。
+
+SET search_path TO public;
+
+CREATE EXTENSION IF NOT EXISTS vector;
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
 -- 1. 用户表
 CREATE TABLE IF NOT EXISTS users
 (
@@ -57,12 +76,7 @@ CREATE INDEX IF NOT EXISTS idx_chat_sessions_user_id ON chat_sessions (user_id);
 CREATE INDEX IF NOT EXISTS idx_conversation_id ON spring_ai_chat_memory (conversation_id);
 CREATE INDEX IF NOT EXISTS idx_memory_sequence_conv ON spring_ai_chat_memory (sequence_id, conversation_id);
 
--- 向量存储表初始化
-CREATE
-EXTENSION IF NOT EXISTS vector;
-CREATE
-EXTENSION IF NOT EXISTS "uuid-ossp";
-
+-- 向量存储表初始化（embedding 维度须与 YAML 中 embedding 模型一致，当前 1536）
 CREATE TABLE IF NOT EXISTS public.vector_store
 (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,

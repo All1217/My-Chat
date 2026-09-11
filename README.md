@@ -164,7 +164,13 @@ docs/迭代规划/                 # 规划与主聊天架构说明
 
 ### 2. 初始化数据库
 
-执行 [`my-chat-server/src/main/resources/schema.sql`](my-chat-server/src/main/resources/schema.sql)。
+新主机确认 PostgreSQL 已安装 **pgvector** 后，对 `application.yaml` 里的库执行一次 [`schema.sql`](my-chat-server/src/main/resources/schema.sql)（可重复执行）：
+
+```bash
+psql -U postgres -d postgres -f my-chat-server/src/main/resources/schema.sql
+```
+
+默认连本机 `postgres` 库的 `public` schema。对话模型种子由后端首次启动写入，不必手插。
 
 ### 3. 启动后端
 

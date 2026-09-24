@@ -22,8 +22,6 @@
 | **内层 Tool-calling** | 单次 Client 请求内模型选工具 | `FileTools` / MCP（仅 tool 路径） |
 | **外层 Agent 循环** | 计划 → 行动 → 观察 → 再决策（可换能力） | **未做**（对标 Cursor 核心语义的近期目标） |
 
-业界对「分类专用 Client + switch 分发」的常见称呼：**Routing Workflow** / **LLM Router（Classifier + Dispatcher）** / **Triage → Specialist**。属于主流企业做法；Cursor 更接近 **Autonomous Agent + 本地 IDE 执行面**。
-
 ---
 
 ## 二、v1.1 现状快照（相对 v1.0）
@@ -240,38 +238,3 @@ flowchart TB
 | 内置终端 / Shell | 超出纯 Java NIO `FileTools` 的命令执行边界与安全模型 |
 | 多文件 diff 确认 UI | 变更预览、按文件接受/拒绝 |
 | 与 Routing 的关系 | **不建议**改为「单一超大 Agent 同时挂满工具+RAG」；远期仍宜 Orchestrator + 隔离 Worker |
-
-### 5.4 远期明确不做或慎做
-
-- 为每个 route 无限新建 ChatClient Bean（能力档保持少量即可）。  
-- 用「一个 Client + 全工具 + QA Advisor」换取表面智能（回退 P0-7）。  
-- 在未解决安全与取消机制前开放无上限自治循环。
-
----
-
-## 六、推荐节奏（汇总）
-
-```text
-【已完成 · v1.1 基线】
-  Routing Workflow → 主聊天 NDJSON + 时间线 route
-
-【近期 · 下一迭代主线】
-  Orchestrator-Workers（跨能力接力）
-    → Evaluator-Optimizer（写盘校验）
-    → 工作区浅层摘要（低成本）
-
-【中期 · 有产品刚需再开】
-  schema.sql 会话级 agent_tasks
-  git/变更感知、更强可观测进度
-
-【远期 · 对标 Cursor 产品面】
-  客户端本地 FS / LSP / 终端 / diff 确认 UI
-```
-
-### 第一个可交付切片（建议 1～2 周内完成）
-
-1. `OrchestratorWorkflow` + `AgentOrchestratorService`  
-2. `POST /ai/agent/orchestrate`  
-3. 至少一条跨能力路径验收  
-4. **不改** `schema.sql`  
-5. 通过后再评估是否以开关形式挂入主聊天 NDJSON  

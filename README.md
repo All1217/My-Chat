@@ -1,4 +1,4 @@
-# My-Chat · 可编程自循环 Agent 平台
+# My-Chat · Agent + RAG 学习实验平台
 
 [![Java](https://img.shields.io/badge/Java-25-orange?logo=openjdk)](https://openjdk.org/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.1-green?logo=springboot)](https://spring.io/projects/spring-boot)
@@ -10,14 +10,11 @@
 
 ## 项目介绍
 
-My-Chat 是一套基于 **Vue 3 + Spring Boot + Spring AI** 的通用 Agent 工具：围绕**自循环编排**（Orchestrator-Workers）把知识库、工作区文件、联网搜索和闲聊接成同一条主聊天链路，并可用大厅功能包挂上多种应用。
+My-Chat 是个人学习与交流用的大模型应用开发实验平台：在 **Vue 3 + Spring Boot + Spring AI** 上先搭一套可编程的**自循环 Agent**（Orchestrator-Workers），再以此为底座重点研究 **RAG 的实现与优化**。整体供自己动手实验，不是面向生产的通用产品。
 
-- **自循环 Agent**：用户一句 → 领班决定下一步 → 工人执行 → 观察再决策，直到收工；写盘后可跑质量环。
-- **可编程**：回合是显式流水线（`ChatTurnStage`）；加长业务流程 = 新一站插进列表。大厅应用按清单登记，不必改大厅页。
-- **可 RAG**：知识库隔离检索（目录总览 / 向量召回）、引用回显、异步入库；主聊天里由 `retrieve_kb` Worker 调用。
-- **可挂应用**：大厅卡片驱动；已有角色扮演、股市分析；HTTP 约定 `/ai/apps/<id>`。
-
-**近期重点是强化 RAG 知识库应用**（召回质量、分段与引用体验、入库与评测），Agent 主循环与挂载应用保持可扩展，但不作为当前主攻。
+- **Agent 底座**：用户一句 → 领班决定下一步 → 工人执行 → 观察再决策，直到收工；回合是显式流水线（`ChatTurnStage`），写盘后可跑质量环。知识库、工作区、联网搜索与闲聊挂在同一条主聊天链路上。
+- **RAG 研究重点**：知识库隔离检索（目录总览 / 向量召回）、引用回显、异步入库；主聊天由 `retrieve_kb` Worker 调用。当前与后续主攻召回质量、分段与引用、入库与评测等。
+- **自用扩展**：工作区 FileTools、MCP / 本机搜索、大厅可挂应用（角色扮演、股市分析等）主要为个人配套，按需使用，不作项目主目标。
 
 项目地址：[https://github.com/All1217/My-Chat](https://github.com/All1217/My-Chat)  
 克隆：`git clone https://github.com/All1217/My-Chat.git`
@@ -78,7 +75,7 @@ My-Chat 是一套基于 **Vue 3 + Spring Boot + Spring AI** 的通用 Agent 工�
 - 聊天附件 txt / md / pdf（正文只进本轮，Memory 只留文件名 + 原问）；图片前后端双拒
 - 写盘后可选 Evaluator-Optimizer 质量环（`qualityLoop`，默认开）
 
-### RAG 知识库（近期强化方向）
+### RAG 知识库（重点研究方向）
 
 - 知识库 CRUD；按库隔离的向量检索；`catalog` / `vector` 两种范围
 - 批量上传（PDF / DOCX / XLSX / HTML / TXT / MD），异步 Job 切片 + 向量化
@@ -94,9 +91,9 @@ My-Chat 是一套基于 **Vue 3 + Spring Boot + Spring AI** 的通用 Agent 工�
 - Agent `FileTools`：ls、tree、cat、grep、write、mkdir、rm、mv、cp
 - 目录选择器 + 安全校验（拒绝系统关键路径）
 
-### 可挂应用
+### 可挂应用（自用扩展，非核心研究目标）
 
-大厅 [`apps/registry.ts`](my-chat-vue3/src/apps/registry.ts) 登记即可上卡；后端放 `com.mychat.apps.<id>`。
+大厅 [`apps/registry.ts`](my-chat-vue3/src/apps/registry.ts) 登记即可上卡；后端放 `com.mychat.apps.<id>`。主要为个人扩展，按需使用。
 
 | 应用 | 说明 |
 |------|------|
@@ -212,12 +209,14 @@ REST 多数返回 `Result<T> { code, message, data }`（`code === 200` 成功）
 
 ## 开发路线图
 
+底座 Agent 已可用；后续以 RAG 实现与优化为主线，其余为自用扩展。
+
 - [x] 自循环 Orchestrator-Workers 主聊天 + 回合流水线
 - [x] RAG：上传切片、库隔离检索、引用、召回测试、异步入库
 - [x] 工作区 FileTools + 会话级目录
 - [x] NDJSON 时间线回放；模型可配置切换
-- [x] MCP / 本机搜索兜底；大厅可挂应用（角色扮演、股市）
-- [ ] **近期：强化 RAG**（父子分段、Rerank、混合检索、库统计、引用与评测体验）
+- [x] MCP / 本机搜索兜底；大厅可挂应用（角色扮演、股市，自用）
+- [ ] **重点：强化 RAG**（父子分段、Rerank、混合检索、库统计、引用与评测体验）
 - [ ] 会话级 plan / 可暂停长任务
 - [ ] Docker 一键部署
 

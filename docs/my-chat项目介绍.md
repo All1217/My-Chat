@@ -477,15 +477,951 @@ async function deleteConversation(id: string) {
 
 该链路嵌入主线程，没有异步，会影响性能。
 
+## 3.2 工作区
+
+> 专业术语：**AI Workspace Context**（AI 工作区上下文），亦称 **会话级工作目录沙箱**。  
+> 对标产品：Cursor / VS Code Copilot 的 Workspace Awareness、Claude Code 的 Project Context。
+
+My-Chat 允许用户为每个对话指定一个服务端磁盘目录作为 **工作区上下文**。进入该对话后，AI 可通过 `FileTools`（一组强类型 `@Tool` 方法）在该目录下执行文件增删改查——类似于在 IDE 中打开一个项目，AI 助手能直接操作该项目的文件。
+
+---
+
+### 3.2.1 业务流程
+
+**完整链路**
+
+```
+用户操作                     前端                          后端                          AI 模型
+─────────                   ─────                        ─────                         ────────
+点击"打开目录"      →   弹出目录弹窗
+                      ┌─ 手动输入路径
+                      ├─ 点击文件夹图标
+                      │    → DirectoryPicker            → GET /workspace/roots
+                      │    → 浏览子目录                  → GET /workspace/browse
+                      └─ 打字触发联想
+                           → el-autocomplete             → GET /workspace/suggest
+                           (300ms 防抖)
+
+点击"确定"          →   validate(path)                  → GET /workspace/validate
+                          ↓ 校验通过                         ├─ 路径存在性
+                      createConversation(id, workDir)    → POST /ai/history/add        → INSERT chat_sessions
+                          workDir 存入 chat_sessions.work_dir
+
+发送消息             →   fetch POST /ai/normalChat/chat
+                           (FormData: prompt + chatId)   → ChatController.chat()
+                                                             ├─ getWorkDir(chatId)  → SELECT work_dir FROM chat_sessions
+                                                             ├─ WorkspaceContext.set(workDir)
+                                                             ├─ buildWorkspaceSystemPrompt()
+                                                             │    "当前工作目录: D:/projects/my-app
+                                                             │     路径规则：所有路径都是相对于当前工作目录的**相对路径**。"
+                                                             └─ toolChatClient.prompt().system(...).stream()
+                                                                                               ↓
+                                                                                          AI 调用 FileTools
+                                                                                          (ls / cat / write ...)
+                                                                                               ↓
+                                                                                          WorkspaceUtil.resolveSafe()
+                                                                                          → Java NIO 操作文件
+```
+
+**三种目录输入方式的对比**
+
+| 方式       | 组件                           | 后端端点                 | 特点                            |
+| ---------- | ------------------------------ | ------------------------ | ------------------------------- |
+| 手动输入   | `el-autocomplete` 文本框       | —（验证时调用 validate） | 直接输入路径字符串              |
+| 目录浏览器 | `DirectoryPicker.vue`          | `/roots` + `/browse`     | 面包屑导航，点击展开子目录      |
+| 联想搜索   | `el-autocomplete` + 防抖 300ms | `/suggest`               | 取父目录列表 + 最后一段前缀过滤 |
+
+三者共用 `handleConfirmDirectory` 入口，统一在确认前调用 `validate` 端点做安全校验。
+
+---
+
+### 3.2.2 架构设计
+
+**整体架构**
+
+```
+┌────────────────────────────────┐
+│   ChatView.vue / ChatList.vue  │  ← 前端入口
+│   DirectoryPicker.vue          │  ← 目录浏览器组件
+│   workspaceApi (Axios)         │  ← API 调用层
+└──────────────┬─────────────────┘
+               │ HTTP /rag/ai/*
+               ▼
+┌────────────────────────────────┐
+│   ChatController               │  ← 流式对话端点
+│   FileController               │  ← 文件管理端点
+│   ChatHistoryController        │  ← 会话 CRUD
+└──────────────┬─────────────────┘
+               │
+    ┌──────────┼──────────┐
+    ▼          ▼          ▼
+┌─────────┐ ┌──────────┐ ┌──────────────┐
+│Workspace│ │FileTools  │ │WorkspaceUtil │
+│Context  │ │(@Tool x9) │ │(Java NIO)    │
+│(Thread  │ │           │ │              │
+│ Local)  │ │           │ │              │
+└─────────┘ └──────────┘ └──────────────┘
+    │          │               │
+    └──────────┴───────┬───────┘
+                       ▼
+              ┌────────────────┐
+              │   PostgreSQL   │
+              │  chat_sessions │  ← work_dir 列
+              │  spring_ai_    │
+              │  chat_memory   │
+              └────────────────┘
+```
+
+**核心组件详解**
+
+**WorkspaceContext — 线程级工作目录持有者**
+
+```java
+// 基于 InheritableThreadLocal，设置后当前请求线程及其子线程均可读取
+public class WorkspaceContext {
+    private static final InheritableThreadLocal<String> WORK_DIR = new InheritableThreadLocal<>();
+    public static void set(String workDir) { ... }
+    public static String get() { ... }
+    public static void clear() { ... }
+}
+```
+
+**为什么用 ThreadLocal？**  
+每个 HTTP 请求由 Tomcat 虚拟线程处理，该线程独有的 `workDir` 无需传递给其他请求。`ChatController.chat()` 在流式处理开始时设置，`doFinally` 中清理，生命周期与请求严格绑定。
+
+**跨线程传播（关键难点）：**  
+Tomcat 虚拟线程 → AI 模型调用（Netty 反应式线程）→ `FileTools`（Netty 线程）之间存在线程切换。`WorkspaceContextAccessor` 实现 Micrometer `ThreadLocalAccessor` 接口，配合 `Hooks.enableAutomaticContextPropagation()` 将 ThreadLocal 值自动注入 Reactor Context，确保文件操作能读到正确的工作目录。
+
+**WorkspaceUtil — 文件操作引擎**
+
+```java
+private Path getEffectiveRoot() {
+    String contextWorkDir = WorkspaceContext.get();
+    return (contextWorkDir != null)
+            ? Paths.get(contextWorkDir).toAbsolutePath().normalize()
+            : workspaceRoot;  // application.yaml → app.workspace.root
+}
+
+public Path resolveSafe(String relativePath) {
+    Path root = getEffectiveRoot();
+    Path resolved = root.resolve(cleaned).normalize();
+    if (!resolved.startsWith(root)) {
+        throw new SecurityException("非法的路径访问: " + relativePath);
+    }
+    return resolved;
+}
+```
+
+**双重安全边界：**
+
+1. `resolveSafe()` — 所有相对路径必须先经此方法解析，确保不逃逸出 `workspaceRoot`（防 `../../../etc/passwd` 路径穿越）
+2. `BLOCKED_PATHS` — 禁止将系统关键目录（`C:\Windows`、`/etc`、`/usr` 等）设为工作区根目录
+
+**FileTools — 强类型参数化工具**
+
+不同于旧版 `ShellTool`（单一 `executeCommand(String)` + `split("\\s+")` 字符串解析），`FileTools` 将每个操作拆分为独立 `@Tool` 方法：
+
+```java
+@Tool(description = "列出指定目录下的文件和子目录")
+public String ls(@ToolParam(description = "目标目录路径，默认当前目录") String path) { ... }
+
+@Tool(description = "查看文件内容")
+public String cat(@ToolParam(description = "文件路径") String path) { ... }
+
+@Tool(description = "创建或覆盖写入文本文件")
+public String write(
+    @ToolParam(description = "文件路径") String path,
+    @ToolParam(description = "要写入的文本内容") String content
+) { ... }
+```
+
+**对比旧版 ShellTool 的改进：**
+
+| 维度           | ShellTool（已废弃）        | FileTools（当前）            |
+| -------------- | -------------------------- | ---------------------------- |
+| 参数解析       | `split("\\s+")` 字符串拆分 | Spring AI 自动 JSON 反序列化 |
+| 空格文件名     | ❌ 被错误拆分               | ✅ 天然支持                   |
+| 模型调用准确性 | 需记忆命令格式 `ls <path>` | 只需选工具 + 填参数          |
+| `\n` 换行      | ❌ 变成字面量 `\\n`         | ✅ 文本正确写入               |
+| 通配符 / 管道  | ❌ 模型频繁误用             | ✅ 无法传入（工具语义明确）   |
+
+**buildWorkspaceSystemPrompt — 动态系统提示**
+
+```java
+private String buildWorkspaceSystemPrompt() {
+    String workDir = WorkspaceContext.get();
+    String name = Paths.get(workDir).getFileName().toString();
+    return String.format("""
+            所有涉及文件的查看、创建、写入、修改、删除、重命名、复制操作，都必须通过可用工具实际执行。
+            你绝不能在回复中假装已经完成了文件操作。
+            
+            当前工作目录: %1$s
+            路径规则：所有路径都是相对于当前工作目录的**相对路径**。
+            不要再把工作目录名 "%2$s" 作为路径前缀。
+            ✅ 正确: path="src/components/App.vue"
+            ✅ 正确: path="README.md"
+            ❌ 错误: path="%2$s/src/components/App.vue"
+            ❌ 错误: path="%2$s/README.md"
+            """, workDir, name);
+}
+```
+
+系统提示中明确告知模型：（1）当前工作目录路径；（2）必须使用**相对路径**；（3）不得把目录名当作路径前缀——这是从实际调试中总结出的常见 AI 幻觉模式。
+
+**启动时工作目录校验**
+
+```java
+@PostConstruct
+public void init() {
+    Path configured = Paths.get(workspaceRootPath).toAbsolutePath().normalize();
+    if (Files.exists(configured) && Files.isDirectory(configured) && !isBlockedPath(configured)) {
+        this.workspaceRoot = configured;
+    } else {
+        Path fallback = Paths.get("src/main/resources/workspace").toAbsolutePath().normalize();
+        log.warn("配置的工作区目录不可用, 使用默认目录: {}", fallback);
+        this.workspaceRoot = fallback;
+    }
+    Files.createDirectories(this.workspaceRoot);
+}
+```
+
+配置了 `app.workspace.root` 但目录不存在/是文件/是系统禁止目录时，自动回落内置默认目录，防止启动即不可用。
+
+**安全校验矩阵**
+
+| 校验点   | 位置                                                | 校验内容                       | 拒绝后的行为                  |
+| -------- | --------------------------------------------------- | ------------------------------ | ----------------------------- |
+| 启动时   | `WorkspaceUtil.init()`                              | 配置目录存在 + 是目录 + 非禁止 | 回落 fallback 目录            |
+| 确认前   | `GET /workspace/validate`                           | 路径存在 + 是目录 + 非禁止     | 弹出 toast 提示，阻止会话创建 |
+| 浏览时   | `GET /workspace/browse` → `listAbsoluteDirectory()` | 浏览目标 ± 是禁止目录          | 弹出 toast 提示               |
+| 联想时   | `GET /workspace/suggest` → `listSubDirectories()`   | 过滤结果中的禁止目录           | 不返回禁止目录的联想结果      |
+| 切换时   | `POST /workspace/switch` → `switchRoot()`           | 目标存在 + 是目录 + 非禁止     | 抛出 SecurityException        |
+| 文件操作 | `WorkspaceUtil.resolveSafe()`                       | 解析后路径不逃逸 workRoot      | 抛出 SecurityException        |
+
+
+
+---
+
+### 3.2.3 与成熟产品的对比及待改进点
+
+以 **Cursor**（当前 Agentic IDE 的标杆）为参照，分析差距和改进方向。
+
+**已对齐的能力**
+
+| 能力              | My-Chat 实现            | Cursor                  | 状态 |
+| ----------------- | ----------------------- | ----------------------- | ---- |
+| 会话级工作目录    | ThreadLocal + DB 持久化 | 打开项目即上下文        | ✅    |
+| 文件 CRUD 工具    | FileTools (9 methods)   | Agent tools             | ✅    |
+| 路径安全校验      | 6 层校验矩阵            | 工作区沙箱              | ✅    |
+| 多方式目录选择    | 手动 + 浏览 + 联想      | 文件树 + 最近项目       | ✅    |
+| 流式响应 + 思考链 | SSE + [THINKING] 标签   | Streaming with thinking | ✅    |
+
+**关键差距和改进方向**
+
+**差距 1：无代码文件上下文注入（最核心差距）**
+
+**现状**：AI 需要主动调用 `ls` / `cat` 才能了解工作目录中有什么文件。每次对话都需要反复探索目录结构，效率较低。
+
+**Cursor 的做法**：打开项目时自动扫描目录结构，将关键文件（`package.json`、`tsconfig.json`、入口文件等）注入 system prompt 作为初始上下文。AI 无需工具调用即了解项目骨架。
+
+**改进方向**：在 `buildWorkspaceSystemPrompt()` 中增加目录摘要注入。启动对话时自动执行 `tree --max-depth=2`，将前 500 行结果附加到系统提示中。
+
+**差距 2：文件变更感知缺失**
+
+**现状**：AI 通过 `ls` 只能看到文件名和大小，无法判断最近修改了哪些文件、哪些文件是新增的。
+
+**Cursor 的做法**：通过 LSP / Git diff 感知文件变更，AI 能说"你刚才编辑了 `App.vue` 的第 15 行"。
+
+**改进方向**：
+
+- 利用 Java NIO 的 `WatchService` 监听工作目录文件变更事件
+- 在系统提示中注入最近变更文件列表（按 `lastModifiedTime` 排序）
+- 支持 `git diff` / `git log --oneline` 作为工具（如果工作目录是 Git 仓库）
+
+**差距 3：前端非服务端文件系统**
+
+**现状**：`DirectoryPicker` 浏览的是服务端文件系统，用户选择的是**服务端磁盘上的目录**。这与用户直觉中的"打开本地项目"有偏差——类似 IDEA 的打开项目一般在客户端本地。
+
+**Cursor 的做法**：客户端本地文件系统直接暴露给 Agent，无需通过网络 API 做服务端文件操作。
+
+**改进方向**：
+
+- 短期：在前端增加提示"选择的是服务端目录"，区分于本地目录
+- 长期：如果部署模式变为客户端 Agent + 服务端 LLM 代理模式，则可利用 File System Access API 直接操作本地文件
+
+**差距 4：工具调用无进度反馈**
+
+**现状**：AI 调用 `tree` 遍历大目录时，前端无任何进度指示器。大文件 `cat` 被截断后用户不知情。
+
+**Cursor 的做法**：长时间操作显示进度条，被截断的内容有明确提示和"查看更多"入口。
+
+**改进方向**：
+
+- 工具执行超过 2 秒时推送中间状态（WebSocket / SSE 事件）
+- 截断内容附带独立查看入口（而非仅文本提示）
+
+**差距 5：工作目录历史与快速切换**
+
+**现状**：每次需重新输入或浏览选择目录。已用过的目录无历史记录。
+
+**改进方向**：
+
+- 记录最近使用的工作目录列表（可存 DB 或 localStorage）
+- 打开目录弹窗中展示"最近使用"快捷入口
+- 侧边栏展示工作目录路径，支持点击切换
+
+**差距 6：无代码 Lint / 格式化反馈循环**
+
+**现状**：AI 通过 `write` 修改文件后，不会自动运行 lint / 格式化。用户需要人工检查。
+
+**Cursor 的做法**：文件变更后自动触发 LSP 诊断，将 lint 错误反馈给 AI，形成自动修复循环。
+
+**改进方向**：
+
+- 在系统提示中增加指令"文件写入后请检查常见错误"
+- 支持 `lint` / `format` 工具方法（如运行 `eslint --fix`）
+- 在 Agent 循环中增加"操作后验证"步骤
+
+**差距 7：工作目录与知识库的割裂**
+
+**现状**：工作目录（`work_dir`）和知识库（`kb_id`）是两个独立维度，不能同时激活。
+
+**改进方向**：
+
+- 允许对话同时关联工作目录和知识库
+- RAG 检索结果中标注哪些内容来自工作目录文件
+
+---
+
+### 3.2.4 与其他功能模块的关联
+
+| 关联模块       | 关联方式                              | 影响                       |
+| -------------- | ------------------------------------- | -------------------------- |
+| 聊天对话       | `chat_sessions.work_dir` 存储         | 每个会话独立工作目录       |
+| RAG 知识库     | `chat_sessions.kb_id` 独立字段        | 当前互斥，后续可共存       |
+| 文件管理       | `FileController` 共享 `WorkspaceUtil` | 目录浏览、文件预览共用引擎 |
+| 设置面板       | `WorkspaceManagement.vue` 独立入口    | 全局工作区管理             |
+| Agent 工具调用 | `FileTools` 依赖 `WorkspaceContext`   | 确保每请求隔离             |
+
+---
+
+### 3.2.5 关键文件索引
+
+| 文件                                   | 职责                                                         |
+| -------------------------------------- | ------------------------------------------------------------ |
+| `ChatView.vue`                         | "打开目录"入口 + 目录弹窗 + autocomplete + DirectoryPicker 集成 |
+| `ChatList.vue`                         | 侧边栏"打开目录"按钮 + 同上逻辑                              |
+| `DirectoryPicker.vue`                  | 服务端目录浏览器弹窗组件                                     |
+| `workspace.ts`                         | 前端 API：roots / browse / suggest / switch / validate       |
+| `ChatController.java`                  | 流式对话：设置 WorkspaceContext + system prompt              |
+| `WorkspaceContext.java`                | ThreadLocal + 跨线程传播                                     |
+| `WorkspaceUtil.java`                   | Java NIO 文件操作引擎 + 路径安全检查                         |
+| `FileTools.java`                       | 9 个 @Tool 方法，AI 模型调用的文件工具集                     |
+| `AiConfiguration.java`                 | ChatClient bean 配置 + defaultSystem + defaultTools          |
+| `ContextPropagationConfiguration.java` | Micrometer 自动上下文传播                                    |
+| `ChatSessionsService.java`             | 会话 CRUD，work_dir 存取                                     |
+| `application.yaml`                     | `app.workspace.root` 配置                                    |
+| `schema.sql`                           | `chat_sessions.work_dir` 列定义                              |
+
+## 3.3 文件上传
+
+### 业务流程
+
+```
+用户选择文件 → 点击发送
+  │
+  ├─ 前端（ChatBox.vue）
+  │   ├─ useFileUpload: 校验类型/大小/数量 → selectedFiles[]
+  │   ├─ useChatStream.sendMessage():
+  │   │   ├─ 推文件列表消息（messages.value，USER 类型）
+  │   │   ├─ 推用户文字消息（messages.value，USER 类型）
+  │   │   ├─ consumeFiles() → 取出文件
+  │   │   └─ startStreaming(text, chatId, files)
+  │   │         └─ streamChat(options)
+  │   │               ├─ FormData: { prompt, chatId, files }
+  │   │               └─ POST /rag/ai/normalChat/chat
+  │   └─ 服务端流式返回 → 渲染为 ASSISTANT 消息
+  │
+  └─ 后端（ChatController.multiModalChat）
+      ├─ 分离图片 vs 文档
+      ├─ buildFileList(docs) → "📎 上传了以下文件：\n- xxx.md（6.4KB）"
+      │   └─ 放入 user prompt → 存入 chat_memory
+      ├─ extractDocContent(docs) → PDF/TXT 全文
+      │   └─ 放入 system prompt → 仅 AI 可见
+      ├─ 图片 → 作为 Media 对象附加
+      ├─ Flux.error 兜底: 模型不支持图片时返回友好提示
+      └─ MessageChatMemoryAdvisor → 写入 spring_ai_chat_memory
+
+刷新页面
+  ├─ ChatBox.getMessages(chatId)
+  │   ├─ 后端返回包含 user prompt（含文件列表）的历史消息
+  │   └─ 检测 "用户的问题：\n" 分隔符 → 拆分为两条 USER 消息
+  └─ visibleMessages 过滤 system 消息 → 显示拆分的文件列表 + 用户问题
+```
+
+### 涉及代码文件
+
+#### 后端
+
+| 文件                  | 改动                                                         |
+| --------------------- | ------------------------------------------------------------ |
+| `ChatController.java` | `multiModalChat()` 按文件类型分叉；新增 `buildFileList()` / `extractDocContent()` / `formatFileSize()`；文档全文放入 system prompt，文件列表放入 user prompt |
+
+#### 前端
+
+| 文件                           | 说明                                                         |
+| ------------------------------ | ------------------------------------------------------------ |
+| `streamChat.ts`                | `ChatStreamOptions.files` 已定义 + FormData 追加（本次未改动，复用已有能力） |
+| `ChatBox.vue`                  | 模板：文件选择 input + 悬浮文件面板 + 浮标按钮；script：由 composable 组合 |
+| `composables/useFileUpload.ts` | **新增** — 文件选择、校验（类型/大小/数量/去重）、图标、大小格式化 |
+| `composables/useChatScroll.ts` | **新增** — 自动滚底、跳转按钮、流式联动                      |
+| `composables/useChatStream.ts` | **新增** — 消息发送、流式接收、历史消息拆分、会话切换监听    |
+
+#### 数据库
+
+无需改表。`spring_ai_chat_memory.content` 存储已包含文件列表的 user prompt。
+
+---
+
+### 核心设计决策
+
+**4.1 文档全文放入 system prompt（关键决策）**
+
+**背景**：刷新前后文件消息显示不一致。刷新前是前端构建的整洁文件列表，刷新后是后端返回的文档全文。
+
+**方案**：将文档全文从 user prompt 剥离→放入 system prompt。user prompt 只保留文件列表。
+
+```
+user prompt（存入 chat_memory，前端可见）:
+  📎 上传了以下文件：
+  - foo.pdf（2.3MB）
+  
+  用户的问题：
+  总结这个文件
+
+system prompt（仅 AI 可见，前端过滤不显示）:
+  [原有工作目录提示]
+  
+  用户上传了以下文档内容供参考：
+  --- foo.pdf ---
+  [全文...]
+```
+
+**4.2 消息拆分与过滤**
+
+| 技术                         | 目的                                                       |
+| ---------------------------- | ---------------------------------------------------------- |
+| `visibleMessages` computed   | 过滤 `messageType === 'system'` 的消息（文档全文）         |
+| `getMessages()` 中的拆分逻辑 | 检测 "用户的问题：\n" 分隔符，将后端合并的一条消息拆为两条 |
+
+**4.3 模型不支持图片的兜底**
+
+DeepSeek 不支持多模态（image → Media）。后端 `onErrorResume` 捕获 400 错误，返回友好提示。前端 ElMessage 提示而非崩溃。
+
+---
+
+### 核心设计决策追问
+
+**直接将文本内容拼入提示词是否标准做法？**
+
+**结论：小文件是标准做法，但文件变大后需要 RAG。**
+
+| 做法                             | 方法                           | 适用场景                          | 代表产品                         |
+| -------------------------------- | ------------------------------ | --------------------------------- | -------------------------------- |
+| **Direct concatenation（当前）** | 全文拼入 system prompt         | 小文件（< 10K tokens ≈ 30页文本） | GPTs、Claude Projects            |
+| **Summarize-then-concatenate**   | 先摘要再拼入 prompt            | 中等文件（10K–100K tokens）       | NotebookLM                       |
+| **RAG chunk + retrieve**         | 分片 → 向量化 → 检索 TopK 拼入 | 大文件（> 100K tokens）、多文件   | Dify、FastGPT、ChatGPT with Bing |
+| **Contextual compression**       | 检索后压缩冗余再插入           | 超长上下文场景                    | LlamaIndex                       |
+| **Agentic reading**              | AI 主动调用工具读取文件        | 无上下文硬限制                    | Cursor、opencode、Claude Code    |
+
+**当前 My-Chat 的位置**：Direct concatenation + 50KB 硬截断。对知识库类文档（数 KB 级别）完全够用。对长篇书籍、大文本日志会失效。
+
+**升级路径**：不改当前做法的基础上，增加"当文件超过 N 字符时触发 RAG 流程"的分支，两种策略共存。
+
+### 架构层面的优化方向
+
+**当前架构的问题**
+
+```
+用户上传文件 → multiModalChat()
+  ├─ 文档提取文本 → 拼入 system prompt（字符串拼接）
+  │                    ↑ 整个文件内容一次性写入，无分片、无检索
+  ├─ user prompt 拼入文件列表 + 用户问题
+  └─ 发给模型 → MessageChatMemoryAdvisor 全文存储
+                     ↑ user prompt 持久化到 DB，含文件列表
+```
+
+| 问题                    | 后果                                      |
+| ----------------------- | ----------------------------------------- |
+| 文件内容全部塞入 prompt | 空耗 token，大文件很快撑爆 context window |
+| 无分片检索              | 100 个文件无法只检索相关片段              |
+| 无缓存                  | 相同文件每次上传都重新提取文本            |
+| 消息存储与 prompt 绑定  | 刷新后需手动拆分，架构耦合                |
+
+**目标架构**
+
+```
+用户上传文件
+  ├─ 小文件（< 10K tokens）→ Direct concatenation（当前做法，不改变）
+  └─ 大文件 / 多文件 → RAG 流程（新增分支）
+      ├─ DocumentService 分片 → 生成 embedding
+      ├─ 存入临时向量空间（会话级 / 文件级隔离）
+      ├─ user's prompt 检索相似片段 → 拼入 context
+      └─ 文件元信息存入 chat_memory（而非全文）
+```
+
+**优化 1：RAG 化文件处理**
+
+| 组件                     | 职责                                                         |
+| ------------------------ | ------------------------------------------------------------ |
+| `FileSessionVectorStore` | 按 sessionId 隔离的临时向量空间；Spring AI `VectorStore` 接口 + Postgres 实现 |
+| `SessionRagAdvisor`      | 接收 `(userPrompt, sessionId)` → 检索相关分片 → 拼入 advisor context |
+| `DocumentChunker`        | 复用 `TokenTextSplitter`（已有），上传时同步分片并向量化     |
+
+**优势**：
+
+- 文件数不再受 context window 限制（每个请求只检索 top-5 分片）
+- 无需截断（50KB 硬限制解除）
+- AI 获得精准的相关片段而非全量噪音
+
+**优化 2：文件内容缓存**
+
+```
+上传输入 → DocumentService.parseXxx()
+         → 提取文本存入临时文件（或 Redis）
+         → 返回 cacheKey
+
+下次同一文件上传 → 命中 cacheKey → 跳过解析
+```
+
+**优势**：MD5/ETag 去重，大 PDF 避免反复解析。
+
+**优化 3：消息持久化与 prompt 解耦**
+
+**问题**：现在 user prompt 直接存到 `spring_ai_chat_memory.content`，导致"文件列表 + 用户问题"合为一条，刷新后需手动拆分。
+
+**解耦方案**（最小改动）：
+
+```
+user prompt 只存放用户文字 → "总结这个文件"
+文件列表作为 metadata 附加到消息
+chat_memory.content = "总结这个文件"（干净）
+前端通过 metadata 渲染文件列表
+```
+
+但此方案需要修改 Spring AI 的 `MessageChatMemoryAdvisor` 消息结构，或者在前端 `getMessages()` 中额外调一次 API 获取消息关联的文件列表（当前拆分逻辑的直接对等替代）。
+
+**长期方案**：引入 `message_attachments` 表。
+
+```sql
+CREATE TABLE message_attachments (
+    id              VARCHAR(64) PRIMARY KEY,
+    conversation_id VARCHAR(255) NOT NULL,
+    filename        VARCHAR(500) NOT NULL,
+    file_size       BIGINT,
+    file_type       VARCHAR(50),
+    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+文件列表从 `spring_ai_chat_memory.content` 中彻底剥离，前后端都通过 `message_attachments` 渲染。
+
+**优化 4：懒加载检索（Cursor 对标）**
+
+**现状**：所有文件内容在发送消息时即提取完成，用户必须先上传才能提问。
+
+**Cursor 的做法**：AI 说"我想看看 `config.json`"，然后主动调用工具 `cat config.json` 读取。用户无需提前上传。
+
+**结合路径**：
+
+- 用户设置工作目录后，AI 可通过 `FileTools` 直接读取工作目录下的文件
+- 文件上传独立于文件读取：上传是"我想让你看这个"，FileTools 是"你需要看这个自己去看"
+
+**优先级建议**
+
+| 优先级 | 优化                                        | 投入     | 效果                   |
+| ------ | ------------------------------------------- | -------- | ---------------------- |
+| P0     | 当前做法 + 50KB 截断（已有）                | —        | 小文件场景已可用       |
+| P1     | **RAG 化文件处理**                          | 3-5 天   | 大文件、多文件场景质变 |
+| P2     | 文件内容缓存（MD5 去重）                    | 1 天     | 重复文件零开销         |
+| P2     | 消息与 prompt 解耦（`message_attachments`） | 2 天     | 前端不需手动拆分       |
+| P3     | 懒加载检索 + FileTools 协同                 | 持续迭代 | Cursor 级别体验        |
+
+---
+
+### 与 Cursor / opencode 的差距分析
+
+| 能力            | My-Chat                | Cursor / opencode          | 差距            |
+| --------------- | ---------------------- | -------------------------- | --------------- |
+| **文件类型**    | image / PDF / txt / md | 任意格式（含二进制）       | 需扩展类型      |
+| **上传方式**    | 手动点击 + 文件选择框  | 拖拽 + 粘贴图片 + 文件选择 | 缺少拖拽        |
+| **文件预览**    | 纯文本列表             | 行内渲染图片 + PDF 预览    | 无预览          |
+| **AI 感知文件** | 后端提取文本供 AI      | AI 直接读本地文件系统      | AI 无法访问本地 |
+| **消息一致性**  | 手动拆分后端合并消息   | 天然分离                   | 架构层需优化    |
+| **大小限制**    | 10MB                   | 因服务而异                 | 可放宽          |
+| **错误提示**    | 后端友好提示           | 前端即时反馈               | 可减少往返      |
+
+---
+
+### 改进展望
+
+**🔴 P0 — 体验修复**
+
+| #    | 改进         | 说明                                        |
+| ---- | ------------ | ------------------------------------------- |
+| 1    | **拖拽上传** | 支持将文件拖入 input 区域，提升文件选取效率 |
+| 2    | **粘贴图片** | 支持 Ctrl+V 粘贴剪贴板图片，自动上传        |
+
+**🟡 P1 — 可用性提升**
+
+| #    | 改进               | 说明                                                        |
+| ---- | ------------------ | ----------------------------------------------------------- |
+| 3    | **行内预览**       | 图片文件在消息中直接渲染缩略图，点击可放大                  |
+| 4    | **文件类型扩展**   | 增加 .docx / .xlsx 等 Office 格式的服务端文本提取           |
+| 5    | **大小限制可配置** | 后端可通过 application.yaml 配置 `app.upload.max-file-size` |
+| 6    | **批量上传进度**   | 多个大文件时显示上传进度条                                  |
+
+**🟢 P2 — 体验增强**
+
+| #    | 改进                  | 说明                                                         |
+| ---- | --------------------- | ------------------------------------------------------------ |
+| 7    | **AI 直接读工作目录** | 如果已设置工作目录，AI 可通过 FileTools 直接读取文件，无需上传 |
+| 8    | **文件名自动补全**    | 输入框中 @ 触发工作目录文件列表，自动补全路径                |
+| 9    | **文件版本管理**      | 同一文件多次上传保留历史版本                                 |
+| 10   | **文件关联知识库**    | 上传文件时可选同时加入知识库，一次操作完成对话 + 知识沉淀    |
+
+---
+
+### 数据库依赖
+
+本次功能不涉及数据库变更。消息存储依赖 `spring_ai_chat_memory` 表（Spring AI 框架自动维护）：
+
+```sql
+CREATE TABLE IF NOT EXISTS spring_ai_chat_memory (
+    id              BIGSERIAL PRIMARY KEY,
+    conversation_id VARCHAR(255) NOT NULL,
+    type            VARCHAR(50)  NOT NULL,
+    content         TEXT         NOT NULL,
+    timestamp       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    sequence_id     BIGINT
+);
+```
+
+`content` 字段存储的 user prompt 中已包含文件列表信息。
+
+# 模型调用模块
+
+## MCP-接入 Smithery 工具箱（Exa Search）
+
+### 原理
+
+Smithery 给你的地址是 **Namespace MCP Endpoint**（见 [Connect to MCPs](https://smithery.ai/docs/use/connect)）：
+
+```text
+https://mcp.smithery.run/{namespace}
+→ 你的是 https://mcp.smithery.run/2625705206
+```
+
+它会把工具箱里所有已连接的 MCP（含 Exa Search）聚合到一个端点。工具名通常带连接前缀（如 `exa_search` / `connectionId.toolName`）。
+
+```mermaid
+flowchart LR
+  ChatClient["toolChatClient"]
+  SyncProvider["SyncMcpToolCallbackProvider"]
+  Weather["localhost:8101 weather"]
+  Smithery["mcp.smithery.run/2625705206"]
+  Exa["Exa Search"]
+
+  ChatClient --> SyncProvider
+  SyncProvider --> Weather
+  SyncProvider --> Smithery --> Exa
+```
+
+鉴权：后端访问该端点需带 **Smithery API Key**（[Account API Keys](https://smithery.ai/account/api-keys)）：
+
+```http
+Authorization: Bearer <SMITHERY_API_KEY>
+```
+
+Spring AI 2.0 的 `streamable-http.connections` **不支持 YAML 写 headers**，官方做法是注册 `McpClientCustomizer<HttpClientStreamableHttpTransport.Builder>`，在指定连接上调用 `.httpRequestCustomizer(...)`。
+
+URL 切分注意：默认 `endpoint` 是 `/mcp`。Smithery 路径本身就是完整 MCP 路径，应写成：
+
+| 配置项     | 值                         |
+| ---------- | -------------------------- |
+| `url`      | `https://mcp.smithery.run` |
+| `endpoint` | `/2625705206`              |
+
+若写成 `url: https://mcp.smithery.run/2625705206` + 默认 `endpoint: /mcp`，会错误请求 `.../2625705206/mcp`。
+
+### 前置（你本地完成）
+
+1. 在 [smithery.ai/account/api-keys](https://smithery.ai/account/api-keys) 创建 API Key。
+2. 确认工具箱里 Exa 已是 **connected**（若状态是 `input_required`/`auth_required`，先在网站完成 Exa API Key / OAuth）。
+3. 设置环境变量 `SMITHERY_API_KEY`（不要写进仓库）。
+4. IDEA Reload Maven 后重启 `my-chat-server`。
+
+### 需要改/新增的文件
+
+**1. [`my-chat-server/src/main/resources/application.yaml`](my-chat-server/src/main/resources/application.yaml)**
+
+在现有 `spring.ai.mcp.client.streamable-http.connections` 下**追加** Smithery 连接（保留天气服务）：
+
+```yaml
+streamable-http:
+  connections:
+    mcp-weather-server:
+      url: http://localhost:8101
+      endpoint: /mcp
+    smithery-toolbox:          # 连接名，自定义izer 用它过滤
+      url: https://mcp.smithery.run
+      endpoint: /2625705206    # 你的 namespace，勿再拼 /mcp
+```
+
+可适当加大 `request-timeout`（远程搜索常 >30s，例如 `60s`）。
+
+另：
+
+```yaml
+app:
+  mcp:
+    smithery:
+      api-key: ${SMITHERY_API_KEY:}
+      connection-name: smithery-toolbox
+```
+
+**2. 新增 [`my-chat-server/src/main/java/com/mychat/config/SmitheryMcpConfiguration.java`](my-chat-server/src/main/java/com/mychat/config/SmitheryMcpConfiguration.java)**
+
+```java
+@Bean
+McpClientCustomizer<HttpClientStreamableHttpTransport.Builder> smitheryAuthCustomizer(
+    @Value("${app.mcp.smithery.api-key:}") String apiKey,
+    @Value("${app.mcp.smithery.connection-name:smithery-toolbox}") String connectionName) {
+  return (name, transportBuilder) -> {
+    if (!connectionName.equals(name) || apiKey == null || apiKey.isBlank()) {
+      return; // 不影响本地天气等无鉴权连接
+    }
+    transportBuilder.httpRequestCustomizer(
+        (req, method, endpoint, body, ctx) ->
+            req.header("Authorization", "Bearer " + apiKey));
+  };
+}
+```
+
+关键 import：
+
+- `io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport`
+- `org.springframework.ai.mcp.customizer.McpClientCustomizer`
+
+**3. [`AiConfiguration.java`](my-chat-server/src/main/java/com/mychat/config/AiConfiguration.java) / [`McpToolsDiagnostics.java`](my-chat-server/src/main/java/com/mychat/config/McpToolsDiagnostics.java)**
+
+**无需为 Smithery 再改**。`SyncMcpToolCallbackProvider` 已聚合所有 `McpSyncClient`；诊断日志应能看到 Exa 相关工具名。仅可微调 system prompt 一句「可用网页搜索类 MCP 工具时按需调用」。
+
+**4. 前端**
+
+不改。工具经现有 `/ai/normalChat/chat` 链路由模型选择调用。
+
+# 输出后处理
+
+## 可观测性时间线总结与思考回显规划
+
+### 一句话结论
+
+普通聊天（`toolChatClient`）已能以 **NDJSON 事件流**实时展示工具调用时间线，并以本地表 **`chat_assistant_turns`** 按轮持久化 `parts`，刷新后可回放。思考内容目前多为气泡折叠块，**尚未**作为时间线中与工具交错的步骤；旧 `[THINKING]` 标签协议对主路径已过时。
+
+```text
+用户 → ChatController(?format=ndjson)
+     → ObservabilityStreamAdvisor（旁路 tool_call / tool_result）
+     → text_delta / thinking_delta / done
+     → 前端 AgentActivityTimeline + Markdown
+     → 回合结束异步写入 chat_assistant_turns
+     → GET /ai/history/getMessages 合并 parts 回放
+```
+
+---
+
+### 三周做了什么
+
+**第 1 周：协议 + 后端旁路**
+
+| 项     | 内容                                                         |
+| ------ | ------------------------------------------------------------ |
+| 传输   | 同一 POST 上的 **NDJSON**（`application/x-ndjson`）；`format=plain` 保留旧纯文本 |
+| 采集   | `ObservabilityStreamAdvisor`（order ≈ ToolCallingAdvisor+100）旁路发事件，**不改** Memory / 工具循环 |
+| 事件   | `thinking_delta` / `text_delta` / `tool_call` / `tool_result` / `error` / `done` |
+| 关键类 | `ChatStreamEvent`、`ChatStreamEventWriter`、`ChatController` |
+| 注意   | Spring AI 2.0 已删除 `streamToolCallResponses`，不可再依赖   |
+
+**第 2 周：前端时间线**
+
+| 项   | 内容                                                         |
+| ---- | ------------------------------------------------------------ |
+| 消费 | `streamChat` 固定普通聊天 `?format=ndjson`；行缓冲解析       |
+| 状态 | `useChatStream` 归约 `streamingParts` / `streamingThinking` / 正文 |
+| UI   | `AgentActivityTimeline`（目前主要渲染 **tool**）；`ChatBox` 去掉错误 `THINKING_START` 解析 |
+| 范围 | **RAG 仍 plain**，无时间线                                   |
+
+**第 3 周：回放落库**
+
+| 项   | 内容                                                         |
+| ---- | ------------------------------------------------------------ |
+| 表   | `chat_assistant_turns`（一轮一行：`parts` JSONB + `thinking` + `assistant_ordinal`） |
+| 写入 | 流结束异步归约落库；闲聊无轨迹可跳过                         |
+| 读取 | `getMessages` → `ChatMessageVO`，按 ordinal（文本兜底）挂 `parts` |
+| 约束 | **不改** `spring_ai_chat_memory`；删会话级联清回合表         |
+| 踩坑 | PG `jsonb` 不能用默认 `JacksonTypeHandler`（varchar）；需 `PGobject` TypeHandler；`postgresql` 依赖须 compile |
+
+详细设计仍以 `docs/正式迭代前待做/` 下四周文档为准；本文件只做索引级总结。
+
+---
+
+### 当前能力边界（已知未做）
+
+| 未做                     | 说明                                      |
+| ------------------------ | ----------------------------------------- |
+| RAG `retrieval` 事件     | `RagChatController` 仍 plain + 旧标签痕迹 |
+| Agent route 步骤进时间线 | `/ai/agent/route` 未接 ChatBox            |
+| 思考与工具交错展示       | 见下文待实现                              |
+| Spring AI Session / OTEL | 刻意不做，Memory 旁路表已够 UI 回放       |
+
+---
+
+### 待实现：思考模式回显（多厂商 + 时间线交错）
+
+曾尝试过实现一次，但效果不好，可能放弃这一块。
+
+#### **4.1 动机**
+
+早期 `toThinkingResponse` 用 `[THINKING]…[/THINKING]` 适配 DeepSeek 思考模式；主路径已改 NDJSON 后，该拼接**实质无用**。  
+多家模型仍会输出思考，但字段名不一（`reasoningContent` / `thinking` / `reasoning` / `getReasoningContent()`），且当前实现：
+
+1. 只读 `reasoningContent`；
+2. **含 `toolCalls` 的帧直接跳过**，工具前思考进不了时间线；
+3. 时间线组件过滤掉 `type==='thinking'`，思考只在气泡顶栏折叠；
+4. `application.yaml` 中 `thinking.type: disabled`，默认无思考流。
+
+#### **4.2 目标**
+
+1. 退役主聊天 plain 路径的 `[THINKING]` 拼接。  
+2. 统一提取多厂商 reasoning → 协议事件 `thinking_delta` / part `type:"thinking"`。  
+3. 时间线顺序：`thinking → tool → thinking → tool → … → 正文`。  
+4. 历史回放：`parts` 内 thinking 片段保持交错顺序（**不必改 schema**）。
+
+#### **4.3 设计要点**
+
+**提取层**（建议新建 `ReasoningContentExtractor`）：
+
+| 优先级 | 来源                                                        |
+| ------ | ----------------------------------------------------------- |
+| 1      | metadata `reasoningContent`                                 |
+| 2      | metadata `thinking`（Ollama 等）                            |
+| 3      | metadata `reasoning`（部分兼容网关）                        |
+| 4      | 反射 `getReasoningContent()`（DeepSeek 专用类型，无则跳过） |
+
+- 增量发送（累计全文做 suffix diff，或识别纯 delta），避免重复刷屏。  
+- **工具帧也提取 thinking**；该帧仍不发 `text_delta`。  
+- 不做 Anthropic signed / redacted 块回传 API（属框架职责）。
+
+**归约 / 前端**：
+
+- `TurnPartsReducer`：thinking 与 tool 交错写入 `parts`；`thinking` 列仍存全文兜底。  
+- `useChatStream`：同步维护时间线中的 thinking part。  
+- `AgentActivityTimeline`：渲染 thinking（折叠/次要样式）。  
+- `ChatBox`：时间线已有 thinking 时隐藏顶栏重复折叠；旧数据无 parts 时保留顶栏。
+
+**配置**：默认可继续 `disabled`；验收时临时 `thinking.type: enabled`。  
+开启后若多轮工具出现 400，优先查 Spring AI 是否回传 `reasoning_content`，**不用自造标签绕过**。
+
+---
+
+### 相关代码索引（便于后人跳转）
+
+| 区域      | 路径                                                         |
+| --------- | ------------------------------------------------------------ |
+| 事件 DTO  | `my-chat-server/.../common/ChatStreamEvent.java`             |
+| Advisor   | `my-chat-server/.../utils/advisor/ObservabilityStreamAdvisor.java` |
+| 流式入口  | `my-chat-server/.../controller/ChatController.java`          |
+| 归约落库  | `my-chat-server/.../chat/stream/TurnPartsReducer.java`、`ChatAssistantTurnServiceImpl` |
+| 历史合并  | `my-chat-server/.../controller/ChatHistoryController.java`   |
+| 前端流    | `my-chat-vue3/src/utils/streamChat.ts`、`composables/useChatStream.ts` |
+| 时间线 UI | `my-chat-vue3/src/components/AgentActivityTimeline.vue`、`ChatBox.vue` |
+| DDL       | `my-chat-server/src/main/resources/schema.sql`（`chat_assistant_turns`） |
+
+# 质量监测系统
+
+## 召回测试
+
+对齐 Dify「检索测试」、FastGPT「搜索测试」：给**知识库配置者**看命中片段和分数，不进聊天、不调 LLM。本项目已有按 `kbId` 过滤的 `SearchRequest` 与知识库 `topK` / `similarityThreshold`，本轮只把同一检索摊开返回。
+
+### 边界（贴市场、不膨胀）
+
+- **做**：选中知识库 → 输入模拟问题 → 列出片段正文、分数、来源文件名；可用该库已保存的 topK/阈值，或在测试页临时改这两项（不写库，对应 Dify「仅当前测试生效」）。
+- **不做**：检索历史表、混合检索/Rerank、父子分段、聊天引用角标、新路由、改 `[schema.sql](my-chat-server/src/main/resources/schema.sql)`（无新表无新列）。
+
+### 流程
+
+```mermaid
+sequenceDiagram
+  participant UI as KnowledgeStore
+  participant API as KnowledgeBaseController
+  participant Svc as KnowledgeRetrievalService
+  participant VS as VectorStore
+
+  UI->>API: POST documents/retrieve-test
+  API->>Svc: query plus optional topK threshold
+  Svc->>Svc: 读知识库；缺省用库内 topK 阈值
+  Svc->>VS: similaritySearch filter kbId
+  VS-->>Svc: Document list with score
+  Svc-->>UI: hits filename score text
+```
+
+
+
+与问答共用过滤表达式 `kbId == '{id}'`（入库 metadata 已是 `kbId` / `filename` / `documentId`，见 `[DocumentService](my-chat-server/src/main/java/com/mychat/service/knowledge/DocumentService.java)`）。
+
+### 后端
+
+**1. 抽出检索请求构造（避免测试与 Advisor 滤条件分叉）**
+
+新增小工具类 `[KbSearchRequests](my-chat-server/src/main/java/com/mychat/service/knowledge/KbSearchRequests.java)`（或放在 `knowledge` 包下同名）：`filtered(kbId, topK, threshold)` 返回已设 `topK`、`similarityThreshold`、`filterExpression` 的 `SearchRequest.Builder`。
+
+`[AgentRoutingService.buildKbAdvisor](my-chat-server/src/main/java/com/mychat/service/agent/AgentRoutingService.java)` 改为用该 Builder `.build()`，行为与现网一致（Advisor 仍自己填 query）。
+
+**2. `KnowledgeRetrievalService`**
+
+新类，职责仅「召回测试」：
+
+- 知识库必须存在
+- `query` 去空白后非空，长度上限 1000
+- `topK` / `threshold` 未传则用该库已存值（`KnowledgeBaseSettings.topKOrDefault` / `thresholdOrDefault`）；传入则只做与设置页相同的范围校验（1–20、0–1），**不 update 知识库**
+- `vectorStore.similaritySearch(builder.query(query).build())`
+- 映射为 DTO：`text`、`score`（`Document.getScore()`，没有则 metadata）、`filename`、`documentId`；保持 VectorStore 返回顺序（分数高在前）
+- 空列表合法（阈值滤光），不要当错误
+
+**3. API / DTO**
+
+- `POST /ai/knowledge-base/documents/retrieve-test`
+- Body：`kbId`、`query`，可选 `topK`、`similarityThreshold`
+- 响应：`kbId`、实际使用的 `topK` / `similarityThreshold`、`hits[]`
+- 挂在 `[KnowledgeBaseController](my-chat-server/src/main/java/com/mychat/controller/KnowledgeBaseController.java)`，`IllegalArgumentException` → 400，风格同 update / reindex
+
+类与 public 方法一行注释；检索方法内按「解析参数 / 检索 / 映射 hits」分步注释。
+
+### 前端
+
+放在现有 `[KnowledgeStore.vue](my-chat-vue3/src/views/knowledgeStore/KnowledgeStore.vue)`，不新开路由（Dify 也是知识库内一页，不是聊天里）。
+
+- 顶栏增加「召回测试」，与「设置 / 上传」并列；未选库时禁用
+- `content-area` 在「文档表」和「召回面板」间切换（切库时回到文档表并清空结果）
+- 面板：上方 `el-input` textarea +「测试」；旁侧两个 `el-input-number`（topK、阈值），打开面板时从 `currentKb` 拷贝；文案注明**仅本次有效，不保存到设置**
+- 结果：`el-empty` 无命中；有则卡片/列表，每条显示分数（`el-tag`）、文件名、正文（过长折叠）
+- `[knowledge.ts](my-chat-vue3/src/api/knowledge.ts)` + `[types.ts](my-chat-vue3/src/types/knowledgeStore/types.ts)` 增加 `retrieveTest`
+
+不改聊天页、不改 `[notify.ts](my-chat-vue3/src/stores/notify.ts)`。
+
 # @ 其他
 
 ## @.1 异步任务 + 消息通知
-
-> **状态**：已落地（验收用 `demo_sleep` 已删除，管道保留）  
-> **目标**：长任务不堵 HTTP；用户可离开当前页；完成后全局弹窗 + 音效。  
-> **原则**：后端 Job 是事实源，前端只订阅。对标 Dify / FastGPT 的「任务 + 通知铃」，不用 Redis/MQ，也不在 Pinia 里自管队列。
-
----
 
 ### @.1.1 整体设计
 

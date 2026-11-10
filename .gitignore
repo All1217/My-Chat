@@ -51,6 +51,10 @@ dist
 dist-ssr
 *.local
 
+# Vue3 frontend
+my-chat-vue3/node_modules/
+my-chat-vue3/dist/
+
 # 禁止提交 TS/vue-tsc 误 emit 到 src 旁的编译产物（如 ChatBox.vue.js）
 my-chat-vue3/src/**/*.js
 my-chat-vue3/src/**/*.js.map

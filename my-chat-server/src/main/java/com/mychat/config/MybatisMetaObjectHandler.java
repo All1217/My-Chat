@@ -16,8 +16,12 @@ public class MybatisMetaObjectHandler implements MetaObjectHandler {
         strictInsertFill(metaObject, "updatedAt", LocalDateTime.class, now);
     }
 
+    /**
+     * 更新时强制刷新 updatedAt。
+     * strictUpdateFill 仅在字段为 null 时写入；从库加载的实体已有旧时间，必须覆盖。
+     */
     @Override
     public void updateFill(MetaObject metaObject) {
-        strictUpdateFill(metaObject, "updatedAt", LocalDateTime.class, LocalDateTime.now());
+        setFieldValByName("updatedAt", LocalDateTime.now(), metaObject);
     }
 }

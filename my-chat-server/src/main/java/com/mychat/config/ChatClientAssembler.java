@@ -1,19 +1,15 @@
 package com.mychat.config;
 
+import com.mychat.mcp.McpToolBridge;
 import com.mychat.tools.FileTools;
 import com.mychat.tools.WebSearchTools;
-import io.modelcontextprotocol.client.McpSyncClient;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.SimpleLoggerAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.ai.mcp.McpToolNamePrefixGenerator;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
-import org.springframework.util.CollectionUtils;
-
-import java.util.List;
 
 /**
  * 按能力层给 ChatModel 挂 system / 工具 / 记忆，与原先 AiConfiguration 三个 Bean 一致。
@@ -24,23 +20,20 @@ public class ChatClientAssembler {
     private final ChatMemory chatMemory;
     private final FileTools fileTools;
     private final WebSearchTools webSearchTools;
-    private final ObjectProvider<List<McpSyncClient>> mcpSyncClients;
-    private final ObjectProvider<McpToolNamePrefixGenerator> prefixGenerator;
+    private final ObjectProvider<McpToolBridge> mcpToolBridge;
 
-    /** 注入记忆与工具，装配时按角色取用。 */
+    /** 注入记忆与工具，装配时按角色取用；MCP 经可选桥接入。 */
     public ChatClientAssembler(ChatMemory chatMemory,
                                FileTools fileTools,
                                WebSearchTools webSearchTools,
-                               ObjectProvider<List<McpSyncClient>> mcpSyncClients,
-                               ObjectProvider<McpToolNamePrefixGenerator> prefixGenerator) {
+                               ObjectProvider<McpToolBridge> mcpToolBridge) {
         this.chatMemory = chatMemory;
         this.fileTools = fileTools;
         this.webSearchTools = webSearchTools;
-        this.mcpSyncClients = mcpSyncClients;
-        this.prefixGenerator = prefixGenerator;
+        this.mcpToolBridge = mcpToolBridge;
     }
 
-    /** 普通对话：FileTools + searchWeb + MCP。 */
+    /** 普通对话：FileTools + searchWeb + 可选 MCP。 */
     public ChatClient tool(ChatModel model) {
         ChatClient.Builder builder = ChatClient.builder(model)
                 .defaultSystem("""
@@ -54,10 +47,9 @@ public class ChatClientAssembler {
                 )
                 .defaultTools(fileTools, webSearchTools);
 
-        List<McpSyncClient> clients = mcpSyncClients.getIfAvailable();
-        if (!CollectionUtils.isEmpty(clients)) {
-            builder.defaultToolCallbacks(new TolerantMcpToolCallbackProvider(
-                    clients, prefixGenerator.getIfAvailable()));
+        McpToolBridge bridge = mcpToolBridge.getIfAvailable();
+        if (bridge != null) {
+            bridge.attachTo(builder);
         }
         return builder.build();
     }

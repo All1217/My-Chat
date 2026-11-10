@@ -52,7 +52,8 @@ spring:
         max-document-batch-size: 10000
     mcp:
       client:
-        enabled: true
+        # 与 app.mcp.enabled / APP_MCP_ENABLED 对齐；关闭后不创建任何 McpSyncClient
+        enabled: ${APP_MCP_ENABLED:true}
         type: SYNC
         # 默认 true 会在创建 mcpSyncClients 时对每个连接 initialize()；
         # Smithery 404 / 天气服务未起时整条 Bean 链失败，主聊天无法启动。
@@ -60,8 +61,9 @@ spring:
         initialized: false
         # 远程 Smithery / Exa 搜索可能较慢，适当放宽超时
         request-timeout: 60s
+        # 关闭 Spring AI 默认 ToolCallbackProvider，只走自研 Tolerant（见 com.mychat.mcp）
         toolcallback:
-          enabled: true
+          enabled: false
         streamable-http:
           connections:
             mcp-weather-server:
@@ -84,6 +86,9 @@ app:
     watchlist-file: ./data/market-watchlist.json
     crash-risk-file: ./data/market-crash-risk.json
     index-pe-file: ./data/market-index-pe.json
+  paper-trade:
+    # 模拟盘初始资金（虚拟，非实盘）
+    initial-cash: 1000000
   workspace:
     root: ./src/main/resources/workspace
   jobs:
@@ -98,9 +103,16 @@ app:
     embed-batch-size: 32
     allowed-extensions: pdf,docx,xlsx,html,htm,txt,md
   mcp:
+    # 总开关；他机无 MCP 环境时可设 APP_MCP_ENABLED=false，主聊天仍可启动
+    enabled: ${APP_MCP_ENABLED:true}
+    weather:
+      enabled: true
+      connection-name: mcp-weather-server
     smithery:
+      enabled: true
+      # 缺省为空串，避免未设环境变量时 Spring 属性解析失败拖垮启动
       # 从 https://smithery.ai/account/api-keys 获取，通过环境变量注入，勿写死进仓库
-      api-key: ${SMITHERY_API_KEY}
+      api-key: ${SMITHERY_API_KEY:}
       connection-name: smithery-toolbox
   search:
     # 联网搜索走供应商 REST，不经 mcp.smithery.run（该网关 listTools 500 / callTool 403）

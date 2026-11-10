@@ -1,4 +1,4 @@
-package com.mychat.config;
+package com.mychat.mcp;
 
 import io.modelcontextprotocol.client.McpSyncClient;
 import org.junit.jupiter.api.Test;

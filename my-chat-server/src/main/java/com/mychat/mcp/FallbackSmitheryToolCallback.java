@@ -1,4 +1,4 @@
-package com.mychat.config;
+package com.mychat.mcp;
 
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.client.transport.McpHttpClientTransportAuthorizationException;
@@ -26,6 +26,7 @@ final class FallbackSmitheryToolCallback implements ToolCallback {
     private final String toolName;
     private final ToolDefinition definition;
 
+    /** 用已知工具名与描述构造兜底回调。 */
     FallbackSmitheryToolCallback(McpSyncClient client, String toolName, String description) {
         this.client = client;
         this.toolName = toolName;
@@ -36,11 +37,13 @@ final class FallbackSmitheryToolCallback implements ToolCallback {
                 .build();
     }
 
+    /** 返回对外暴露的工具定义。 */
     @Override
     public ToolDefinition getToolDefinition() {
         return definition;
     }
 
+    /** 解析参数并调用 MCP callTool；鉴权/上游拒绝时返回可读错误串。 */
     @Override
     public String call(String toolInput) {
         Map<String, Object> args = parseArgs(toolInput);
@@ -64,6 +67,7 @@ final class FallbackSmitheryToolCallback implements ToolCallback {
         }
     }
 
+    /** 把工具入参 JSON 解析为 Map；失败则整段当作 query。 */
     @SuppressWarnings("unchecked")
     private static Map<String, Object> parseArgs(String toolInput) {
         if (toolInput == null || toolInput.isBlank() || "{}".equals(toolInput.trim())) {

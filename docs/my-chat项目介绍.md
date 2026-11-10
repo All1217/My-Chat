@@ -1158,8 +1158,8 @@ URL 切分注意：默认 `endpoint` 是 `/mcp`。Smithery 路径本身就是完
 
 1. 在 [smithery.ai/account/api-keys](https://smithery.ai/account/api-keys) 创建 API Key。
 2. 确认工具箱里 Exa 已是 **connected**（若状态是 `input_required`/`auth_required`，先在网站完成 Exa API Key / OAuth）。
-3. 设置环境变量 `SMITHERY_API_KEY`（不要写进仓库）。
-4. IDEA Reload Maven 后重启 `my-chat-server`。
+3. 设置环境变量 `SMITHERY_API_KEY`（不要写进仓库）。缺 key / 未启动 `mcp-server-demo` **不会**阻止主应用启动；他机可设 `APP_MCP_ENABLED=false` 整模块关闭。
+4. IDEA Reload Maven 后重启 `my-chat-server`。MCP 客户端代码在 `com.mychat.mcp`，经 `McpToolBridge` 挂到主干 ChatClient。
 
 ### 需要改/新增的文件
 

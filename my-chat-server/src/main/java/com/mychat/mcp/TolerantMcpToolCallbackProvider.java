@@ -1,4 +1,4 @@
-package com.mychat.config;
+package com.mychat.mcp;
 
 import io.modelcontextprotocol.client.McpSyncClient;
 import org.slf4j.Logger;
@@ -136,6 +136,12 @@ public final class TolerantMcpToolCallbackProvider implements ToolCallbackProvid
         } catch (Exception ignored) {
             return false;
         }
+    }
+
+    /** 是否为本地天气 MCP 连接。 */
+    static boolean isWeather(McpSyncClient client) {
+        String d = describe(client);
+        return d.contains("weather") || d.contains("mcp-weather");
     }
 
     private static List<McpSyncClient> copyClients(List<McpSyncClient> clients) {

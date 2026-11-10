@@ -311,3 +311,68 @@ COMMENT ON COLUMN market_forecast.status IS 'PENDING / RUNNING / SUCCEEDED / FAI
 COMMENT ON COLUMN market_forecast.error_message IS '失败原因';
 COMMENT ON COLUMN market_forecast.created_at IS '创建时间';
 COMMENT ON COLUMN market_forecast.updated_at IS '更新时间，由应用层维护';
+
+-- 模拟炒股连通性 MVP：虚拟账户 / 持仓 / 市价成交单（不接实盘）
+CREATE TABLE IF NOT EXISTS paper_account
+(
+    id            VARCHAR(64) PRIMARY KEY,
+    name          VARCHAR(100) NOT NULL,
+    cash          NUMERIC(18, 4) NOT NULL,
+    initial_cash  NUMERIC(18, 4) NOT NULL,
+    created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+COMMENT ON TABLE paper_account IS '模拟炒股虚拟账户（进程内账本，非实盘）';
+COMMENT ON COLUMN paper_account.id IS '账户ID（默认 seed 为 default）';
+COMMENT ON COLUMN paper_account.name IS '账户显示名';
+COMMENT ON COLUMN paper_account.cash IS '可用现金';
+COMMENT ON COLUMN paper_account.initial_cash IS '初始资金，重置时回写到 cash';
+COMMENT ON COLUMN paper_account.created_at IS '创建时间';
+COMMENT ON COLUMN paper_account.updated_at IS '更新时间，由应用层维护';
+
+CREATE TABLE IF NOT EXISTS paper_position
+(
+    id           VARCHAR(64) PRIMARY KEY,
+    account_id   VARCHAR(64) NOT NULL,
+    symbol       VARCHAR(32) NOT NULL,
+    market       VARCHAR(8)  NOT NULL,
+    qty          INTEGER     NOT NULL,
+    avg_cost     NUMERIC(18, 4) NOT NULL,
+    updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uk_paper_position_account_symbol UNIQUE (account_id, symbol)
+);
+CREATE INDEX IF NOT EXISTS idx_paper_position_account ON paper_position (account_id);
+COMMENT ON TABLE paper_position IS '模拟炒股持仓';
+COMMENT ON COLUMN paper_position.id IS '持仓行ID';
+COMMENT ON COLUMN paper_position.account_id IS '所属模拟账户';
+COMMENT ON COLUMN paper_position.symbol IS '规范化代码，如 600519 / AAPL';
+COMMENT ON COLUMN paper_position.market IS 'CN 或 US';
+COMMENT ON COLUMN paper_position.qty IS '持股数量（股）';
+COMMENT ON COLUMN paper_position.avg_cost IS '持仓成本均价';
+COMMENT ON COLUMN paper_position.updated_at IS '更新时间';
+
+CREATE TABLE IF NOT EXISTS paper_order
+(
+    id             VARCHAR(64) PRIMARY KEY,
+    account_id     VARCHAR(64) NOT NULL,
+    side           VARCHAR(8)  NOT NULL,
+    symbol         VARCHAR(32) NOT NULL,
+    market         VARCHAR(8)  NOT NULL,
+    qty            INTEGER     NOT NULL,
+    fill_price     NUMERIC(18, 4),
+    status         VARCHAR(20) NOT NULL,
+    reject_reason  VARCHAR(500),
+    created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_paper_order_account_created ON paper_order (account_id, created_at DESC);
+COMMENT ON TABLE paper_order IS '模拟炒股市价单（成交或拒单）';
+COMMENT ON COLUMN paper_order.id IS '订单ID';
+COMMENT ON COLUMN paper_order.account_id IS '所属模拟账户';
+COMMENT ON COLUMN paper_order.side IS 'BUY 或 SELL';
+COMMENT ON COLUMN paper_order.symbol IS '规范化代码';
+COMMENT ON COLUMN paper_order.market IS 'CN 或 US';
+COMMENT ON COLUMN paper_order.qty IS '委托数量（股）';
+COMMENT ON COLUMN paper_order.fill_price IS '成交价（东财最新收盘）；拒单为空';
+COMMENT ON COLUMN paper_order.status IS 'FILLED / REJECTED';
+COMMENT ON COLUMN paper_order.reject_reason IS '拒单原因';
+COMMENT ON COLUMN paper_order.created_at IS '下单时间';

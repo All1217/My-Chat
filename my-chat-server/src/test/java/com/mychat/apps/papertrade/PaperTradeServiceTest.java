@@ -8,6 +8,7 @@ import com.mychat.apps.papertrade.entity.po.PaperOrder;
 import com.mychat.apps.papertrade.entity.po.PaperPosition;
 import com.mychat.apps.papertrade.entity.vo.PaperOrderVO;
 import com.mychat.apps.papertrade.mapper.PaperAccountMapper;
+import com.mychat.apps.papertrade.mapper.PaperCooldownMapper;
 import com.mychat.apps.papertrade.mapper.PaperOrderMapper;
 import com.mychat.apps.papertrade.mapper.PaperPositionMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,6 +40,8 @@ class PaperTradeServiceTest {
     @Mock
     private PaperOrderMapper orderMapper;
     @Mock
+    private PaperCooldownMapper cooldownMapper;
+    @Mock
     private MarketQuoteClient quoteClient;
 
     private PaperTradeService service;
@@ -47,7 +50,9 @@ class PaperTradeServiceTest {
     void setUp() {
         PaperTradeProperties props = new PaperTradeProperties();
         props.setInitialCash(new BigDecimal("1000000"));
-        service = new PaperTradeService(accountMapper, positionMapper, orderMapper, quoteClient, props);
+        props.setCommissionRate(BigDecimal.ZERO);
+        props.setStampDutyRate(BigDecimal.ZERO);
+        service = new PaperTradeService(accountMapper, positionMapper, orderMapper, cooldownMapper, quoteClient, props);
     }
 
     @Test

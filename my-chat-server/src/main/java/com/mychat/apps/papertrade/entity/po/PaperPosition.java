@@ -31,8 +31,25 @@ public class PaperPosition {
     @TableField("qty")
     private Integer qty;
 
+    /** T+1 可卖数量。 */
+    @TableField("available_qty")
+    private Integer availableQty;
+
     @TableField("avg_cost")
     private BigDecimal avgCost;
+
+    @TableField("opened_at")
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
+    private LocalDateTime openedAt;
+
+    @TableField("take_profit_pct")
+    private BigDecimal takeProfitPct;
+
+    @TableField("stop_loss_pct")
+    private BigDecimal stopLossPct;
+
+    @TableField("max_hold_days")
+    private Integer maxHoldDays;
 
     @TableField(value = "updated_at", fill = FieldFill.INSERT_UPDATE)
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")

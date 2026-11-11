@@ -149,6 +149,7 @@ public class MarketWatchlistService {
                     .append(" RSI14=").append(num(snap.rsi14()))
                     .append(" 量比=").append(num(snap.volumeRatio()))
                     .append(" 连跌天数=").append(snap.downDays() == null ? "-" : snap.downDays())
+                    .append(" 布林位置=").append(num(snap.bollingerPos()))
                     .append('\n');
         }
         String user = """

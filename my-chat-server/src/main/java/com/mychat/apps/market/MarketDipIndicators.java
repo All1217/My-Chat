@@ -24,7 +24,9 @@ public final class MarketDipIndicators {
             Double vsMa60Pct,
             Double rsi14,
             Double volumeRatio,
-            Integer downDays
+            Integer downDays,
+            /** 布林相对位置：-1 下轨、0 中轨、1 上轨；越界可超出 ±1。 */
+            Double bollingerPos
     ) {
     }
 
@@ -34,7 +36,7 @@ public final class MarketDipIndicators {
             return new Snapshot(
                     quote == null ? "" : quote.getSymbol(),
                     quote == null ? "" : quote.getName(),
-                    null, null, null, null, null, null, null, null, null);
+                    null, null, null, null, null, null, null, null, null, null);
         }
         List<KlinePointVO> bars = quote.getHistory();
         List<Double> closes = mapCloses(bars);
@@ -52,8 +54,36 @@ public final class MarketDipIndicators {
                 round2(vsMaPct(closes, 60)),
                 round2(rsi(closes, 14)),
                 round2(volumeRatio(volumes, 20)),
-                downDays(closes)
+                downDays(closes),
+                round2(bollingerPos(closes, 20, 2.0))
         );
+    }
+
+    /**
+     * 布林带相对位置：中轨=MA20，上下轨=中轨±2σ；
+     * 返回 (close-mid)/(2σ)，约 -1 贴下轨、0 中轨、1 贴上轨。
+     */
+    static Double bollingerPos(List<Double> closes, int window, double k) {
+        Double mid = sma(closes, window);
+        Double close = last(closes);
+        if (mid == null || close == null || closes.size() < window) {
+            return null;
+        }
+        int from = closes.size() - window;
+        double sumSq = 0;
+        for (int i = from; i < closes.size(); i++) {
+            Double v = closes.get(i);
+            if (v == null) {
+                return null;
+            }
+            double d = v - mid;
+            sumSq += d * d;
+        }
+        double std = Math.sqrt(sumSq / window);
+        if (std == 0 || !Double.isFinite(std)) {
+            return 0.0;
+        }
+        return (close - mid) / (k * std);
     }
 
     /** 相对近 N 日最高价的回撤（负值表示低于高点）。 */

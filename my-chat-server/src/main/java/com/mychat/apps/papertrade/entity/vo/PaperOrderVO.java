@@ -14,6 +14,9 @@ public class PaperOrderVO {
     private String market;
     private Integer qty;
     private BigDecimal fillPrice;
+    private BigDecimal fee;
+    private String source;
+    private String decisionId;
     private String status;
     private String rejectReason;
     private String createdAt;

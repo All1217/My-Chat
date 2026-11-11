@@ -20,6 +20,9 @@ public class PaperOrder {
     public static final String SIDE_SELL = "SELL";
     public static final String STATUS_FILLED = "FILLED";
     public static final String STATUS_REJECTED = "REJECTED";
+    public static final String SOURCE_MANUAL = "MANUAL";
+    public static final String SOURCE_AI = "AI";
+    public static final String SOURCE_EXIT = "EXIT";
 
     @TableId(type = IdType.INPUT)
     private String id;
@@ -41,6 +44,15 @@ public class PaperOrder {
 
     @TableField("fill_price")
     private BigDecimal fillPrice;
+
+    @TableField("fee")
+    private BigDecimal fee;
+
+    @TableField("source")
+    private String source;
+
+    @TableField("decision_id")
+    private String decisionId;
 
     @TableField("status")
     private String status;

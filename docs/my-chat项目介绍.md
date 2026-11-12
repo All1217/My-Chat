@@ -821,7 +821,7 @@ public void init() {
 | `ContextPropagationConfiguration.java` | Micrometer 自动上下文传播                                    |
 | `ChatSessionsService.java`             | 会话 CRUD，work_dir 存取                                     |
 | `application.yaml`                     | `app.workspace.root` 配置                                    |
-| `schema.sql`                           | `chat_sessions.work_dir` 列定义                              |
+| `db/migration/V1__init_common_schema.sql` | `chat_sessions.work_dir` 列定义                           |
 
 ## 3.3 文件上传
 
@@ -1345,7 +1345,7 @@ McpClientCustomizer<HttpClientStreamableHttpTransport.Builder> smitheryAuthCusto
 | 历史合并  | `my-chat-server/.../controller/ChatHistoryController.java`   |
 | 前端流    | `my-chat-vue3/src/utils/streamChat.ts`、`composables/useChatStream.ts` |
 | 时间线 UI | `my-chat-vue3/src/components/AgentActivityTimeline.vue`、`ChatBox.vue` |
-| DDL       | `my-chat-server/src/main/resources/schema.sql`（`chat_assistant_turns`） |
+| DDL       | `my-chat-server/src/main/resources/db/migration/V1__init_common_schema.sql`（`chat_assistant_turns`） |
 
 # 质量监测系统
 
@@ -1356,7 +1356,7 @@ McpClientCustomizer<HttpClientStreamableHttpTransport.Builder> smitheryAuthCusto
 ### 边界（贴市场、不膨胀）
 
 - **做**：选中知识库 → 输入模拟问题 → 列出片段正文、分数、来源文件名；可用该库已保存的 topK/阈值，或在测试页临时改这两项（不写库，对应 Dify「仅当前测试生效」）。
-- **不做**：检索历史表、混合检索/Rerank、父子分段、聊天引用角标、新路由、改 `[schema.sql](my-chat-server/src/main/resources/schema.sql)`（无新表无新列）。
+- **不做**：检索历史表、混合检索/Rerank、父子分段、聊天引用角标、新路由、改 `V1__init_common_schema.sql`（无新表无新列）。
 
 ### 流程
 
@@ -1555,7 +1555,7 @@ AsyncJobDispatcher
 
 ### @.1.3 数据模型
 
-表 [`async_job`](../../my-chat-server/src/main/resources/schema.sql)：
+表 [`async_job`](../my-chat-server/src/main/resources/db/migration/V1__init_common_schema.sql)：
 
 | 列              | 含义                                            |
 | --------------- | ----------------------------------------------- |

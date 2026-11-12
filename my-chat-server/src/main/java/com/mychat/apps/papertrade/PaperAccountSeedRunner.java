@@ -49,7 +49,7 @@ public class PaperAccountSeedRunner implements ApplicationRunner {
             accountMapper.insert(seed);
             log.info("已 seed 模拟炒股默认账户 cash={}", cash);
         } catch (Exception e) {
-            log.warn("paper_account 不可用（请执行 schema.sql），跳过种子：{}", e.getMessage());
+            log.warn("paper_account 不可用（请检查 Flyway V3 迁移），跳过种子：{}", e.getMessage());
         }
     }
 }

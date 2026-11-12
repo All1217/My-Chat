@@ -161,13 +161,27 @@ docs/迭代规划/                 # 规划与主聊天架构说明
 
 ### 2. 初始化数据库
 
-新主机确认 PostgreSQL 已安装 **pgvector** 后，对 `application.yaml` 里的库执行一次 [`schema.sql`](my-chat-server/src/main/resources/schema.sql)（可重复执行）：
+数据库结构由 Flyway 自动管理，迁移文件位于 `my-chat-server/src/main/resources/db/migration/`：
 
-```bash
-psql -U postgres -d postgres -f my-chat-server/src/main/resources/schema.sql
+- `V1__init_common_schema.sql`：基础通用
+- `V2__init_market_schema.sql`：股市预测
+- `V3__init_paper_trade_schema.sql`：模拟炒股
+
+全新空库在后端首次启动时自动执行 V1–V3。前置条件是 PostgreSQL 已安装 **pgvector**，且连接用户有权执行 `CREATE EXTENSION`，或管理员已提前创建 `vector`、`uuid-ossp` 扩展。
+
+已有手工初始化的非空库首次接管前先备份，然后仅在第一次启动时设置：
+
+```powershell
+$env:FLYWAY_BASELINE_ON_MIGRATE="true"
 ```
 
-默认连本机 `postgres` 库的 `public` schema。对话模型种子由后端首次启动写入，不必手插。
+Flyway 会把现有结构标记为 version 3，不重复执行 V1–V3。确认 `flyway_schema_history` 已生成后，删除该环境变量并保持默认 `false`，避免误连数据库时被静默接管：
+
+```powershell
+Remove-Item Env:FLYWAY_BASELINE_ON_MIGRATE
+```
+
+后续结构变更只新增更高版本的 `V{版本}__{说明}.sql`，已执行的迁移文件禁止修改。对话模型、默认模拟账户和默认策略仍由应用首次启动写入。
 
 ### 3. 启动后端
 
@@ -187,6 +201,59 @@ npm run dev
 ```
 
 `http://localhost:5173`，API 经 `/rag` 转到 8100。
+
+### 5. Flyway 分步验证
+
+测试迁移 `src/test/resources/db/flyway-test/V4__create_flyway_smoke_test.sql` 只在显式加入测试 classpath 和 migration location 时执行，不会进入生产包。请使用独立测试库，不要直接测试当前业务库。
+
+#### 5.1 验证全新空库
+
+1. 创建空数据库 `my_chat_flyway_empty`，确认该 PostgreSQL 实例已安装 pgvector。
+2. 在 PowerShell 设置测试连接及测试迁移目录：
+
+```powershell
+$env:SPRING_DATASOURCE_URL="jdbc:postgresql://localhost:5432/my_chat_flyway_empty?currentSchema=public"
+$env:SPRING_FLYWAY_LOCATIONS="classpath:db/migration,classpath:db/flyway-test"
+$env:FLYWAY_BASELINE_ON_MIGRATE="false"
+$env:APP_MCP_ENABLED="false"
+cd my-chat-server
+.\mvnw.cmd spring-boot:run "-Dspring-boot.run.useTestClasspath=true"
+```
+
+3. 启动成功后查询：
+
+```sql
+SELECT installed_rank, version, description, type, success
+FROM flyway_schema_history
+ORDER BY installed_rank;
+
+SELECT to_regclass('public.users') AS common_table,
+       to_regclass('public.market_forecast') AS market_table,
+       to_regclass('public.paper_account') AS paper_table,
+       to_regclass('public.flyway_smoke_test') AS smoke_table;
+
+SELECT * FROM flyway_smoke_test;
+```
+
+预期历史中依次出现 V1、V2、V3、V4，四个代表表均存在，冒烟表包含 `flyway-v4-applied`。停止后再次执行相同启动命令，历史记录数量应保持不变。
+
+#### 5.2 验证已有库接管
+
+1. 备份当前数据库并恢复为独立副本 `my_chat_flyway_existing`，确认副本没有 `flyway_schema_history`。
+2. 指向副本，并只在首次启动时开启 baseline：
+
+```powershell
+$env:SPRING_DATASOURCE_URL="jdbc:postgresql://localhost:5432/my_chat_flyway_existing?currentSchema=public"
+$env:SPRING_FLYWAY_LOCATIONS="classpath:db/migration,classpath:db/flyway-test"
+$env:FLYWAY_BASELINE_ON_MIGRATE="true"
+$env:APP_MCP_ENABLED="false"
+cd my-chat-server
+.\mvnw.cmd spring-boot:run "-Dspring-boot.run.useTestClasspath=true"
+```
+
+3. 查询 `flyway_schema_history`：预期 version 3 是 `BASELINE`，随后执行测试 V4；V1–V3 不应重复建表。
+4. 停止应用，执行 `Remove-Item Env:FLYWAY_BASELINE_ON_MIGRATE`，再次启动并确认没有重复迁移。
+5. 验证完成后删除两个独立测试数据库，并清除 `SPRING_DATASOURCE_URL`、`SPRING_FLYWAY_LOCATIONS` 等测试环境变量。
 
 ---
 

@@ -46,7 +46,7 @@ public class LlmModelSeedRunner implements ApplicationRunner {
         try {
             count = llmModelMapper.selectCount(null);
         } catch (Exception e) {
-            log.warn("llm_model 不可用（请执行 schema.sql 建表），跳过种子：{}", e.getMessage());
+            log.warn("llm_model 不可用（请检查 Flyway V1 迁移），跳过种子：{}", e.getMessage());
             return;
         }
         if (count != null && count > 0) {

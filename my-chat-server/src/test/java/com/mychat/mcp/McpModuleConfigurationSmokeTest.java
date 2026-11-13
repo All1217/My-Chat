@@ -31,7 +31,7 @@ class McpModuleConfigurationSmokeTest {
                         "app.mcp.enabled=true",
                         "app.mcp.smithery.api-key=",
                         "app.mcp.smithery.enabled=true",
-                        "app.mcp.weather.enabled=true")
+                        "app.mcp.database.enabled=true")
                 .run(ctx -> {
                     assertThat(ctx).hasNotFailed();
                     assertThat(ctx).hasSingleBean(McpToolBridge.class);

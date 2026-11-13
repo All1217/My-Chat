@@ -24,7 +24,6 @@ public final class SearchSystemPrompts {
 
             ## 网页搜索
             - 优先调用 **searchWeb**（参数 query）。本机直连 Exa REST，不经 Smithery。
-            - 天气用本地 MCP **get_weather**（若列表里有）。
             - **exa_search** 仅当工具列表里实际出现时才可作为备选；不要臆造。
             - 禁止调用 get_toolbox_status、search_toolbox、connections.search、connections.exa。
 

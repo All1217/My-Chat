@@ -79,7 +79,7 @@ public class McpToolsDiagnostics implements ApplicationRunner {
             }
         }
         if (ok == 0) {
-            log.warn("全部 MCP 连接均未发现工具 — 请启动 mcp-server-demo(8101)，并确认 SMITHERY_API_KEY；"
+            log.warn("全部 MCP 连接均未发现工具 — 请启动 mcp-server-database(8102)，并确认 SMITHERY_API_KEY；"
                     + "单连接失败不应阻止启动；也可设 APP_MCP_ENABLED=false 关闭本模块");
         }
     }

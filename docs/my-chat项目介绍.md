@@ -1128,12 +1128,12 @@ https://mcp.smithery.run/{namespace}
 flowchart LR
   ChatClient["toolChatClient"]
   SyncProvider["SyncMcpToolCallbackProvider"]
-  Weather["localhost:8101 weather"]
+  Database["localhost:8102 database"]
   Smithery["mcp.smithery.run/2625705206"]
   Exa["Exa Search"]
 
   ChatClient --> SyncProvider
-  SyncProvider --> Weather
+  SyncProvider --> Database
   SyncProvider --> Smithery --> Exa
 ```
 
@@ -1158,20 +1158,20 @@ URL 切分注意：默认 `endpoint` 是 `/mcp`。Smithery 路径本身就是完
 
 1. 在 [smithery.ai/account/api-keys](https://smithery.ai/account/api-keys) 创建 API Key。
 2. 确认工具箱里 Exa 已是 **connected**（若状态是 `input_required`/`auth_required`，先在网站完成 Exa API Key / OAuth）。
-3. 设置环境变量 `SMITHERY_API_KEY`（不要写进仓库）。缺 key / 未启动 `mcp-server-demo` **不会**阻止主应用启动；他机可设 `APP_MCP_ENABLED=false` 整模块关闭。
+3. 设置环境变量 `SMITHERY_API_KEY`（不要写进仓库）。缺 key / 未启动 `mcp-server-database` **不会**阻止主应用启动；他机可设 `APP_MCP_ENABLED=false` 整模块关闭。
 4. IDEA Reload Maven 后重启 `my-chat-server`。MCP 客户端代码在 `com.mychat.mcp`，经 `McpToolBridge` 挂到主干 ChatClient。
 
 ### 需要改/新增的文件
 
 **1. [`my-chat-server/src/main/resources/application.yaml`](my-chat-server/src/main/resources/application.yaml)**
 
-在现有 `spring.ai.mcp.client.streamable-http.connections` 下**追加** Smithery 连接（保留天气服务）：
+在现有 `spring.ai.mcp.client.streamable-http.connections` 下配置本地数据库 MCP 与 Smithery：
 
 ```yaml
 streamable-http:
   connections:
-    mcp-weather-server:
-      url: http://localhost:8101
+    mcp-database-server:
+      url: http://localhost:8102
       endpoint: /mcp
     smithery-toolbox:          # 连接名，自定义izer 用它过滤
       url: https://mcp.smithery.run
@@ -1199,7 +1199,7 @@ McpClientCustomizer<HttpClientStreamableHttpTransport.Builder> smitheryAuthCusto
     @Value("${app.mcp.smithery.connection-name:smithery-toolbox}") String connectionName) {
   return (name, transportBuilder) -> {
     if (!connectionName.equals(name) || apiKey == null || apiKey.isBlank()) {
-      return; // 不影响本地天气等无鉴权连接
+      return; // 不影响本地数据库等无鉴权连接
     }
     transportBuilder.httpRequestCustomizer(
         (req, method, endpoint, body, ctx) ->

@@ -21,20 +21,20 @@ class TolerantMcpToolCallbackProviderTest {
     void skipsFailedClientKeepsSuccessfulTools() {
         McpSyncClient failing = mock(McpSyncClient.class);
         McpSyncClient ok = mock(McpSyncClient.class);
-        ToolCallback weather = mock(ToolCallback.class);
-        when(weather.getToolDefinition()).thenReturn(
-                ToolDefinition.builder().name("get_weather").description("weather").inputSchema("{}").build());
+        ToolCallback listTables = mock(ToolCallback.class);
+        when(listTables.getToolDefinition()).thenReturn(
+                ToolDefinition.builder().name("list_tables").description("tables").inputSchema("{}").build());
 
         var provider = new TolerantMcpToolCallbackProvider(List.of(failing, ok), client -> {
             if (client == failing) {
                 throw new RuntimeException("Failed to send message: Internal Server Error");
             }
-            return new ToolCallback[]{weather};
+            return new ToolCallback[]{listTables};
         });
 
         ToolCallback[] callbacks = provider.getToolCallbacks();
         assertEquals(1, callbacks.length);
-        assertSame(weather, callbacks[0]);
+        assertSame(listTables, callbacks[0]);
     }
 
     @Test

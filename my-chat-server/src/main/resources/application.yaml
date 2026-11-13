@@ -71,7 +71,7 @@ spring:
         enabled: ${APP_MCP_ENABLED:true}
         type: SYNC
         # 默认 true 会在创建 mcpSyncClients 时对每个连接 initialize()；
-        # Smithery 404 / 天气服务未起时整条 Bean 链失败，主聊天无法启动。
+        # 远端 404 / 本地 MCP 未起时整条 Bean 链失败，主聊天无法启动。
         # 改为惰性握手：listTools / 首次调用再 initialize，单连接失败由 TolerantMcpToolCallbackProvider 跳过。
         initialized: false
         # 远程 Smithery / Exa 搜索可能较慢，适当放宽超时
@@ -81,9 +81,9 @@ spring:
           enabled: false
         streamable-http:
           connections:
-            mcp-weather-server:
+            mcp-database-server:
               # url 为服务根地址；endpoint 默认 /mcp，显式写出避免歧义
-              url: http://localhost:8101
+              url: http://localhost:8102
               endpoint: /mcp
             # Smithery 工具箱 Namespace MCP Endpoint（含 Exa Search 等）
             # 切勿把完整 URL 写到 url 且留下默认 endpoint=/mcp，否则会请求到 .../2625705206/mcp
@@ -151,9 +151,9 @@ app:
   mcp:
     # 总开关；他机无 MCP 环境时可设 APP_MCP_ENABLED=false，主聊天仍可启动
     enabled: ${APP_MCP_ENABLED:true}
-    weather:
+    database:
       enabled: true
-      connection-name: mcp-weather-server
+      connection-name: mcp-database-server
     smithery:
       enabled: true
       # 缺省为空串，避免未设环境变量时 Spring 属性解析失败拖垮启动

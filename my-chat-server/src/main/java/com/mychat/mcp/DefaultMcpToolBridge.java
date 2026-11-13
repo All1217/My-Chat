@@ -48,7 +48,7 @@ public final class DefaultMcpToolBridge implements McpToolBridge {
     }
 
     /**
-     * 按 weather / smithery 子开关与 API Key 过滤客户端。
+     * 按 database / smithery 子开关与 API Key 过滤客户端。
      */
     List<McpSyncClient> filterClients(List<McpSyncClient> source) {
         if (CollectionUtils.isEmpty(source)) {
@@ -71,12 +71,12 @@ public final class DefaultMcpToolBridge implements McpToolBridge {
      */
     boolean isAllowed(McpSyncClient client) {
         String name = TolerantMcpToolCallbackProvider.describe(client);
-        String weatherName = properties.getWeather().getConnectionName();
+        String databaseName = properties.getDatabase().getConnectionName();
         String smitheryName = properties.getSmithery().getConnectionName();
 
-        // 1) 明确匹配 YAML connection 名 / 天气特征
-        if (matchesConnection(name, weatherName) || TolerantMcpToolCallbackProvider.isWeather(client)) {
-            return properties.getWeather().isEnabled();
+        // 1) 数据库 MCP：按子开关挂载
+        if (matchesConnection(name, databaseName) || TolerantMcpToolCallbackProvider.isDatabase(client)) {
+            return properties.getDatabase().isEnabled();
         }
         // 2) Smithery：开关开且有 key 才挂载
         if (matchesConnection(name, smitheryName) || TolerantMcpToolCallbackProvider.isSmithery(client)) {

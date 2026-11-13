@@ -105,7 +105,7 @@ My-Chat 是个人学习与交流用的大模型应用开发实验平台：在 **
 
 ### 其它
 
-- MCP：本地天气、Smithery 工具箱；单连接失败不拖垮启动；联网搜索优先本机 `searchWeb`（Exa → Bocha → Tavily → DuckDuckGo）
+- MCP：本地数据库（`mcp-server-database`）、Smithery 工具箱；单连接失败不拖垮启动；联网搜索优先本机 `searchWeb`（Exa → Bocha → Tavily → DuckDuckGo）
 - 模型管理：列表 / 供应商 / 测试连通 / 设默认
 
 ---
@@ -191,6 +191,15 @@ cd my-chat-server
 ```
 
 `http://localhost:8100`。启动时会准备 `app.workspace.root`。MCP 为惰性握手，远端 404 不会阻止启动。
+
+可选：启动本地数据库 MCP（Cursor / 主聊天共用，端口 8102）：
+
+```bash
+cd mcp-server-database
+.\mvnw.cmd spring-boot:run
+```
+
+详见 [`mcp-server-database/README.md`](mcp-server-database/README.md)。项目 `.cursor/mcp.json` 已指向 `http://localhost:8102/mcp`。
 
 ### 4. 启动前端
 

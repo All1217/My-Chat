@@ -138,10 +138,19 @@ public final class TolerantMcpToolCallbackProvider implements ToolCallbackProvid
         }
     }
 
-    /** 是否为本地天气 MCP 连接。 */
-    static boolean isWeather(McpSyncClient client) {
+    /** 是否为本地数据库 MCP 连接。 */
+    static boolean isDatabase(McpSyncClient client) {
         String d = describe(client);
-        return d.contains("weather") || d.contains("mcp-weather");
+        if (d.contains("database") || d.contains("mcp-database")) {
+            return true;
+        }
+        try {
+            var server = client.getServerInfo();
+            return server != null && hasText(server.name())
+                    && (server.name().contains("database") || server.name().contains("mcp-database"));
+        } catch (Exception ignored) {
+            return false;
+        }
     }
 
     private static List<McpSyncClient> copyClients(List<McpSyncClient> clients) {

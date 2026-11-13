@@ -1,12 +1,13 @@
 package com.mcpserver;
 
+import com.mcpserver.config.DatabaseMcpProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 
-/**
- * MCP Server Demo — 极简 Spring Boot 启动类
- */
+/** PostgreSQL 元数据 / SQL MCP 服务启动类。 */
 @SpringBootApplication
+@EnableConfigurationProperties(DatabaseMcpProperties.class)
 public class Application {
 
     public static void main(String[] args) {

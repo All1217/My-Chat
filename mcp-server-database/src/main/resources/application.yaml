@@ -1,0 +1,29 @@
+server:
+  port: 8102
+  address: 0.0.0.0
+
+spring:
+  application:
+    name: mcp-server-database
+  datasource:
+    url: jdbc:postgresql://localhost:5432/postgres?currentSchema=public
+    driver-class-name: org.postgresql.Driver
+    username: postgres
+    password: ${PGSQL_PASS}
+  ai:
+    mcp:
+      server:
+        name: mcp-database-server
+        version: 1.0.0
+        type: SYNC
+        protocol: STREAMABLE
+        request-timeout: 30s
+        annotation-scanner:
+          enabled: true
+
+app:
+  database:
+    # 默认只读；设为 false 才允许写操作（仍禁止多语句与 DROP DATABASE 等危险语句）
+    read-only: true
+    max-rows: 200
+    query-timeout-seconds: 15

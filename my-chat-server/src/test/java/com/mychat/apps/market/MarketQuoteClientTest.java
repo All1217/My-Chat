@@ -27,6 +27,7 @@ class MarketQuoteClientTest {
         assertEquals(1700.0, bar.getHigh());
         assertEquals(1670.0, bar.getLow());
         assertEquals(12345L, bar.getVolume());
+        assertEquals(1.0, bar.getAmount());
     }
 
     @Test

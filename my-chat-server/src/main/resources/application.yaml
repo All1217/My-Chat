@@ -103,15 +103,34 @@ app:
     index-pe-file: ./data/market-index-pe.json
   paper-trade:
     # 模拟盘初始资金（虚拟，非实盘）
-    initial-cash: 1000000
+    initial-cash: 20000
     commission-rate: 0.0003
+    min-commission: 5
     stamp-duty-rate: 0.0005
+    risk-budget-pct: 0.02
+    risk-budget-tight-pct: 0.01
+    drawdown-restrict-pct: 0.08
+    loss-streak-limit: 3
+    buy-pause-days: 2
+    min-avg-amount-stock: 50000000
+    min-avg-amount-etf: 30000000
+    min-listed-bars-stock: 60
+    min-listed-bars-etf: 20
+    commission-to-profit-max: 0.20
     auto-execute: true
     review-confidence-threshold: 0.55
     max-positions: 2
     max-single-allocation: 0.95
-    schedule-enabled: false
+    schedule-enabled: true
     schedule-cron: "0 35 15 * * MON-FRI"
+    # 云服务器系统时区经常是 UTC，定时按上海时间解释
+    schedule-zone: Asia/Shanghai
+    research-schedule-enabled: false
+    research-schedule-cron: "0 10 15 * * MON-FRI"
+    research-skip-days: 3
+    research-batch-size: 15
+    research-keep-limit: 8
+    research-context-limit: 15
     require-etf-premium: true
     max-etf-premium-pct: 2.0
     max-qdii-premium-pct: 1.5

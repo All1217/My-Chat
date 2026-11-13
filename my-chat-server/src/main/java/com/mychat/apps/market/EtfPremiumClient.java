@@ -19,18 +19,17 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /**
- * 东财 ETF 溢价：主源 clist IOPV(f441)+折价率(f402)；无 IOPV 时降级最近净值。
- * 同一轮可复用 {@link #newSession()} 缓存，避免按代码重复拉全表。
+ * 东财 ETF 溢价：按代码查 ulist 的 IOPV(f441)；列表没有现价时用调用方已有的价格。
+ * 无 IOPV 时降级最近净值。同一轮可复用 {@link #newSession()}，每只代码只请求一次。
+ * clist 的 pz 实际最多 100 且按涨跌幅排序，不能靠拉全表找指定代码。
  */
 @Slf4j
 @Component
 public class EtfPremiumClient {
 
-    private static final String CLIST_URL =
-            "https://push2delay.eastmoney.com/api/qt/clist/get"
-                    + "?pn=1&pz=5000&po=1&np=1&fltt=2&invt=2&fid=f3"
-                    + "&fs=b:MK0021,b:MK0022,b:MK0023,b:MK0024"
-                    + "&fields=f12,f14,f2,f402,f441";
+    private static final String ULIST_URL =
+            "https://push2delay.eastmoney.com/api/qt/ulist.np/get"
+                    + "?fltt=2&np=1&fields=f12,f14,f2,f402,f441&secids=";
 
     private static final String NAV_URL =
             "https://api.fund.eastmoney.com/f10/lsjz"
@@ -42,95 +41,140 @@ public class EtfPremiumClient {
             .build();
     private final ObjectMapper mapper = new ObjectMapper();
 
-    /** 开启一轮查询会话（缓存 ETF 列表）。 */
+    /** 开启一轮查询会话（同一代码不重复请求）。 */
     public Session newSession() {
         return new Session();
     }
 
-    /** 一轮内的溢价查询（列表只拉一次）。 */
+    /** 一轮内的溢价查询（每只代码只请求一次）。 */
     public final class Session {
-        private Map<String, ClistRow> cache;
+        private final Map<String, ClistRow> cache = new HashMap<>();
 
         /** 按代码取溢价；失败返回 null（调用方 fail-closed）。 */
         public PremiumQuote lookup(String symbol) {
+            return lookup(symbol, null);
+        }
+
+        /**
+         * 按代码取溢价。knownPrice 是行情里已经拿到的价格，列表现价缺失时用它。
+         * 失败返回 null（调用方 fail-closed）。
+         */
+        public PremiumQuote lookup(String symbol, Double knownPrice) {
             if (!StringUtils.hasText(symbol)) {
                 return null;
             }
             String code = symbol.trim().toUpperCase(Locale.ROOT);
-            ensureCache();
-            ClistRow row = cache.get(code);
-            if (row != null && row.iopv != null && row.iopv > 0 && row.price != null && row.price > 0) {
-                PremiumQuote q = new PremiumQuote();
-                q.setSymbol(code);
-                q.setName(row.name);
-                q.setPrice(row.price);
-                q.setIopv(row.iopv);
-                q.setPremiumBasis("IOPV");
-                // 东财 f402 为折价率(%)：溢价 ≈ -折价；若同时有 IOPV 则以价差为准
-                double premium = (row.price - row.iopv) / row.iopv * 100.0;
-                q.setPremiumPct(round2(premium));
-                if (row.discountPct != null) {
-                    q.setEastMoneyDiscountPct(row.discountPct);
-                }
-                return q;
+            ClistRow row = rowOf(code);
+            Double listPrice = row == null ? null : row.price;
+            Double iopv = row == null ? null : row.iopv;
+            Double price = firstPositive(listPrice, knownPrice);
+            // 价和 IOPV 都在时不必再打净值接口
+            Double nav = positive(price) != null && positive(iopv) != null ? null : fetchLatestNav(code);
+            PremiumQuote quote = quoteOf(code, row == null ? null : row.name, listPrice, iopv,
+                    row == null ? null : row.discountPct, knownPrice, nav);
+            if (quote == null) {
+                log.warn("ETF 溢价不可得 {}: 列表价={} 已知价={} IOPV={} 净值={}",
+                        code, listPrice, knownPrice, iopv, nav);
             }
-            // 备源：最近单位净值
-            Double nav = fetchLatestNav(code);
-            Double price = row != null ? row.price : null;
-            if (price == null || price <= 0) {
-                return null;
-            }
-            if (nav == null || nav <= 0) {
-                return null;
-            }
-            PremiumQuote q = new PremiumQuote();
-            q.setSymbol(code);
-            q.setName(row != null ? row.name : null);
-            q.setPrice(price);
-            q.setNav(nav);
-            q.setPremiumBasis("NAV_DELAYED");
-            q.setPremiumPct(round2((price - nav) / nav * 100.0));
-            return q;
+            return quote;
         }
 
-        private void ensureCache() {
-            if (cache != null) {
-                return;
+        /** 按 secid 查这一只；失败记一条空行，避免同一轮重复请求。 */
+        private ClistRow rowOf(String code) {
+            if (cache.containsKey(code)) {
+                return cache.get(code);
             }
-            cache = new HashMap<>();
+            ClistRow row = fetchUlist(code);
+            cache.put(code, row);
+            return row;
+        }
+
+        private ClistRow fetchUlist(String code) {
+            String secid;
+            try {
+                secid = MarketSymbolParser.parse(code).eastMoneySecId();
+            } catch (IllegalArgumentException e) {
+                return null;
+            }
+            if (!StringUtils.hasText(secid)) {
+                return null;
+            }
             try {
                 Request req = new Request.Builder()
-                        .url(CLIST_URL)
+                        .url(ULIST_URL + secid)
                         .header("User-Agent", "Mozilla/5.0")
                         .header("Referer", "https://quote.eastmoney.com/")
                         .get()
                         .build();
                 try (Response resp = http.newCall(req).execute()) {
                     if (!resp.isSuccessful() || resp.body() == null) {
-                        log.warn("ETF clist HTTP {}", resp.code());
-                        return;
+                        log.warn("ETF ulist HTTP {} {}", code, resp.code());
+                        return null;
                     }
                     JsonNode diff = mapper.readTree(resp.body().string()).path("data").path("diff");
-                    if (!diff.isArray()) {
-                        return;
+                    JsonNode node = firstRow(diff);
+                    if (node == null) {
+                        return null;
                     }
-                    for (JsonNode n : diff) {
-                        String code = text(n, "f12");
-                        if (!StringUtils.hasText(code)) {
-                            continue;
-                        }
-                        ClistRow row = new ClistRow();
-                        row.name = text(n, "f14");
-                        row.price = num(n, "f2");
-                        row.discountPct = num(n, "f402");
-                        row.iopv = num(n, "f441");
-                        cache.put(code.toUpperCase(Locale.ROOT), row);
-                    }
+                    ClistRow row = new ClistRow();
+                    row.name = text(node, "f14");
+                    row.price = num(node, "f2");
+                    row.discountPct = num(node, "f402");
+                    row.iopv = num(node, "f441");
+                    return row;
                 }
             } catch (IOException e) {
-                log.warn("ETF clist 拉取失败: {}", e.getMessage());
+                log.warn("ETF ulist 拉取失败 {}: {}", code, e.getMessage());
+                return null;
             }
         }
+    }
+
+    /** 用列表价或已知价对 IOPV；都没有 IOPV 时用最近净值。算不出则返回 null。 */
+    static PremiumQuote quoteOf(String code, String name, Double listPrice, Double iopv, Double discountPct,
+                                 Double knownPrice, Double nav) {
+        Double price = firstPositive(listPrice, knownPrice);
+        Double liveIopv = positive(iopv);
+        if (price != null && liveIopv != null) {
+            PremiumQuote q = new PremiumQuote();
+            q.setSymbol(code);
+            q.setName(name);
+            q.setPrice(price);
+            q.setIopv(liveIopv);
+            q.setPremiumBasis("IOPV");
+            q.setPremiumPct(round2((price - liveIopv) / liveIopv * 100.0));
+            if (discountPct != null) {
+                q.setEastMoneyDiscountPct(discountPct);
+            }
+            return q;
+        }
+        Double liveNav = positive(nav);
+        if (price == null || liveNav == null) {
+            return null;
+        }
+        PremiumQuote q = new PremiumQuote();
+        q.setSymbol(code);
+        q.setName(name);
+        q.setPrice(price);
+        q.setNav(liveNav);
+        q.setPremiumBasis("NAV_DELAYED");
+        q.setPremiumPct(round2((price - liveNav) / liveNav * 100.0));
+        return q;
+    }
+
+    /** diff 可能是数组，也可能是按下标展开的对象。 */
+    private static JsonNode firstRow(JsonNode diff) {
+        if (diff == null || diff.isNull() || diff.isMissingNode()) {
+            return null;
+        }
+        if (diff.isArray()) {
+            return diff.isEmpty() ? null : diff.get(0);
+        }
+        if (diff.isObject()) {
+            var it = diff.fields();
+            return it.hasNext() ? it.next().getValue() : null;
+        }
+        return null;
     }
 
     private Double fetchLatestNav(String fundCode) {
@@ -221,6 +265,19 @@ public class EtfPremiumClient {
         } catch (NumberFormatException e) {
             return null;
         }
+    }
+
+    /** 合法报价：有限、大于 0，并排除东财缺失字段时的超大哨兵值。 */
+    private static Double positive(Double v) {
+        if (v == null || !Double.isFinite(v) || v <= 0 || v >= 100_000d) {
+            return null;
+        }
+        return v;
+    }
+
+    private static Double firstPositive(Double primary, Double fallback) {
+        Double a = positive(primary);
+        return a != null ? a : positive(fallback);
     }
 
     private static double round2(double v) {

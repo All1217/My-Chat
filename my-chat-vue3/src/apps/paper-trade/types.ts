@@ -4,6 +4,13 @@ export interface PaperAccount {
   name: string
   cash: number
   initialCash: number
+  equity?: number | null
+  peakEquity?: number | null
+  drawdownPct?: number | null
+  lossStreak?: number | null
+  buyPauseUntil?: string | null
+  drawdownRestricted?: boolean | null
+  latestSummary?: string | null
 }
 
 /** 持仓行。 */
@@ -91,4 +98,23 @@ export interface PaperAiRun {
   createdAt?: string | null
   finishedAt?: string | null
   decisions?: PaperAiDecision[] | null
+}
+
+/** 已留下的研究卡片。 */
+export interface PaperResearchNote {
+  symbol: string
+  name?: string | null
+  story?: string | null
+  risks?: string | null
+  sourceTitles?: string | null
+  updatedAt?: string | null
+}
+
+/** 搜集轮次状态。 */
+export interface PaperResearchRun {
+  id: string
+  status: string
+  errorMessage?: string | null
+  screenedCount?: number | null
+  keptCount?: number | null
 }

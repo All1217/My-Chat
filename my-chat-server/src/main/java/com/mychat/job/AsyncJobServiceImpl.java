@@ -9,6 +9,8 @@ import com.mychat.vo.AsyncJobVO;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 
 import java.time.Duration;
@@ -40,8 +42,8 @@ public class AsyncJobServiceImpl extends ServiceImpl<AsyncJobMapper, AsyncJob> i
     /**
      * 登记一条新任务并交给后台去跑。
      * <p>
-     * 先校验、再 insert（状态 PENDING），然后 {@code dispatch}（异步，不等待），
-     * 最后把刚写入的记录返回给调用方（此时多半还是 PENDING）。
+     * 先校验、再 insert（状态 PENDING）。若调用方还在事务里，等提交后再 dispatch，
+     * 避免工作线程读到未提交的任务并直接放弃。最后把记录返回给调用方（此时多半还是 PENDING）。
      *
      * @param jobType          业务类型，要和某个 {@code JobHandler.type()} 对得上
      * @param title            用户看见的通知标题
@@ -67,8 +69,22 @@ public class AsyncJobServiceImpl extends ServiceImpl<AsyncJobMapper, AsyncJob> i
         job.setNotifyOnSuccess(notifyOnSuccess);
         asyncJobMapper.insert(job);
         log.info("提交任务 id={} type={} title={}", job.getId(), job.getJobType(), job.getTitle());
-        asyncJobDispatcher.dispatch(job.getId());
-        return AsyncJobMapperSupport.toVo(asyncJobMapper.selectById(job.getId()));
+        dispatchAfterCommit(job.getId());
+        return AsyncJobMapperSupport.toVo(job);
+    }
+
+    /** 事务未提交时工作线程看不到新行，所以推迟到 afterCommit。没有事务则立刻调度。 */
+    private void dispatchAfterCommit(String jobId) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            asyncJobDispatcher.dispatch(jobId);
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                asyncJobDispatcher.dispatch(jobId);
+            }
+        });
     }
 
     /**

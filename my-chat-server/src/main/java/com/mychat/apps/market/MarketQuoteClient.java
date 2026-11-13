@@ -13,6 +13,7 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriComponentsBuilder;
 import okhttp3.ConnectionPool;
 import okhttp3.OkHttpClient;
+import okhttp3.Protocol;
 import okhttp3.Request;
 import okhttp3.Response;
 
@@ -45,6 +46,7 @@ public class MarketQuoteClient {
         this.restClient = null;
         this.mapper = new ObjectMapper();
         this.okHttp = new OkHttpClient.Builder()
+                .protocols(List.of(Protocol.HTTP_1_1))
                 .connectTimeout(5, TimeUnit.SECONDS)
                 .readTimeout(15, TimeUnit.SECONDS)
                 .callTimeout(20, TimeUnit.SECONDS)
@@ -159,6 +161,9 @@ public class MarketQuoteClient {
             } catch (Exception e) {
                 last = e;
                 if (attempt == 1) {
+                    if (streamReset(e)) {
+                        okHttp.connectionPool().evictAll();
+                    }
                     continue;
                 }
                 log.warn("拉取行情失败 uri={}: {}", uri, e.getMessage());
@@ -167,6 +172,19 @@ public class MarketQuoteClient {
         }
         log.warn("拉取行情失败 uri={}: {}", uri, last == null ? "" : last.getMessage());
         throw new IllegalArgumentException("无法识别或暂无行情");
+    }
+
+    /** 连接被掐断。清掉连接池后再请求，避免后面的代码沿用坏连接。 */
+    private static boolean streamReset(Throwable error) {
+        Throwable current = error;
+        while (current != null) {
+            String message = current.getMessage();
+            if (message != null && message.contains("unexpected end of stream")) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     private JsonNode getJsonRest(URI uri) {
@@ -218,6 +236,10 @@ public class MarketQuoteClient {
             point.setHigh(Double.parseDouble(parts[3]));
             point.setLow(Double.parseDouble(parts[4]));
             point.setVolume(Math.round(Double.parseDouble(parts[5])));
+            // f57 成交额在第 7 列；旧数据或不足 7 列时保持空。
+            if (parts.length > 6 && !parts[6].isBlank()) {
+                point.setAmount(Double.parseDouble(parts[6]));
+            }
             return point;
         } catch (Exception e) {
             return null;

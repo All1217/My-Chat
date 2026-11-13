@@ -16,4 +16,7 @@ public class KlinePointVO {
     private Double high;
     private Double low;
     private Long volume;
+
+    /** 成交额（元）。旧缓存 K 线可能为空。 */
+    private Double amount;
 }

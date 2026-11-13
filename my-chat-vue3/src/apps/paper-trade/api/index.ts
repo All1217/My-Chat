@@ -7,6 +7,8 @@ import type {
   PaperOrder,
   PaperOrderRequest,
   PaperPosition,
+  PaperResearchNote,
+  PaperResearchRun,
   PaperStrategy,
 } from '@/apps/paper-trade/types'
 
@@ -43,4 +45,12 @@ export const paperTradeApi = {
 
   dismissDecision: (id: string) =>
     ragClient.post<PaperAiDecision>(`/ai/apps/paper-trade/ai/decisions/${id}/dismiss`),
+
+  researchNotes: (limit = 40) =>
+    ragClient.get<PaperResearchNote[]>('/ai/apps/paper-trade/research/notes', { params: { limit } }),
+
+  researchRun: () => ragClient.post<PaperAiSubmit>('/ai/apps/paper-trade/research/run'),
+
+  researchRunDetail: (id: string) =>
+    ragClient.get<PaperResearchRun>(`/ai/apps/paper-trade/research/runs/${id}`),
 }

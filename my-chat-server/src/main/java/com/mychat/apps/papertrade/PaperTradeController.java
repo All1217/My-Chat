@@ -1,14 +1,21 @@
 package com.mychat.apps.papertrade;
 
-import com.mychat.apps.papertrade.entity.dto.PaperOrderRequest;
-import com.mychat.apps.papertrade.entity.dto.PaperStrategyRequest;
-import com.mychat.apps.papertrade.entity.vo.PaperAccountVO;
-import com.mychat.apps.papertrade.entity.vo.PaperAiDecisionVO;
-import com.mychat.apps.papertrade.entity.vo.PaperAiRunVO;
-import com.mychat.apps.papertrade.entity.vo.PaperAiSubmitVO;
-import com.mychat.apps.papertrade.entity.vo.PaperOrderVO;
-import com.mychat.apps.papertrade.entity.vo.PaperPositionVO;
-import com.mychat.apps.papertrade.entity.vo.PaperStrategyVO;
+import com.mychat.apps.papertrade.ledger.PaperTradeService;
+import com.mychat.apps.papertrade.ledger.entity.dto.PaperOrderRequest;
+import com.mychat.apps.papertrade.research.PaperResearchService;
+import com.mychat.apps.papertrade.risk.PaperStageService;
+import com.mychat.apps.papertrade.trader.PaperAiTraderService;
+import com.mychat.apps.papertrade.trader.PaperStrategyService;
+import com.mychat.apps.papertrade.trader.entity.dto.PaperStrategyRequest;
+import com.mychat.apps.papertrade.ledger.entity.vo.PaperAccountVO;
+import com.mychat.apps.papertrade.trader.entity.vo.PaperAiDecisionVO;
+import com.mychat.apps.papertrade.trader.entity.vo.PaperAiRunVO;
+import com.mychat.apps.papertrade.trader.entity.vo.PaperAiSubmitVO;
+import com.mychat.apps.papertrade.ledger.entity.vo.PaperOrderVO;
+import com.mychat.apps.papertrade.ledger.entity.vo.PaperPositionVO;
+import com.mychat.apps.papertrade.research.entity.po.PaperResearchRun;
+import com.mychat.apps.papertrade.research.entity.vo.PaperResearchNoteVO;
+import com.mychat.apps.papertrade.trader.entity.vo.PaperStrategyVO;
 import com.mychat.common.result.Result;
 import lombok.AllArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -31,11 +38,13 @@ public class PaperTradeController {
     private final PaperTradeService paperTradeService;
     private final PaperStrategyService strategyService;
     private final PaperAiTraderService aiTraderService;
+    private final PaperResearchService researchService;
+    private final PaperStageService stageService;
 
     /** 默认模拟账户。 */
     @GetMapping("/account")
     public Result<PaperAccountVO> account() {
-        return Result.ok(paperTradeService.getAccount());
+        return Result.ok(stageService.attachLatest(paperTradeService.getAccount()));
     }
 
     /** 当前持仓。 */
@@ -67,7 +76,7 @@ public class PaperTradeController {
     /** 清空持仓与订单，现金回到初始值。 */
     @PostMapping("/account/reset")
     public Result<PaperAccountVO> reset() {
-        return Result.ok(paperTradeService.resetAccount());
+        return Result.ok(stageService.attachLatest(paperTradeService.resetAccount()));
     }
 
     /** 读取默认 AI 策略。 */
@@ -131,6 +140,28 @@ public class PaperTradeController {
             return Result.ok(aiTraderService.dismiss(id));
         } catch (IllegalArgumentException e) {
             return Result.fail(400, e.getMessage());
+        }
+    }
+
+    /** 已留下的研究卡片。 */
+    @GetMapping("/research/notes")
+    public Result<List<PaperResearchNoteVO>> researchNotes(@RequestParam(defaultValue = "40") int limit) {
+        return Result.ok(researchService.listKept(limit));
+    }
+
+    /** 提交搜集一轮（异步）。 */
+    @PostMapping("/research/run")
+    public Result<PaperAiSubmitVO> researchRun() {
+        return Result.ok(researchService.submitRun());
+    }
+
+    /** 搜集轮次状态。 */
+    @GetMapping("/research/runs/{id}")
+    public Result<PaperResearchRun> researchRunDetail(@PathVariable String id) {
+        try {
+            return Result.ok(researchService.getRun(id));
+        } catch (IllegalArgumentException e) {
+            return Result.fail(404, e.getMessage());
         }
     }
 }

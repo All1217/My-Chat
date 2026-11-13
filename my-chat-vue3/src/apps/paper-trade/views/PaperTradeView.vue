@@ -3,6 +3,7 @@
     <header class="paper-header">
       <el-button @click="goLobby">回到大厅</el-button>
       <div class="header-actions">
+        <el-button :loading="researchRunning" @click="onResearch">搜集一轮</el-button>
         <el-button type="primary" :loading="aiRunning" @click="onAiRun">AI 跑一轮</el-button>
         <el-button type="danger" plain :loading="resetting" @click="onReset">重置账户</el-button>
       </div>
@@ -18,9 +19,26 @@
           <strong>{{ formatMoney(account?.cash) }}</strong>
         </div>
         <div class="cash-row muted">
+          <span class="label">账户权益</span>
+          <span>{{ formatMoney(account?.equity) }}</span>
+        </div>
+        <div class="cash-row muted">
+          <span class="label">阶段高点 / 回撤</span>
+          <span>{{ formatMoney(account?.peakEquity) }} / {{ pct(account?.drawdownPct) }}</span>
+        </div>
+        <div class="cash-row muted">
+          <span class="label">连亏 / 暂停至</span>
+          <span>{{ account?.lossStreak ?? 0 }} / {{ account?.buyPauseUntil || '无' }}</span>
+        </div>
+        <div class="cash-row muted">
+          <span class="label">回撤收紧</span>
+          <span>{{ account?.drawdownRestricted ? '是，只买最流动 ETF' : '否' }}</span>
+        </div>
+        <div class="cash-row muted">
           <span class="label">初始资金</span>
           <span>{{ formatMoney(account?.initialCash) }}</span>
         </div>
+        <p v-if="account?.latestSummary" class="summary">{{ account.latestSummary }}</p>
         <p v-if="lastRunHint" class="hint">{{ lastRunHint }}</p>
       </section>
 
@@ -79,6 +97,21 @@
               {{ pct(row.takeProfitPct) }} / {{ pct(row.stopLossPct) }}
             </template>
           </el-table-column>
+        </el-table>
+      </section>
+
+      <section class="paper-card">
+        <div class="card-head">
+          <h2>研究卡片</h2>
+          <el-button size="small" @click="loadNotes">刷新</el-button>
+        </div>
+        <p v-if="researchHint" class="hint">{{ researchHint }}</p>
+        <el-table :data="notes" stripe empty-text="还没有留下的卡片" size="small">
+          <el-table-column prop="updatedAt" label="更新" width="160" />
+          <el-table-column prop="symbol" label="代码" width="90" />
+          <el-table-column prop="name" label="名称" width="140" />
+          <el-table-column prop="story" label="故事" min-width="200" show-overflow-tooltip />
+          <el-table-column prop="sourceTitles" label="来源" min-width="160" show-overflow-tooltip />
         </el-table>
       </section>
 
@@ -143,6 +176,7 @@ import type {
   PaperAiDecision,
   PaperOrder,
   PaperPosition,
+  PaperResearchNote,
 } from '@/apps/paper-trade/types'
 
 const router = useRouter()
@@ -150,13 +184,17 @@ const account = ref<PaperAccount | null>(null)
 const positions = ref<PaperPosition[]>([])
 const orders = ref<PaperOrder[]>([])
 const decisions = ref<PaperAiDecision[]>([])
+const notes = ref<PaperResearchNote[]>([])
 const strategyText = ref('')
 const submitting = ref(false)
 const resetting = ref(false)
 const savingStrategy = ref(false)
 const aiRunning = ref(false)
+const researchRunning = ref(false)
 const lastRunHint = ref('')
+const researchHint = ref('')
 let pollTimer: ReturnType<typeof setInterval> | null = null
+let researchTimer: ReturnType<typeof setInterval> | null = null
 
 const form = reactive({
   symbol: '600519',
@@ -196,6 +234,60 @@ async function loadStrategy() {
 
 async function loadDecisions() {
   decisions.value = (await paperTradeApi.decisions(40)) ?? []
+}
+
+async function loadNotes() {
+  notes.value = (await paperTradeApi.researchNotes(40)) ?? []
+}
+
+async function onResearch() {
+  researchRunning.value = true
+  researchHint.value = '已提交搜集…'
+  try {
+    const sub = await paperTradeApi.researchRun()
+    researchHint.value = `搜集 ${sub.runId.slice(0, 8)}… 运行中`
+    startResearchPoll(sub.runId)
+  } catch {
+    researchHint.value = '提交失败'
+    researchRunning.value = false
+  }
+}
+
+function startResearchPoll(runId: string) {
+  if (researchTimer) {
+    clearInterval(researchTimer)
+  }
+  let tries = 0
+  researchTimer = setInterval(async () => {
+    tries += 1
+    try {
+      const run = await paperTradeApi.researchRunDetail(runId)
+      researchHint.value = `搜集状态：${run.status}`
+      if (run.status === 'SUCCEEDED' || run.status === 'FAILED') {
+        if (researchTimer) {
+          clearInterval(researchTimer)
+          researchTimer = null
+        }
+        researchRunning.value = false
+        if (run.status === 'FAILED') {
+          ElMessage.error(run.errorMessage || '搜集失败')
+        } else {
+          ElMessage.success('搜集完成')
+        }
+        await loadNotes()
+      }
+    } catch {
+      // 忽略单次轮询失败
+    }
+    if (tries > 90) {
+      if (researchTimer) {
+        clearInterval(researchTimer)
+        researchTimer = null
+      }
+      researchRunning.value = false
+      researchHint.value = '轮询超时，请稍后刷新研究卡片'
+    }
+  }, 2000)
 }
 
 async function onSaveStrategy() {
@@ -326,12 +418,17 @@ async function onReset() {
 }
 
 onMounted(() => {
-  Promise.all([refresh(), loadStrategy(), loadDecisions()]).catch((e: unknown) => {
+  Promise.all([refresh(), loadStrategy(), loadDecisions(), loadNotes()]).catch((e: unknown) => {
     ElMessage.error(e instanceof Error ? e.message : '加载失败，请确认已执行 schema 增量')
   })
 })
 
-onUnmounted(() => stopPoll())
+onUnmounted(() => {
+  stopPoll()
+  if (researchTimer) {
+    clearInterval(researchTimer)
+  }
+})
 </script>
 
 <style scoped lang="less">
@@ -413,5 +510,12 @@ onUnmounted(() => stopPoll())
   margin: 8px 0 0;
   font-size: 12px;
   color: #94a3b8;
+}
+
+.summary {
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #3f6212;
 }
 </style>

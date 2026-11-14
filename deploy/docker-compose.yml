@@ -57,7 +57,10 @@ services:
       - "127.0.0.1:8080:8080"
     volumes:
       - ${MYCHAT_DATA:-/data/my-chat}/jenkins_home:/var/jenkins_home
+      # sock + 宿主机 CLI（官方 jenkins 镜像不含 docker 命令）
       - /var/run/docker.sock:/var/run/docker.sock
+      - /usr/bin/docker:/usr/bin/docker:ro
+      - /usr/libexec/docker/cli-plugins:/usr/libexec/docker/cli-plugins:ro
       - ${MYCHAT_REPO:-/data/my-chat/repo}:/data/my-chat/repo
       - ${MYCHAT_ENV_FILE:-/data/my-chat/.env}:/data/my-chat/.env:ro
     mem_limit: 1024m

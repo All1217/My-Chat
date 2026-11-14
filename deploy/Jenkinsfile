@@ -17,6 +17,8 @@ pipeline {
         ENV_FILE = '/data/my-chat/.env'
         REPO_DIR = '/data/my-chat/repo'
         COMPOSE_FILE = 'deploy/docker-compose.yml'
+        // CentOS7 构建曾遇 BuildKit/tar 问题；流水线内关闭
+        DOCKER_BUILDKIT = '0'
     }
 
     stages {
@@ -35,13 +37,7 @@ pipeline {
                         set -e
                         test -f "$ENV_FILE" || { echo "缺少 $ENV_FILE"; exit 1; }
                         docker exec pg pg_isready -U postgres || { echo "宿主机 pg 容器未就绪"; exit 1; }
-                        if docker compose version >/dev/null 2>&1; then
-                          echo "COMPOSE_BIN=docker compose" > .compose_bin
-                        elif command -v docker-compose >/dev/null 2>&1; then
-                          echo "COMPOSE_BIN=docker-compose" > .compose_bin
-                        else
-                          echo "未找到 docker compose"; exit 1
-                        fi
+                        docker compose version >/dev/null
                     '''
                 }
             }
@@ -52,9 +48,9 @@ pipeline {
                 dir("${REPO_DIR}") {
                     sh '''
                         set -e
-                        . ./.compose_bin
-                        $COMPOSE_BIN -f "$COMPOSE_FILE" --env-file "$ENV_FILE" build app
-                        $COMPOSE_BIN -f "$COMPOSE_FILE" --env-file "$ENV_FILE" build nginx
+                        # 直接调用插件形式，避免 COMPOSE_BIN="docker compose" 在 sh 中被拆词
+                        docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" build app
+                        docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" build nginx
                     '''
                 }
             }
@@ -65,8 +61,7 @@ pipeline {
                 dir("${REPO_DIR}") {
                     sh '''
                         set -e
-                        . ./.compose_bin
-                        $COMPOSE_BIN -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d app nginx
+                        docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d app nginx
                     '''
                 }
             }

@@ -1,0 +1,14 @@
+.git
+.idea
+.cursor
+**/target
+**/node_modules
+**/dist
+**/.vite
+docs
+后端日志.txt
+*.md
+!README.md
+mcp-server-database
+my-chat-vue3/dist
+my-chat-server/target

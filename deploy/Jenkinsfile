@@ -1,0 +1,91 @@
+// My-Chat：GitHub 拉码 → 构建镜像 → compose 发布（手动 Build Now）
+// Script Path = deploy/Jenkinsfile
+// 代码检出到与宿主机同路径 /data/my-chat/repo（docker.sock 构建需要）
+
+pipeline {
+    agent any
+
+    options {
+        disableConcurrentBuilds()
+        timestamps()
+        skipDefaultCheckout()
+    }
+
+    environment {
+        MAVEN_OPTS = '-Xmx512m'
+        NODE_OPTIONS = '--max-old-space-size=768'
+        ENV_FILE = '/data/my-chat/.env'
+        REPO_DIR = '/data/my-chat/repo'
+        COMPOSE_FILE = 'deploy/docker-compose.yml'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                dir("${REPO_DIR}") {
+                    checkout scm
+                }
+            }
+        }
+
+        stage('Precheck') {
+            steps {
+                dir("${REPO_DIR}") {
+                    sh '''
+                        set -e
+                        test -f "$ENV_FILE" || { echo "缺少 $ENV_FILE"; exit 1; }
+                        docker exec pg pg_isready -U postgres || { echo "宿主机 pg 容器未就绪"; exit 1; }
+                        if docker compose version >/dev/null 2>&1; then
+                          echo "COMPOSE_BIN=docker compose" > .compose_bin
+                        elif command -v docker-compose >/dev/null 2>&1; then
+                          echo "COMPOSE_BIN=docker-compose" > .compose_bin
+                        else
+                          echo "未找到 docker compose"; exit 1
+                        fi
+                    '''
+                }
+            }
+        }
+
+        stage('Build images') {
+            steps {
+                dir("${REPO_DIR}") {
+                    sh '''
+                        set -e
+                        . ./.compose_bin
+                        $COMPOSE_BIN -f "$COMPOSE_FILE" --env-file "$ENV_FILE" build app
+                        $COMPOSE_BIN -f "$COMPOSE_FILE" --env-file "$ENV_FILE" build nginx
+                    '''
+                }
+            }
+        }
+
+        stage('Up stack') {
+            steps {
+                dir("${REPO_DIR}") {
+                    sh '''
+                        set -e
+                        . ./.compose_bin
+                        $COMPOSE_BIN -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d app nginx
+                    '''
+                }
+            }
+        }
+
+        stage('Health') {
+            steps {
+                sh '''
+                    set -e
+                    for i in $(seq 1 40); do
+                      if curl -sf "http://127.0.0.1/" >/dev/null; then
+                        echo "nginx OK"
+                        exit 0
+                      fi
+                      sleep 3
+                    done
+                    echo "健康检查失败"; exit 1
+                '''
+            }
+        }
+    }
+}

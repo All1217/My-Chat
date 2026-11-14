@@ -133,6 +133,10 @@ my-chat-vue3/src/
     └── utils/streamChat.ts   # NDJSON 流式客户端
 
 docs/迭代规划/                 # 规划与主聊天架构说明
+docs/Flyway多机数据库对齐指引.md
+docs/Cursor本地MCP接入提醒.md
+docs/阿里云Jenkins部署指引.md
+deploy/                         # CentOS7：复用宿主机 pg + Compose(app/nginx) + Jenkins
 ```
 
 ---
@@ -183,6 +187,10 @@ Remove-Item Env:FLYWAY_BASELINE_ON_MIGRATE
 
 后续结构变更只新增更高版本的 `V{版本}__{说明}.sql`，已执行的迁移文件禁止修改。对话模型、默认模拟账户和默认策略仍由应用首次启动写入。
 
+多机 / 换机如何对齐库结构（空库迁移、dump/restore、何时才能 baseline）见 [docs/Flyway多机数据库对齐指引.md](docs/Flyway多机数据库对齐指引.md)。
+
+阿里云 CentOS 7.9：复用已有 pg、Compose 部署 app/nginx、Jenkins 点 Build 发布，见 [docs/阿里云Jenkins部署指引.md](docs/阿里云Jenkins部署指引.md)（样例 [`deploy/`](deploy/)）。
+
 ### 3. 启动后端
 
 ```bash
@@ -199,7 +207,7 @@ cd mcp-server-database
 .\mvnw.cmd spring-boot:run
 ```
 
-详见 [`mcp-server-database/README.md`](mcp-server-database/README.md)。项目 `.cursor/mcp.json` 已指向 `http://localhost:8102/mcp`。
+详见 [`mcp-server-database/README.md`](mcp-server-database/README.md)。`.cursor/mcp.json` 不入库，换机后请按 [docs/Cursor本地MCP接入提醒.md](docs/Cursor本地MCP接入提醒.md) 自行配置。
 
 ### 4. 启动前端
 

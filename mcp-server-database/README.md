@@ -29,7 +29,7 @@ cd mcp-server-database
 
 ## 接入 Cursor
 
-项目根 `.cursor/mcp.json` 已配置：
+`.cursor/` 被 gitignore，**每台机器需自行**在项目根创建 `.cursor/mcp.json`：
 
 ```json
 {
@@ -41,7 +41,7 @@ cd mcp-server-database
 }
 ```
 
-先启动本服务，再在 Cursor → Customize → MCP 中确认工具可见。CLI 若要求 `type`，可写 `"type": "http"`。
+先启动本服务，再在 Cursor → Customize → MCP 中确认工具可见。CLI 若要求 `type`，可写 `"type": "http"`。换机提醒见 [`docs/Cursor本地MCP接入提醒.md`](../docs/Cursor本地MCP接入提醒.md)。
 
 ## 接入 my-chat-server
 

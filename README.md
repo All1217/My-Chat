@@ -135,7 +135,7 @@ my-chat-vue3/src/
 docs/迭代规划/                 # 规划与主聊天架构说明
 docs/Flyway多机数据库对齐指引.md
 docs/Cursor本地MCP接入提醒.md
-docs/阿里云Jenkins部署指引.md
+docs/部署与运维指引.md
 deploy/                         # CentOS7：复用宿主机 pg + Compose(app/nginx) + Jenkins
 ```
 
@@ -189,7 +189,7 @@ Remove-Item Env:FLYWAY_BASELINE_ON_MIGRATE
 
 多机 / 换机如何对齐库结构（空库迁移、dump/restore、何时才能 baseline）见 [docs/Flyway多机数据库对齐指引.md](docs/Flyway多机数据库对齐指引.md)。
 
-阿里云 CentOS 7.9：复用已有 pg、Compose 部署 app/nginx、Jenkins 点 Build 发布，见 [docs/阿里云Jenkins部署指引.md](docs/阿里云Jenkins部署指引.md)（样例 [`deploy/`](deploy/)）。
+阿里云 CentOS 7.9：部署、Jenkins、日志（Dozzle）、查库（Adminer）见 [docs/部署与运维指引.md](docs/部署与运维指引.md)（样例 [`deploy/`](deploy/)）。
 
 ### 3. 启动后端
 

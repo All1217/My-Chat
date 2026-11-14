@@ -1,4 +1,5 @@
-# My-Chat：复用宿主机已有 pg 容器，Compose 只跑 app + nginx（+ 可选 jenkins）
+# My-Chat：复用宿主机已有 pg 容器，Compose 只跑 app + nginx
+# 可选：--profile jenkins | --profile ops（dozzle 日志 + adminer 查库）
 # 用法（在仓库根 /data/my-chat/repo）：
 #   docker compose -f deploy/docker-compose.yml --env-file /data/my-chat/.env up -d
 
@@ -66,3 +67,27 @@ services:
     mem_limit: 1024m
     profiles:
       - jenkins
+
+  # 容器日志 Web UI（仅本机 + SSH 隧道，不对公网开放）
+  dozzle:
+    image: amir20/dozzle:latest
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - "127.0.0.1:8888:8080"
+    mem_limit: 128m
+    profiles:
+      - ops
+
+  # 数据库可视化（仅本机 + SSH 隧道；连宿主机 pg 的 mychat 库）
+  adminer:
+    image: adminer:4
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "127.0.0.1:8889:8080"
+    mem_limit: 128m
+    profiles:
+      - ops

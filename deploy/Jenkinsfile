@@ -71,14 +71,15 @@ pipeline {
             steps {
                 sh '''
                     set -e
+                    # 在 Jenkins 容器内 127.0.0.1 不是宿主机；同 compose 网络用服务名 nginx
                     for i in $(seq 1 40); do
-                      if curl -sf "http://127.0.0.1/" >/dev/null; then
+                      if curl -sf "http://nginx/" >/dev/null; then
                         echo "nginx OK"
                         exit 0
                       fi
                       sleep 3
                     done
-                    echo "健康检查失败"; exit 1
+                    echo "健康检查失败（http://nginx/）"; exit 1
                 '''
             }
         }

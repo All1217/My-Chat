@@ -110,6 +110,7 @@ curl -sI http://127.0.0.1/ | head -5
 | 前端通、接口 404 | 查 nginx 容器与 `/rag/`；`docker logs` app |
 | Jenkins 构建找不到上下文 | 代码必须在 `/data/my-chat/repo`，且 compose 已挂载同路径 |
 | Jenkins 报 `docker: not found` | 需挂载宿主机 `/usr/bin/docker` 与 cli-plugins；改 compose 后 `up -d --force-recreate jenkins` |
+| Health 一直失败但网站能开 | Jenkins 容器内勿 curl 127.0.0.1；应检查 `http://nginx/`（同 compose 网络） |
 
 ---
 

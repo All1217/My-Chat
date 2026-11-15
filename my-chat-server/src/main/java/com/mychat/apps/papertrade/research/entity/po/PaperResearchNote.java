@@ -28,6 +28,9 @@ public class PaperResearchNote {
 
     private Boolean kept;
 
+    /** 是否自选：人工新增默认是，AI 搜集新建为否。 */
+    private Boolean watchlist;
+
     @TableField("reject_reason")
     private String rejectReason;
 

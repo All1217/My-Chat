@@ -2,7 +2,7 @@
   <div class="settings">
     <div class="settings-head">
       <h1>账户设置</h1>
-      <p>初始资金、定时任务、投资策略与危险操作</p>
+      <p>初始资金、定时与偏好、投资策略与危险操作</p>
     </div>
 
     <section class="panel">
@@ -26,9 +26,9 @@
 
     <section class="panel">
       <div class="panel-head">
-        <h2>定时任务</h2>
+        <h2>定时与偏好</h2>
         <el-button size="small" type="primary" plain :loading="savingSchedule" @click="onSaveSchedule">
-          保存定时
+          保存设置
         </el-button>
       </div>
       <p class="hint schedule-zone">时区：{{ schedule.zoneId || 'Asia/Shanghai' }}（Spring 6 域 cron）</p>
@@ -48,6 +48,13 @@
         <el-switch v-model="schedule.traderEnabled" />
       </div>
       <el-input v-model="schedule.traderCron" placeholder="0 35 15 * * MON-FRI" class="cron-input" />
+      <div class="sched-row trader-pref">
+        <div class="sched-meta">
+          <strong>是否纳入自选</strong>
+          <p>开：自选股优先进入交易员候选；关：交易员列表不包含自选股</p>
+        </div>
+        <el-switch v-model="schedule.includeWatchlist" />
+      </div>
     </section>
 
     <section class="panel">
@@ -119,6 +126,7 @@ const schedule = reactive({
   traderEnabled: false,
   traderCron: '0 35 15 * * MON-FRI',
   zoneId: 'Asia/Shanghai',
+  includeWatchlist: true,
 })
 
 async function load() {
@@ -135,6 +143,7 @@ async function load() {
   schedule.traderEnabled = !!sch.traderEnabled
   schedule.traderCron = sch.traderCron || '0 35 15 * * MON-FRI'
   schedule.zoneId = sch.zoneId || 'Asia/Shanghai'
+  schedule.includeWatchlist = sch.includeWatchlist !== false
 }
 
 async function onSaveSchedule() {
@@ -150,13 +159,15 @@ async function onSaveSchedule() {
       traderEnabled: schedule.traderEnabled,
       traderCron: schedule.traderCron.trim(),
       zoneId: schedule.zoneId,
+      includeWatchlist: schedule.includeWatchlist,
     })
     schedule.researchEnabled = !!saved.researchEnabled
     schedule.researchCron = saved.researchCron
     schedule.traderEnabled = !!saved.traderEnabled
     schedule.traderCron = saved.traderCron
     schedule.zoneId = saved.zoneId
-    ElMessage.success('定时已保存并重挂')
+    schedule.includeWatchlist = saved.includeWatchlist !== false
+    ElMessage.success('设置已保存并重挂定时')
   } catch {
     /* toast */
   } finally {

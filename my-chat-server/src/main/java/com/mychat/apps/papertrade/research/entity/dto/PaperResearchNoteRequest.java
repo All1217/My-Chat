@@ -10,6 +10,8 @@ public class PaperResearchNoteRequest {
     private String story;
     private String risks;
     private Boolean kept;
+    /** 是否自选；人工新建缺省 true。 */
+    private Boolean watchlist;
     private String rejectReason;
     private String sourcesJson;
     private String quoteSummary;

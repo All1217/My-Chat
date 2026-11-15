@@ -57,13 +57,15 @@ export interface PaperStrategy {
   updatedAt?: string | null
 }
 
-/** 搜集员 / 交易员定时配置。 */
+/** 搜集员 / 交易员定时与偏好配置。 */
 export interface PaperScheduleSettings {
   researchEnabled: boolean
   researchCron: string
   traderEnabled: boolean
   traderCron: string
   zoneId: string
+  /** 是否纳入自选：是则自选优先，否则交易员看不到自选。 */
+  includeWatchlist: boolean
   updatedAt?: string | null
 }
 
@@ -128,6 +130,8 @@ export interface PaperResearchNoteAdmin {
   story?: string | null
   risks?: string | null
   kept?: boolean | null
+  /** 是否自选。 */
+  watchlist?: boolean | null
   rejectReason?: string | null
   sourcesJson?: string | null
   runId?: string | null

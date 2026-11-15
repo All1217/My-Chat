@@ -13,6 +13,8 @@ import com.mychat.apps.papertrade.risk.PaperSymbolFacts;
 import com.mychat.apps.papertrade.risk.PaperSymbolGate;
 import com.mychat.apps.papertrade.research.entity.po.PaperResearchNote;
 import com.mychat.apps.papertrade.research.mapper.PaperResearchNoteMapper;
+import com.mychat.apps.papertrade.schedule.PaperScheduleService;
+import com.mychat.apps.papertrade.schedule.entity.po.PaperScheduleSettings;
 import com.mychat.apps.papertrade.ledger.entity.po.PaperAccount;
 import com.mychat.apps.papertrade.trader.entity.po.PaperAiDecision;
 import com.mychat.apps.papertrade.ledger.entity.po.PaperCooldown;
@@ -52,6 +54,7 @@ public class PaperAiContextBuilder {
     private final PaperTradeService tradeService;
     private final PaperTradeProperties properties;
     private final PaperResearchNoteMapper noteMapper;
+    private final PaperScheduleService scheduleService;
     private final MarketQuoteClient quoteClient;
     private final EtfPremiumClient premiumClient;
     private final PaperAiDecisionMapper decisionMapper;
@@ -77,10 +80,19 @@ public class PaperAiContextBuilder {
             }
         }
         int noteLimit = Math.max(1, properties.getResearchContextLimit());
-        List<PaperResearchNote> notes = noteMapper.selectList(new LambdaQueryWrapper<PaperResearchNote>()
-                .eq(PaperResearchNote::getKept, true)
-                .orderByDesc(PaperResearchNote::getUpdatedAt)
-                .last("LIMIT " + noteLimit));
+        // 纳入自选：自选优先；关闭则排除自选（持仓仍始终进入候选）
+        PaperScheduleSettings schedule = scheduleService.requireSettings();
+        boolean includeWatchlist = schedule.getIncludeWatchlist() == null
+                || Boolean.TRUE.equals(schedule.getIncludeWatchlist());
+        LambdaQueryWrapper<PaperResearchNote> noteQw = new LambdaQueryWrapper<PaperResearchNote>()
+                .eq(PaperResearchNote::getKept, true);
+        if (!includeWatchlist) {
+            noteQw.eq(PaperResearchNote::getWatchlist, false);
+        } else {
+            noteQw.orderByDesc(PaperResearchNote::getWatchlist);
+        }
+        noteQw.orderByDesc(PaperResearchNote::getUpdatedAt).last("LIMIT " + noteLimit);
+        List<PaperResearchNote> notes = noteMapper.selectList(noteQw);
         Map<String, PaperResearchNote> noteBySymbol = new LinkedHashMap<>();
         for (PaperResearchNote note : notes) {
             if (!StringUtils.hasText(note.getSymbol())) {
@@ -151,6 +163,7 @@ public class PaperAiContextBuilder {
                     row.put("story", note.getStory() == null ? "" : note.getStory());
                     row.put("risks", note.getRisks() == null ? "" : note.getRisks());
                     row.put("sourceTitles", note.getSourcesJson() == null ? "" : note.getSourcesJson());
+                    row.put("watchlist", Boolean.TRUE.equals(note.getWatchlist()));
                     if (note.getUpdatedAt() != null) {
                         row.put("noteUpdatedAt", note.getUpdatedAt().toString());
                     }

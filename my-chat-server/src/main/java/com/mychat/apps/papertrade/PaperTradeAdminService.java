@@ -261,6 +261,10 @@ public class PaperTradeAdminService {
         if (row.getKept() == null) {
             row.setKept(false);
         }
+        // 人工新建：未显式指定时默认自选
+        if (row.getWatchlist() == null) {
+            row.setWatchlist(true);
+        }
         LocalDateTime now = LocalDateTime.now();
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
@@ -349,6 +353,9 @@ public class PaperTradeAdminService {
         if (req.getKept() != null) {
             row.setKept(req.getKept());
         }
+        if (req.getWatchlist() != null) {
+            row.setWatchlist(req.getWatchlist());
+        }
         if (req.getRejectReason() != null) {
             row.setRejectReason(req.getRejectReason());
         }
@@ -426,6 +433,7 @@ public class PaperTradeAdminService {
         vo.setStory(row.getStory());
         vo.setRisks(row.getRisks());
         vo.setKept(row.getKept());
+        vo.setWatchlist(Boolean.TRUE.equals(row.getWatchlist()));
         vo.setRejectReason(row.getRejectReason());
         vo.setSourcesJson(row.getSourcesJson());
         vo.setRunId(row.getRunId());

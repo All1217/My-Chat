@@ -399,7 +399,9 @@ public class PaperResearchService {
             note.setRejectReason(clip(reject, 500));
             note.setSourcesJson(objectMapper.writeValueAsString(material.sources()));
             note.setRunId(runId);
+            // AI 新建非自选；更新保留原 watchlist
             if (existing == null) {
+                note.setWatchlist(false);
                 noteMapper.insert(note);
             } else {
                 noteMapper.updateById(note);

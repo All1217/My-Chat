@@ -10,4 +10,6 @@ public class PaperScheduleRequest {
     private Boolean traderEnabled;
     private String traderCron;
     private String zoneId;
+    /** 是否纳入自选。 */
+    private Boolean includeWatchlist;
 }

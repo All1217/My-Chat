@@ -35,6 +35,10 @@ public class PaperScheduleSettings {
     @TableField("zone_id")
     private String zoneId;
 
+    /** 是否纳入自选：是则自选优先，否则交易员看不到自选。 */
+    @TableField("include_watchlist")
+    private Boolean includeWatchlist;
+
     @TableField(value = "updated_at", fill = FieldFill.INSERT_UPDATE)
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
     private LocalDateTime updatedAt;

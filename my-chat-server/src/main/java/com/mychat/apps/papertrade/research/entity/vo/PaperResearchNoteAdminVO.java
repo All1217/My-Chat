@@ -11,6 +11,7 @@ public class PaperResearchNoteAdminVO {
     private String story;
     private String risks;
     private Boolean kept;
+    private Boolean watchlist;
     private String rejectReason;
     private String sourcesJson;
     private String runId;

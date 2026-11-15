@@ -10,5 +10,6 @@ public class PaperScheduleVO {
     private Boolean traderEnabled;
     private String traderCron;
     private String zoneId;
+    private Boolean includeWatchlist;
     private String updatedAt;
 }

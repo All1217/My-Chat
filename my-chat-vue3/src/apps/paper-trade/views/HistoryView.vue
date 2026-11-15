@@ -45,7 +45,9 @@
             :width="col.width"
             :min-width="col.minWidth"
             :show-overflow-tooltip="col.overflow"
-            :formatter="col.prop === 'kept' ? keptFormatter : undefined"
+            :formatter="
+              col.prop === 'kept' || col.prop === 'watchlist' ? boolFormatter : undefined
+            "
           />
           <el-table-column
             label="操作"
@@ -173,7 +175,7 @@ function isFieldReadonly(key: string) {
   return false
 }
 
-function keptFormatter(_row: unknown, _col: unknown, cell: unknown) {
+function boolFormatter(_row: unknown, _col: unknown, cell: unknown) {
   return cell ? '是' : '否'
 }
 
@@ -213,7 +215,10 @@ function resetForm(seed: Record<string, unknown> = {}) {
 function openCreate() {
   creating.value = true
   editingId.value = ''
-  resetForm({ kept: true })
+  // 人工新建研究卡片：留下 + 自选默认开启
+  resetForm(
+    current.value?.key === 'research-notes' ? { kept: true, watchlist: true } : { kept: true },
+  )
   drawerOpen.value = true
 }
 

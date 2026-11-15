@@ -2,12 +2,22 @@
 
 `.cursor/` 目录被 `.gitignore` 忽略，**不会**随仓库同步。换机或新克隆后，若要用本地 `mcp-server-database`，需在本机自行创建配置。
 
+## 适用范围（重要）
+
+| 场景 | 用什么 |
+|------|--------|
+| 本地核表结构、核对开发库数据、Flyway 版本 | **本 MCP**（`localhost:8102`） |
+| 云上部署库排障、改云上 `.env` 相关数据 | **Adminer + SSH 隧道**（见 [部署与运维指引](./部署与运维指引.md)） |
+
+Agent 提示词里「优先调用 MCP」= **优先查本地开发库**，不是云库。响应里的 `connection.label` / `jdbcHost` 可核对是否连对。
+
 ## 步骤
 
 1. 启动数据库 MCP（需 `PGSQL_PASS` 等环境变量）：
 
 ```powershell
 cd mcp-server-database
+$env:PGSQL_PASS="你的密码"
 .\mvnw.cmd spring-boot:run
 ```
 
@@ -25,6 +35,6 @@ cd mcp-server-database
 }
 ```
 
-3. 重载 Cursor MCP（Customize → MCP，或重开窗口），确认 `mcp-database-server` 工具可见。
+3. 重载 Cursor MCP（Customize → MCP，或重开窗口），确认 `mcp-database-server` 工具可见。建议先调 `connection_info` 做自检。
 
-服务说明见 [`mcp-server-database/README.md`](../mcp-server-database/README.md)。
+服务说明与工具列表见 [`mcp-server-database/README.md`](../mcp-server-database/README.md)。

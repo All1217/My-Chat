@@ -27,3 +27,14 @@ app:
     read-only: true
     max-rows: 200
     query-timeout-seconds: 15
+    # 单单元格字符串截断长度
+    max-cell-length: 500
+    # 响应 connection.label；标明本地开发库
+    connection-label: local
+    # 列名包含以下子串则脱敏（大小写不敏感）
+    sensitive-column-patterns:
+      - api_key
+      - password
+      - secret
+      - token
+      - credential

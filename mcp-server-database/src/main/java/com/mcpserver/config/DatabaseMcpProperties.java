@@ -3,6 +3,9 @@ package com.mcpserver.config;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /** 数据库 MCP 运行约束（前缀 app.database）。 */
 @Data
 @ConfigurationProperties(prefix = "app.database")
@@ -16,4 +19,17 @@ public class DatabaseMcpProperties {
 
     /** JDBC 查询超时（秒）。 */
     private int queryTimeoutSeconds = 15;
+
+    /** 单单元格字符串最大长度，超出截断。 */
+    private int maxCellLength = 500;
+
+    /** 连接环境标签（响应 connection.label），默认 local。 */
+    private String connectionLabel = "local";
+
+    /**
+     * 敏感列名子串（大小写不敏感）；列名包含任一则脱敏。
+     * 默认 api_key / password / secret / token / credential。
+     */
+    private List<String> sensitiveColumnPatterns = new ArrayList<>(List.of(
+            "api_key", "password", "secret", "token", "credential"));
 }

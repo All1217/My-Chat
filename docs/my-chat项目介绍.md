@@ -1776,8 +1776,9 @@ ledger 市价撮合 → paper_order / paper_position / paper_cooldown
 | V3 | `V3__init_paper_trade_schema.sql` | 账本 + 策略 + AI run/decision |
 | V4 | `V4__paper_trade_risk_gates.sql` | 账户/订单风控列 + `paper_stage_summary`；空 default 账户种子改 2 万 |
 | V5 | `V5__paper_research.sql` | research 表 + `paper_ai_run.framework_trace` |
+| V6 | `V6__paper_schedule_settings.sql` | 搜集员/交易员定时配置（账户设置可改、动态重挂） |
 
-后续结构变更只新增更高版本 `V{n}__*.sql`，禁止改已执行脚本。
+后续结构变更只新增更高版本 `V{n}__*.sql`，禁止改已执行脚本。定时运行时以 `paper_schedule_settings` 为准（默认搜集 `0 0 9 * * *`、交易员盘后 `0 35 15 * * MON-FRI`），不引入 Quartz。
 
 ## 关键代码索引
 

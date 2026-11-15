@@ -19,4 +19,7 @@ public class KlinePointVO {
 
     /** 成交额（元）。旧缓存 K 线可能为空。 */
     private Double amount;
+
+    /** 换手率（%）。东财 f61；列不足时为空。 */
+    private Double turnoverRate;
 }

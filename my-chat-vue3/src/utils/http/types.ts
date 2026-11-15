@@ -25,4 +25,6 @@ export interface RequestOptions {
   errorMsg?: string
   /** 覆盖客户端默认 timeout（毫秒） */
   timeout?: number
+  /** 取消请求 */
+  signal?: AbortSignal
 }

@@ -2,7 +2,7 @@
   <div class="settings">
     <div class="settings-head">
       <h1>账户设置</h1>
-      <p>初始资金、投资策略与危险操作</p>
+      <p>初始资金、定时任务、投资策略与危险操作</p>
     </div>
 
     <section class="panel">
@@ -22,6 +22,32 @@
         />
         <span class="hint">当前可用现金 {{ formatMoney(account?.cash) }}；无持仓时会同步现金。</span>
       </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>定时任务</h2>
+        <el-button size="small" type="primary" plain :loading="savingSchedule" @click="onSaveSchedule">
+          保存定时
+        </el-button>
+      </div>
+      <p class="hint schedule-zone">时区：{{ schedule.zoneId || 'Asia/Shanghai' }}（Spring 6 域 cron）</p>
+      <div class="sched-row">
+        <div class="sched-meta">
+          <strong>搜集员</strong>
+          <p>默认每天 09:00；可改 cron，如仅工作日 <code>0 0 9 * * MON-FRI</code></p>
+        </div>
+        <el-switch v-model="schedule.researchEnabled" />
+      </div>
+      <el-input v-model="schedule.researchCron" placeholder="0 0 9 * * *" class="cron-input" />
+      <div class="sched-row">
+        <div class="sched-meta">
+          <strong>交易员（盘后单次）</strong>
+          <p>与收盘价撮合一致；建议 ≥15:05，默认 <code>0 35 15 * * MON-FRI</code></p>
+        </div>
+        <el-switch v-model="schedule.traderEnabled" />
+      </div>
+      <el-input v-model="schedule.traderCron" placeholder="0 35 15 * * MON-FRI" class="cron-input" />
     </section>
 
     <section class="panel">
@@ -72,7 +98,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { paperTradeApi } from '@/apps/paper-trade/api'
 import type { PaperAccount } from '@/apps/paper-trade/types'
@@ -83,14 +109,59 @@ const initialCash = ref<number>(20000)
 const strategyText = ref('')
 const savingCash = ref(false)
 const savingStrategy = ref(false)
+const savingSchedule = ref(false)
 const resetting = ref(false)
 const wiping = ref(false)
 
+const schedule = reactive({
+  researchEnabled: false,
+  researchCron: '0 0 9 * * *',
+  traderEnabled: false,
+  traderCron: '0 35 15 * * MON-FRI',
+  zoneId: 'Asia/Shanghai',
+})
+
 async function load() {
-  const [a, s] = await Promise.all([paperTradeApi.account(), paperTradeApi.getStrategy()])
+  const [a, s, sch] = await Promise.all([
+    paperTradeApi.account(),
+    paperTradeApi.getStrategy(),
+    paperTradeApi.getSchedule(),
+  ])
   account.value = a
   initialCash.value = Number(a?.initialCash ?? 20000)
   strategyText.value = s?.content ?? ''
+  schedule.researchEnabled = !!sch.researchEnabled
+  schedule.researchCron = sch.researchCron || '0 0 9 * * *'
+  schedule.traderEnabled = !!sch.traderEnabled
+  schedule.traderCron = sch.traderCron || '0 35 15 * * MON-FRI'
+  schedule.zoneId = sch.zoneId || 'Asia/Shanghai'
+}
+
+async function onSaveSchedule() {
+  if (!schedule.researchCron?.trim() || !schedule.traderCron?.trim()) {
+    ElMessage.warning('cron 不能为空')
+    return
+  }
+  savingSchedule.value = true
+  try {
+    const saved = await paperTradeApi.saveSchedule({
+      researchEnabled: schedule.researchEnabled,
+      researchCron: schedule.researchCron.trim(),
+      traderEnabled: schedule.traderEnabled,
+      traderCron: schedule.traderCron.trim(),
+      zoneId: schedule.zoneId,
+    })
+    schedule.researchEnabled = !!saved.researchEnabled
+    schedule.researchCron = saved.researchCron
+    schedule.traderEnabled = !!saved.traderEnabled
+    schedule.traderCron = saved.traderCron
+    schedule.zoneId = saved.zoneId
+    ElMessage.success('定时已保存并重挂')
+  } catch {
+    /* toast */
+  } finally {
+    savingSchedule.value = false
+  }
 }
 
 async function onSaveCash() {
@@ -232,6 +303,49 @@ onMounted(() => {
     font-size: 12px;
     color: #94a3b8;
   }
+}
+
+.hint {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.schedule-zone {
+  margin: 0 0 10px;
+}
+
+.sched-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 6px;
+
+  .sched-meta {
+    min-width: 0;
+
+    strong {
+      font-size: 13px;
+      color: #14532d;
+    }
+
+    p {
+      margin: 2px 0 0;
+      font-size: 12px;
+      color: #94a3b8;
+    }
+
+    code {
+      font-size: 11px;
+      background: #f1f5f9;
+      padding: 0 4px;
+      border-radius: 3px;
+    }
+  }
+}
+
+.cron-input {
+  margin-bottom: 12px;
 }
 
 .danger-zone {

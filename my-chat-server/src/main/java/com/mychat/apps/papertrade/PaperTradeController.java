@@ -1,13 +1,19 @@
 package com.mychat.apps.papertrade;
 
+import com.mychat.apps.papertrade.ledger.PaperQuoteService;
 import com.mychat.apps.papertrade.ledger.PaperTradeService;
 import com.mychat.apps.papertrade.ledger.entity.dto.PaperOrderRequest;
 import com.mychat.apps.papertrade.research.PaperResearchService;
 import com.mychat.apps.papertrade.risk.PaperStageService;
+import com.mychat.apps.papertrade.schedule.PaperScheduleManager;
+import com.mychat.apps.papertrade.schedule.PaperScheduleService;
+import com.mychat.apps.papertrade.schedule.entity.dto.PaperScheduleRequest;
+import com.mychat.apps.papertrade.schedule.entity.vo.PaperScheduleVO;
 import com.mychat.apps.papertrade.trader.PaperAiTraderService;
 import com.mychat.apps.papertrade.trader.PaperStrategyService;
 import com.mychat.apps.papertrade.trader.entity.dto.PaperStrategyRequest;
 import com.mychat.apps.papertrade.ledger.entity.vo.PaperAccountVO;
+import com.mychat.apps.papertrade.ledger.entity.vo.PaperQuoteVO;
 import com.mychat.apps.papertrade.trader.entity.vo.PaperAiDecisionVO;
 import com.mychat.apps.papertrade.trader.entity.vo.PaperAiRunVO;
 import com.mychat.apps.papertrade.trader.entity.vo.PaperAiSubmitVO;
@@ -36,10 +42,24 @@ import java.util.List;
 public class PaperTradeController {
 
     private final PaperTradeService paperTradeService;
+    private final PaperQuoteService paperQuoteService;
     private final PaperStrategyService strategyService;
     private final PaperAiTraderService aiTraderService;
     private final PaperResearchService researchService;
     private final PaperStageService stageService;
+    private final PaperScheduleService scheduleService;
+    private final PaperScheduleManager scheduleManager;
+
+    /** 看板行情（折线 + 基础指标）；默认 range=1M。 */
+    @GetMapping("/quote")
+    public Result<PaperQuoteVO> quote(@RequestParam String symbol,
+                                      @RequestParam(defaultValue = "1M") String range) {
+        try {
+            return Result.ok(paperQuoteService.quote(symbol, range));
+        } catch (IllegalArgumentException e) {
+            return Result.fail(400, e.getMessage());
+        }
+    }
 
     /** 默认模拟账户。 */
     @GetMapping("/account")
@@ -90,6 +110,24 @@ public class PaperTradeController {
     public Result<PaperStrategyVO> saveStrategy(@RequestBody PaperStrategyRequest request) {
         try {
             return Result.ok(strategyService.save(request == null ? null : request.getContent()));
+        } catch (IllegalArgumentException e) {
+            return Result.fail(400, e.getMessage());
+        }
+    }
+
+    /** 读取搜集员 / 交易员定时配置。 */
+    @GetMapping("/schedule")
+    public Result<PaperScheduleVO> getSchedule() {
+        return Result.ok(scheduleService.getVo());
+    }
+
+    /** 保存定时配置并动态重挂（无需重启）。 */
+    @PutMapping("/schedule")
+    public Result<PaperScheduleVO> saveSchedule(@RequestBody PaperScheduleRequest request) {
+        try {
+            scheduleService.update(request);
+            scheduleManager.reschedule();
+            return Result.ok(scheduleService.getVo());
         } catch (IllegalArgumentException e) {
             return Result.fail(400, e.getMessage());
         }

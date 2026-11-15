@@ -57,6 +57,16 @@ export interface PaperStrategy {
   updatedAt?: string | null
 }
 
+/** 搜集员 / 交易员定时配置。 */
+export interface PaperScheduleSettings {
+  researchEnabled: boolean
+  researchCron: string
+  traderEnabled: boolean
+  traderCron: string
+  zoneId: string
+  updatedAt?: string | null
+}
+
 /** AI 轮次提交结果。 */
 export interface PaperAiSubmit {
   runId: string
@@ -136,6 +146,37 @@ export interface PaperResearchRun {
   frameworkTrace?: string | null
   createdAt?: string | null
   finishedAt?: string | null
+}
+
+/** 看板横轴档位。 */
+export type PaperQuoteRange = '1M' | '3M' | '1Y' | '3Y' | '5Y' | 'ALL'
+
+/** 看板 K 线点。 */
+export interface PaperKlinePoint {
+  date: string
+  open?: number | null
+  close?: number | null
+  high?: number | null
+  low?: number | null
+  volume?: number | null
+  amount?: number | null
+  turnoverRate?: number | null
+}
+
+/** 看板行情。 */
+export interface PaperQuote {
+  symbol: string
+  market?: string | null
+  name?: string | null
+  rangeKey?: string | null
+  lastPrice?: number | null
+  changePct?: number | null
+  high?: number | null
+  low?: number | null
+  volume?: number | null
+  amount?: number | null
+  turnoverRate?: number | null
+  history?: PaperKlinePoint[] | null
 }
 
 /** 阶段总结。 */

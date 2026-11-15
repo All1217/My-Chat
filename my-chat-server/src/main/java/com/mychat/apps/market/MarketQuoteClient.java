@@ -240,18 +240,24 @@ public class MarketQuoteClient {
             if (parts.length > 6 && !parts[6].isBlank()) {
                 point.setAmount(Double.parseDouble(parts[6]));
             }
+            // f61 换手率在第 11 列。
+            if (parts.length > 10 && !parts[10].isBlank()) {
+                point.setTurnoverRate(Double.parseDouble(parts[10]));
+            }
             return point;
         } catch (Exception e) {
             return null;
         }
     }
 
-    /** 用 K 线填最新价、涨跌幅、区间高低。 */
+    /** 用 K 线填最新价、涨跌幅、区间高低、成交额与换手。 */
     static void fillStats(MarketQuoteVO quote) {
         List<KlinePointVO> history = quote.getHistory();
         KlinePointVO last = history.get(history.size() - 1);
         quote.setLastPrice(last.getClose());
         quote.setVolume(last.getVolume());
+        quote.setAmount(last.getAmount());
+        quote.setTurnoverRate(last.getTurnoverRate());
         if (history.size() >= 2) {
             Double prev = history.get(history.size() - 2).getClose();
             if (prev != null && prev != 0 && last.getClose() != null) {

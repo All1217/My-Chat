@@ -129,7 +129,8 @@ app:
     # 云服务器系统时区经常是 UTC，定时按上海时间解释
     schedule-zone: Asia/Shanghai
     research-schedule-enabled: false
-    research-schedule-cron: "0 10 15 * * MON-FRI"
+    # 默认每天上午 9:00（上海时区由 schedule-zone 解释）；账户设置可改
+    research-schedule-cron: "0 0 9 * * *"
     research-skip-days: 3
     research-batch-size: 15
     research-keep-limit: 8

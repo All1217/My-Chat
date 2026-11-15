@@ -43,6 +43,25 @@
     </section>
     <p v-if="account?.latestSummary" class="summary">{{ account.latestSummary }}</p>
 
+    <section class="panel board-panel">
+      <div class="panel-head">
+        <h2>持仓看板</h2>
+        <div class="probe">
+          <el-input
+            v-model="probeSymbol"
+            placeholder="测试代码，如 600519"
+            size="small"
+            style="width: 150px"
+            clearable
+            @keyup.enter="onProbe"
+          />
+          <el-button size="small" type="primary" @click="onProbe">查询</el-button>
+        </div>
+      </div>
+      <p class="hint board-hint">点击持仓代码查看走势；也可用上方输入框测连通性（默认 1 个月，异步加载）。</p>
+      <StockBoardPanel :symbol="boardSymbol" />
+    </section>
+
     <div class="grid">
       <section class="panel">
         <h2>市价下单</h2>
@@ -69,7 +88,11 @@
       <section class="panel grow">
         <h2>持仓（{{ positions.length }}）</h2>
         <el-table :data="positions" stripe empty-text="暂无持仓" size="small" max-height="280">
-          <el-table-column prop="symbol" label="代码" width="90" />
+          <el-table-column prop="symbol" label="代码" width="100">
+            <template #default="{ row }">
+              <el-button link type="primary" @click="openBoard(row.symbol)">{{ row.symbol }}</el-button>
+            </template>
+          </el-table-column>
           <el-table-column prop="market" label="市场" width="60" />
           <el-table-column prop="qty" label="数量" width="70" />
           <el-table-column prop="availableQty" label="可卖" width="70" />
@@ -140,8 +163,9 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, reactive, ref } from 'vue'
+import { onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
+import StockBoardPanel from '@/apps/paper-trade/components/StockBoardPanel.vue'
 import { paperTradeApi } from '@/apps/paper-trade/api'
 import type {
   PaperAccount,
@@ -159,14 +183,34 @@ const submitting = ref(false)
 const aiRunning = ref(false)
 const researchRunning = ref(false)
 const runHint = ref('')
+const boardSymbol = ref('')
+const probeSymbol = ref('600519')
 let pollTimer: ReturnType<typeof setInterval> | null = null
 let researchTimer: ReturnType<typeof setInterval> | null = null
+let boardAutoPicked = false
 
 const form = reactive({
   symbol: '600519',
   side: 'BUY' as 'BUY' | 'SELL',
   qty: 100,
 })
+
+/** 打开看板标的。 */
+function openBoard(symbol: string) {
+  if (!symbol?.trim()) return
+  boardSymbol.value = symbol.trim()
+  boardAutoPicked = true
+}
+
+/** 测试框查询。 */
+function onProbe() {
+  const s = probeSymbol.value?.trim()
+  if (!s) {
+    ElMessage.warning('请输入股票代码')
+    return
+  }
+  openBoard(s)
+}
 
 /** 刷新账户 / 持仓 / 订单。 */
 async function refresh() {
@@ -178,7 +222,17 @@ async function refresh() {
   account.value = a
   positions.value = p ?? []
   orders.value = o ?? []
+  // 首次有持仓时自动打开第一只，不打断用户已选手动标的
+  if (!boardAutoPicked && !boardSymbol.value && positions.value.length) {
+    boardSymbol.value = positions.value[0].symbol
+  }
 }
+
+watch(positions, (list) => {
+  if (!boardAutoPicked && !boardSymbol.value && list.length) {
+    boardSymbol.value = list[0].symbol
+  }
+})
 
 async function loadDecisions() {
   decisions.value = (await paperTradeApi.decisions(40)) ?? []
@@ -445,9 +499,22 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 4px;
+  gap: 8px;
 
   h2 {
     margin: 0;
+  }
+}
+
+.board-panel {
+  .probe {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .board-hint {
+    margin: 0 0 8px;
   }
 }
 

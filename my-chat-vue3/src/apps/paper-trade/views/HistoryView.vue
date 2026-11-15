@@ -47,8 +47,20 @@
             :show-overflow-tooltip="col.overflow"
             :formatter="col.prop === 'kept' ? keptFormatter : undefined"
           />
-          <el-table-column label="操作" width="140" fixed="right">
+          <el-table-column
+            label="操作"
+            :width="current?.key === 'research-notes' ? 200 : 140"
+            fixed="right"
+          >
             <template #default="{ row }">
+              <el-button
+                v-if="current?.key === 'research-notes'"
+                link
+                type="success"
+                @click="openQuote(row)"
+              >
+                看行情
+              </el-button>
               <el-button link type="primary" @click="openEdit(row)">详情</el-button>
               <el-button link type="danger" @click="onDelete(row)">删除</el-button>
             </template>
@@ -57,6 +69,15 @@
         </div>
       </div>
     </div>
+
+    <el-drawer
+      v-model="quoteDrawerOpen"
+      :title="quoteDrawerTitle"
+      size="720px"
+      destroy-on-close
+    >
+      <StockBoardPanel :symbol="quoteSymbol" />
+    </el-drawer>
 
     <el-drawer v-model="drawerOpen" :title="drawerTitle" size="420px" destroy-on-close>
       <el-form label-position="top" class="edit-form">
@@ -109,6 +130,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import StockBoardPanel from '@/apps/paper-trade/components/StockBoardPanel.vue'
 import { historyResources, type HistoryResource } from '@/apps/paper-trade/history/resources'
 
 const resources = historyResources
@@ -120,6 +142,12 @@ const drawerOpen = ref(false)
 const creating = ref(false)
 const form = reactive<Record<string, any>>({})
 const editingId = ref('')
+const quoteDrawerOpen = ref(false)
+const quoteSymbol = ref('')
+
+const quoteDrawerTitle = computed(() =>
+  quoteSymbol.value ? `行情 · ${quoteSymbol.value}` : '行情',
+)
 
 const current = computed<HistoryResource | undefined>(() =>
   resources.find((r) => r.key === activeKey.value),
@@ -201,6 +229,17 @@ async function openEdit(row: Record<string, unknown>) {
   } catch {
     /* 拦截器已提示 */
   }
+}
+
+/** 研究卡片：打开可复用行情看板。 */
+function openQuote(row: Record<string, unknown>) {
+  const symbol = String(row.symbol ?? '').trim()
+  if (!symbol) {
+    ElMessage.warning('无股票代码')
+    return
+  }
+  quoteSymbol.value = symbol
+  quoteDrawerOpen.value = true
 }
 
 async function onSave() {

@@ -17,5 +17,9 @@ public class MarketQuoteVO {
     private Double high;
     private Double low;
     private Long volume;
+    /** 最新一根成交额（元）。 */
+    private Double amount;
+    /** 最新一根换手率（%）。 */
+    private Double turnoverRate;
     private List<KlinePointVO> history;
 }

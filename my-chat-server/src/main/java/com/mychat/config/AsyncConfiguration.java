@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 
 import java.util.concurrent.Executor;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -34,5 +35,16 @@ public class AsyncConfiguration {
         executor.initialize();
         log.info("jobExecutor 已启动 core=2 max=4 queue=100");
         return executor;
+    }
+
+    /** 模拟炒股动态 cron（搜集员 / 交易员）。 */
+    @Bean
+    public ThreadPoolTaskScheduler paperTradeTaskScheduler() {
+        ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
+        scheduler.setPoolSize(2);
+        scheduler.setThreadNamePrefix("paper-sched-");
+        scheduler.setRemoveOnCancelPolicy(true);
+        scheduler.initialize();
+        return scheduler;
     }
 }

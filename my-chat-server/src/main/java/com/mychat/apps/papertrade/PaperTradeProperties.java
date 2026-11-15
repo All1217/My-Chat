@@ -72,11 +72,14 @@ public class PaperTradeProperties {
     /** 盘后 cron（默认工作日 15:35）。 */
     private String scheduleCron = "0 35 15 * * MON-FRI";
 
+    /** 解释 cron 的时区（云主机常为 UTC）。 */
+    private String scheduleZone = "Asia/Shanghai";
+
     /** 是否启用搜集定时。与操盘定时分开。 */
     private boolean researchScheduleEnabled = false;
 
-    /** 搜集 cron（默认工作日 15:10，早于操盘）。 */
-    private String researchScheduleCron = "0 10 15 * * MON-FRI";
+    /** 搜集 cron（默认每天 09:00，Seed / yaml 初值）。 */
+    private String researchScheduleCron = "0 0 9 * * *";
 
     /** 刚整理过的代码多少天内不再搜集。 */
     private int researchSkipDays = 3;

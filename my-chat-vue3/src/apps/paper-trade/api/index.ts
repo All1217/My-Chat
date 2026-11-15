@@ -7,15 +7,27 @@ import type {
   PaperOrder,
   PaperOrderRequest,
   PaperPosition,
+  PaperQuote,
+  PaperQuoteRange,
   PaperResearchNote,
   PaperResearchNoteAdmin,
   PaperResearchRun,
+  PaperScheduleSettings,
   PaperStageSummary,
   PaperStrategy,
 } from '@/apps/paper-trade/types'
 
 /** 模拟炒股 API：全部走 /ai/apps/paper-trade。 */
 export const paperTradeApi = {
+  /** 看板行情；可传 AbortSignal 取消慢请求。 */
+  quote: (symbol: string, range: PaperQuoteRange | string = '1M', signal?: AbortSignal) =>
+    ragClient.get<PaperQuote>('/ai/apps/paper-trade/quote', {
+      params: { symbol, range },
+      timeout: 90_000,
+      signal,
+      silent: true,
+    }),
+
   account: () => ragClient.get<PaperAccount>('/ai/apps/paper-trade/account'),
 
   positions: () => ragClient.get<PaperPosition[]>('/ai/apps/paper-trade/positions'),
@@ -36,6 +48,11 @@ export const paperTradeApi = {
 
   saveStrategy: (content: string) =>
     ragClient.put<PaperStrategy>('/ai/apps/paper-trade/strategy', { content }),
+
+  getSchedule: () => ragClient.get<PaperScheduleSettings>('/ai/apps/paper-trade/schedule'),
+
+  saveSchedule: (body: Partial<PaperScheduleSettings>) =>
+    ragClient.put<PaperScheduleSettings>('/ai/apps/paper-trade/schedule', body),
 
   aiRun: () => ragClient.post<PaperAiSubmit>('/ai/apps/paper-trade/ai/run'),
 

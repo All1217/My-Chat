@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.mychat.config.ChatClientAssembler;
 import com.mychat.config.ChatClientRegistry;
 import com.mychat.config.ChatModelFactory;
+import com.mychat.config.OpenAiApiKeyResolver;
 import com.mychat.entity.dto.LlmModelUpsertRequest;
 import com.mychat.entity.po.LlmModel;
 import com.mychat.mapper.LlmModelMapper;
@@ -36,7 +37,8 @@ class LlmModelServiceImplTest {
         registry = mock(ChatClientRegistry.class);
         ObjectProvider<ChatClientRegistry> provider = mock(ObjectProvider.class);
         when(provider.getIfAvailable()).thenReturn(registry);
-        service = new LlmModelServiceImpl(mapper, factory, assembler, provider);
+        OpenAiApiKeyResolver apiKeyResolver = new OpenAiApiKeyResolver("yaml-fallback-key");
+        service = new LlmModelServiceImpl(mapper, factory, assembler, provider, apiKeyResolver);
     }
 
     @Test

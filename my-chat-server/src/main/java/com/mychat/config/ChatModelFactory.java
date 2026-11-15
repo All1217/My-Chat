@@ -15,10 +15,12 @@ import java.util.Map;
 public class ChatModelFactory {
 
     private final OpenAiChatModel baseChatModel;
+    private final OpenAiApiKeyResolver apiKeyResolver;
 
     /** YAML 自动配置的基座，用于兜底和复用 extra-body / 超时。 */
-    public ChatModelFactory(OpenAiChatModel baseChatModel) {
+    public ChatModelFactory(OpenAiChatModel baseChatModel, OpenAiApiKeyResolver apiKeyResolver) {
         this.baseChatModel = baseChatModel;
+        this.apiKeyResolver = apiKeyResolver;
     }
 
     /** 返回 YAML 基座模型，表空或种子未就绪时兜底。 */
@@ -26,7 +28,7 @@ public class ChatModelFactory {
         return baseChatModel;
     }
 
-    /** 用目录行的 url / key / model 新建一个 ChatModel。 */
+    /** 用目录行的 url / key / model 新建一个 ChatModel；key 留空则解析环境变量 / YAML。 */
     public OpenAiChatModel build(LlmModel model) {
         return OpenAiChatModel.builder()
                 .options(buildOptions(model))
@@ -38,7 +40,7 @@ public class ChatModelFactory {
         OpenAiChatOptions base = baseChatModel.getOptions();
         OpenAiChatOptions.Builder builder = OpenAiChatOptions.builder()
                 .baseUrl(model.getBaseUrl())
-                .apiKey(model.getApiKey())
+                .apiKey(apiKeyResolver.resolve(model.getApiKey()))
                 .model(model.getModelId())
                 .maxTokens(model.getMaxTokens());
         if (base != null && base.getTimeout() != null) {

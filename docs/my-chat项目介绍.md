@@ -1541,7 +1541,7 @@ AsyncJobDispatcher
 | 做法                      | 结论                                                 |
 | ------------------------- | ---------------------------------------------------- |
 | 纯前端队列                | 刷新/关页丢失，失败无法落 `FAILED`                   |
-| Redis / RabbitMQ / Celery | 单机过重                                             |
+| Redis / RabbitMQ / Celery | 单机过重；配置类读缓存改用进程内 Caffeine（Spring Cache），不上 Redis |
 | 聊天同款 NDJSON `Flux`    | 浏览器 `EventSource` 吃不了，且绑在某次聊天请求上    |
 | 标准 SSE + 任务表         | 与 Element Plus 通知中心接法一致；离开业务页连接仍在 |
 
@@ -1687,3 +1687,107 @@ asyncJobService.submit("kb_ingest", "向量化：" + filename, documentId, paylo
 后端：`entity/po/AsyncJob.java`、`mapper/AsyncJobMapper.java`、`service/AsyncJobService.java`、`job/*`、`controller/JobController.java`、`config/AsyncConfiguration.java`
 
 前端：`types/jobs.ts`、`api/jobs.ts`、`stores/notify.ts`、`utils/notifySound.ts`、`App.vue`
+
+# 模拟炒股（Paper Trade）模块概览
+
+> 核对依据：本地 MCP `mcp-database-server`（2026-11-15）+ Flyway `V3`/`V4`/`V5` 已成功执行。虚拟盘，不接实盘券商。
+
+## 定位与入口
+
+大厅功能包「模拟炒股」：自建虚拟账本 + 东财收盘价市价撮合，支持手动下单、AI 操盘、信息搜集与风控闸门。
+
+| 层 | 路径 |
+| --- | --- |
+| 前端 | `my-chat-vue3/src/apps/paper-trade/`（壳 `/app/paper-trade` → `positions` / `history` / `settings`） |
+| 后端包 | `com.mychat.apps.papertrade` |
+| API | `/ai/apps/paper-trade`（`PaperTradeController` + `PaperTradeAdminController`） |
+| 配置 | `app.paper-trade.*`（`PaperTradeProperties`） |
+| 行情依赖 | `com.mychat.apps.market`（`MarketQuoteClient` / `EtfPremiumClient` 等，HTTP 拉行情，不写本模块账本） |
+| 编排复用 | `PaperFrameworkCall` → 主干 `AgentOrchestratorService`（不走聊天 HTTP） |
+| 异步任务 | `async_job`，`job_type`：`paper_trade_ai_round` / `paper_trade_research` |
+
+前端三页：`PositionsView`（持仓/下单/决策/快捷 AI）、`HistoryView`（可扩展资源注册表管理四表）、`AccountSettingsView`（初始资金/策略/重置/注销训练）。
+
+子包按业务线拆分：`ledger`（账本）、`trader`（AI 操盘）、`research`（搜集）、`risk`（风控）、`agent`（编排调用）。
+
+## 主流程（简图）
+
+```text
+研究搜集(research) → paper_research_note(kept)
+        ↓
+AI 操盘(trader) ← paper_strategy + 账户/持仓/行情上下文
+        ↓
+paper_ai_decision → 风控闸门(risk) → 人工确认(可选)
+        ↓
+ledger 市价撮合 → paper_order / paper_position / paper_cooldown
+        ↓
+阶段重置 → paper_stage_summary（成绩留给下一阶段模型）
+```
+
+手动下单走同一套 `PaperTradeService.placeOrder`；自动出场（止盈/止损/到期）`source=EXIT`。
+
+## 表按业务线分类
+
+### 1. 账本 ledger（V3）
+
+| 表 | 作用 |
+| --- | --- |
+| `paper_account` | 虚拟账户；V4 增 `peak_equity` / `max_drawdown` / `loss_streak` / `buy_pause_until` / `stage_started_at` |
+| `paper_position` | 持仓（T+1 `available_qty`、止盈止损、最长持有） |
+| `paper_order` | 市价单 FILLED/REJECTED；V4 增 `realized_pnl` / `exit_reason`；`source`=MANUAL/AI/EXIT |
+| `paper_cooldown` | 卖出后冷却，到期前不可再买该标的 |
+
+### 2. AI 操盘 trader（V3，轨迹列 V5）
+
+| 表 | 作用 |
+| --- | --- |
+| `paper_strategy` | AI 策略正文（系统提示），默认 id=`default` |
+| `paper_ai_run` | 一轮 AI 运行；关联 `async_job`；V5 增 `framework_trace` |
+| `paper_ai_decision` | 结构化决策 BUY/SELL/HOLD/FLAT；`exec_status` 控制执行/跳过/人工 |
+
+### 3. 信息搜集 research（V5）
+
+| 表 | 作用 |
+| --- | --- |
+| `paper_research_run` | 搜集一轮（只写卡片、不下单） |
+| `paper_research_note` | 按代码一行研究卡片；操盘手只读 `kept=true` |
+
+### 4. 风控与阶段 risk（V4）
+
+| 表 | 作用 |
+| --- | --- |
+| `paper_stage_summary` | 账户重置前阶段成绩（胜率、回撤、费用、总结文案） |
+
+闸门字段主要落在 `paper_account` / `paper_order` / `paper_position`，无独立闸门表。
+
+### 5. 跨模块关联（非 paper_ 前缀）
+
+| 表 | 关系 |
+| --- | --- |
+| `async_job` | AI 轮与搜集轮异步执行与 SSE 通知 |
+| `market_forecast` | 属「股市分析」功能包（V2），**不是**模拟盘账本；行情由 `MarketQuoteClient` 实时拉取 |
+
+默认账户与默认策略由启动时 `PaperAccountSeedRunner` / `PaperStrategySeedRunner` 写入，不写在 Flyway 种子 SQL。
+
+## Flyway 增量历史（本模块）
+
+| 版本 | 文件 | 内容 |
+| --- | --- | --- |
+| V3 | `V3__init_paper_trade_schema.sql` | 账本 + 策略 + AI run/decision |
+| V4 | `V4__paper_trade_risk_gates.sql` | 账户/订单风控列 + `paper_stage_summary`；空 default 账户种子改 2 万 |
+| V5 | `V5__paper_research.sql` | research 表 + `paper_ai_run.framework_trace` |
+
+后续结构变更只新增更高版本 `V{n}__*.sql`，禁止改已执行脚本。
+
+## 关键代码索引
+
+| 区域 | 路径 |
+| --- | --- |
+| API | `PaperTradeController.java`、`PaperTradeAdminController.java` |
+| 管理端 | `PaperTradeAdminService.java`（历史 CRUD、wipe） |
+| 账本 | `ledger/PaperTradeService.java` |
+| 策略 / AI | `trader/PaperStrategyService.java`、`PaperAiTraderService.java` |
+| 搜集 | `research/PaperResearchService.java` |
+| 风控 | `risk/PaperRiskGuard.java`、`PaperPositionExitService.java`、`PaperStageService.java` |
+| 前端壳 | `PaperTradeLayout.vue`、`PositionsView.vue`、`HistoryView.vue`、`AccountSettingsView.vue` |
+| 历史扩展 | `history/resources.ts`、`api/index.ts`、`types.ts` |

@@ -1,0 +1,285 @@
+<template>
+  <div class="settings">
+    <div class="settings-head">
+      <h1>账户设置</h1>
+      <p>初始资金、投资策略与危险操作</p>
+    </div>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>初始资金</h2>
+        <el-button size="small" type="primary" plain :loading="savingCash" @click="onSaveCash">
+          保存
+        </el-button>
+      </div>
+      <div class="cash-row">
+        <el-input-number
+          v-model="initialCash"
+          :min="1"
+          :step="1000"
+          :precision="2"
+          controls-position="right"
+        />
+        <span class="hint">当前可用现金 {{ formatMoney(account?.cash) }}；无持仓时会同步现金。</span>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>投资策略</h2>
+        <el-button
+          size="small"
+          type="primary"
+          plain
+          :loading="savingStrategy"
+          @click="onSaveStrategy"
+        >
+          保存策略
+        </el-button>
+      </div>
+      <el-input
+        v-model="strategyText"
+        type="textarea"
+        :rows="12"
+        placeholder="交易员策略正文（系统提示）"
+      />
+    </section>
+
+    <section class="panel danger-zone">
+      <h2>危险操作</h2>
+      <div class="danger-row">
+        <div>
+          <strong>重置账户</strong>
+          <p>清空持仓、订单与冷却，现金回到初始资金；保留 AI / 研究 / 阶段历史。</p>
+        </div>
+        <el-button
+          class="btn-reset"
+          :loading="resetting"
+          @click="onReset"
+        >
+          重置账户
+        </el-button>
+      </div>
+      <div class="danger-row">
+        <div>
+          <strong>注销阶段训练</strong>
+          <p>彻底清空业务数据（持仓、订单、AI、研究、阶段总结）并重置账户；保留投资策略。</p>
+        </div>
+        <el-button type="danger" :loading="wiping" @click="onWipe">注销阶段训练</el-button>
+      </div>
+    </section>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { onMounted, ref } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { paperTradeApi } from '@/apps/paper-trade/api'
+import type { PaperAccount } from '@/apps/paper-trade/types'
+import { formatMoney } from '@/apps/paper-trade/utils/format'
+
+const account = ref<PaperAccount | null>(null)
+const initialCash = ref<number>(20000)
+const strategyText = ref('')
+const savingCash = ref(false)
+const savingStrategy = ref(false)
+const resetting = ref(false)
+const wiping = ref(false)
+
+async function load() {
+  const [a, s] = await Promise.all([paperTradeApi.account(), paperTradeApi.getStrategy()])
+  account.value = a
+  initialCash.value = Number(a?.initialCash ?? 20000)
+  strategyText.value = s?.content ?? ''
+}
+
+async function onSaveCash() {
+  if (!initialCash.value || initialCash.value <= 0) {
+    ElMessage.warning('初始资金必须大于 0')
+    return
+  }
+  savingCash.value = true
+  try {
+    account.value = await paperTradeApi.updateInitialCash(initialCash.value)
+    initialCash.value = Number(account.value.initialCash)
+    ElMessage.success('初始资金已更新')
+  } catch {
+    /* toast */
+  } finally {
+    savingCash.value = false
+  }
+}
+
+async function onSaveStrategy() {
+  if (!strategyText.value.trim()) {
+    ElMessage.warning('策略不能为空')
+    return
+  }
+  savingStrategy.value = true
+  try {
+    const s = await paperTradeApi.saveStrategy(strategyText.value.trim())
+    strategyText.value = s.content
+    ElMessage.success('策略已保存')
+  } catch {
+    /* toast */
+  } finally {
+    savingStrategy.value = false
+  }
+}
+
+async function onReset() {
+  try {
+    await ElMessageBox.confirm(
+      '将清空持仓、订单与冷却，现金回到初始值。历史记录保留。确定？',
+      '重置账户',
+      { type: 'warning' },
+    )
+  } catch {
+    return
+  }
+  resetting.value = true
+  try {
+    account.value = await paperTradeApi.reset()
+    initialCash.value = Number(account.value.initialCash)
+    ElMessage.success('账户已重置')
+  } catch {
+    /* toast */
+  } finally {
+    resetting.value = false
+  }
+}
+
+async function onWipe() {
+  try {
+    await ElMessageBox.confirm(
+      '将清空全部业务数据（含 AI、研究、阶段总结）并重置账户，仅保留投资策略。此操作不可恢复。确定？',
+      '注销阶段训练',
+      { type: 'error', confirmButtonText: '确认注销', confirmButtonClass: 'el-button--danger' },
+    )
+  } catch {
+    return
+  }
+  wiping.value = true
+  try {
+    account.value = await paperTradeApi.wipe()
+    initialCash.value = Number(account.value.initialCash)
+    ElMessage.success('阶段训练已注销')
+  } catch {
+    /* toast */
+  } finally {
+    wiping.value = false
+  }
+}
+
+onMounted(() => {
+  load().catch((e: unknown) => {
+    ElMessage.error(e instanceof Error ? e.message : '加载失败')
+  })
+})
+</script>
+
+<style scoped lang="less">
+.settings {
+  max-width: 900px;
+}
+
+.settings-head {
+  margin-bottom: 12px;
+
+  h1 {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 800;
+    color: #166534;
+  }
+
+  p {
+    margin: 2px 0 0;
+    font-size: 12px;
+    color: #64748b;
+  }
+}
+
+.panel {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+
+  h2 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 700;
+    color: #14532d;
+  }
+}
+
+.panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.cash-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+
+  .hint {
+    font-size: 12px;
+    color: #94a3b8;
+  }
+}
+
+.danger-zone {
+  border-color: #fecaca;
+
+  h2 {
+    color: #b91c1c;
+    margin-bottom: 10px;
+  }
+}
+
+.danger-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 0;
+  border-top: 1px solid #fee2e2;
+
+  &:first-of-type {
+    border-top: none;
+    padding-top: 0;
+  }
+
+  strong {
+    display: block;
+    font-size: 13px;
+    color: #7f1d1d;
+  }
+
+  p {
+    margin: 4px 0 0;
+    font-size: 12px;
+    color: #94a3b8;
+    max-width: 520px;
+  }
+}
+
+.btn-reset {
+  background: #fff;
+  border: 1px solid #ef4444;
+  color: #dc2626;
+
+  &:hover,
+  &:focus {
+    background: #fef2f2;
+    border-color: #dc2626;
+    color: #b91c1c;
+  }
+}
+</style>

@@ -23,6 +23,19 @@ class LlmModelSupportTest {
     }
 
     @Test
+    void maskBlankMeansFollowEnv() {
+        assertTrue(LlmModelSupport.maskApiKey("").contains("OPENAI_API_KEY"));
+        assertTrue(LlmModelSupport.maskApiKey(null).contains("OPENAI_API_KEY"));
+    }
+
+    @Test
+    void validateAllowsBlankApiKey() {
+        LlmModel model = valid();
+        model.setApiKey("");
+        assertDoesNotThrow(() -> LlmModelSupport.validate(model));
+    }
+
+    @Test
     void validateRejectsUnknownProvider() {
         LlmModel model = valid();
         model.setProvider("anthropic");

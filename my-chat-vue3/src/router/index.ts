@@ -54,16 +54,31 @@ const router = createRouter({
   routes,
 })
 
-/** 把已启用且尚未登记的功能包挂到路由上。 */
+/** 把已启用且尚未登记的功能包挂到路由上（支持可选 children）。 */
 function registerAppRoutes() {
   for (const app of apps) {
     if (router.hasRoute(app.routeName)) {
+      continue
+    }
+    const children = app.children ?? []
+    if (children.length === 0) {
+      router.addRoute({
+        path: app.routePath,
+        name: app.routeName,
+        component: app.component,
+      })
       continue
     }
     router.addRoute({
       path: app.routePath,
       name: app.routeName,
       component: app.component,
+      redirect: `${app.routePath}/${children[0].path}`,
+      children: children.map((child) => ({
+        path: child.path,
+        name: child.name,
+        component: child.component,
+      })),
     })
   }
 }

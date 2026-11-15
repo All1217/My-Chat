@@ -22,7 +22,7 @@ public interface LlmModelService extends IService<LlmModel> {
     /** 新建配置；空表或 isDefault 时设为全局默认。 */
     LlmModelVO create(LlmModelUpsertRequest request);
 
-    /** 更新配置；apiKey 空则保留原值。 */
+    /** 更新配置；apiKey 传空白则清空并跟随 OPENAI_API_KEY / YAML，字段省略则保留原值。 */
     LlmModelVO updateModel(LlmModelUpsertRequest request);
 
     /** 删除非默认配置；最后一条启用模型不可删。 */

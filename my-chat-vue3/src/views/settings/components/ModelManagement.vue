@@ -3,7 +3,7 @@
     <div class="page-header">
       <div>
         <h3>大模型管理</h3>
-        <p class="hint">维护 OpenAI 兼容对话模型，三个能力层（编排 / 工具 / RAG）共用当前默认。</p>
+        <p class="hint">维护 OpenAI 兼容对话模型，三个能力层（编排 / 工具 / RAG）共用当前默认。API Key 留空则使用环境变量 OPENAI_API_KEY，再回退 application.yaml。</p>
       </div>
       <el-button type="primary" :icon="Plus" @click="openCreate">新增模型</el-button>
     </div>
@@ -106,13 +106,17 @@
         <el-form-item label="Base URL" required>
           <el-input v-model="form.baseUrl" placeholder="https://api.deepseek.com" />
         </el-form-item>
-        <el-form-item :label="editingId ? 'API Key' : 'API Key'" :required="!editingId">
+        <el-form-item label="API Key">
           <el-input
             v-model="form.apiKey"
             type="password"
             show-password
-            :placeholder="editingId ? `留空则保持 ${editingMasked}` : 'sk-…'"
+            :placeholder="apiKeyPlaceholder"
           />
+          <p class="field-hint">
+            留空：环境变量 OPENAI_API_KEY → 配置文件 spring.ai.openai.api-key；皆无则保存/测通会报错。
+            <template v-if="editingId && editingMasked">当前：{{ editingMasked }}</template>
+          </p>
         </el-form-item>
         <el-form-item label="模型 ID" required>
           <el-input v-model="form.modelId" :placeholder="modelPlaceholder" />
@@ -170,6 +174,10 @@ const currentPreset = computed(() => providers.value.find((p) => p.key === form.
 const currentHints = computed(() => currentPreset.value?.modelHints ?? [])
 
 const modelPlaceholder = computed(() => currentHints.value[0] || '模型名称')
+
+const apiKeyPlaceholder = computed(() =>
+  editingId.value ? '留空则跟随 OPENAI_API_KEY / 配置（清除库内密钥）' : 'sk-… 或留空跟随环境变量',
+)
 
 function providerLabel(key: string) {
   return providers.value.find((p) => p.key === key)?.label ?? key
@@ -232,17 +240,13 @@ function openEdit(row: LlmModel) {
   dialogVisible.value = true
 }
 
-function validateForm(requireKey: boolean) {
+function validateForm() {
   if (!form.name.trim()) {
     ElMessage.warning('请填写名称')
     return false
   }
   if (!form.baseUrl.trim()) {
     ElMessage.warning('请填写 Base URL')
-    return false
-  }
-  if (requireKey && !form.apiKey.trim()) {
-    ElMessage.warning('请填写 API Key')
     return false
   }
   if (!form.modelId.trim()) {
@@ -253,8 +257,7 @@ function validateForm(requireKey: boolean) {
 }
 
 async function handleSave() {
-  const requireKey = !editingId.value
-  if (!validateForm(requireKey)) return
+  if (!validateForm()) return
   saving.value = true
   try {
     if (editingId.value) {
@@ -263,7 +266,8 @@ async function handleSave() {
         name: form.name.trim(),
         provider: form.provider,
         baseUrl: form.baseUrl.trim(),
-        apiKey: form.apiKey.trim() || undefined,
+        // 始终提交：空串 = 跟随环境变量（勿用 undefined，否则会保留库内旧 key）
+        apiKey: form.apiKey.trim(),
         modelId: form.modelId.trim(),
         maxTokens: form.maxTokens,
         enabled: form.enabled,
@@ -339,15 +343,14 @@ async function handleTestSaved(row: LlmModel) {
 }
 
 async function handleTestForm() {
-  const requireKey = !editingId.value
-  if (!validateForm(requireKey)) return
+  if (!validateForm()) return
   testingForm.value = true
   try {
     const result = await modelApi.test({
       id: editingId.value || undefined,
       provider: form.provider,
       baseUrl: form.baseUrl.trim(),
-      apiKey: form.apiKey.trim() || undefined,
+      apiKey: form.apiKey.trim(),
       modelId: form.modelId.trim(),
       maxTokens: form.maxTokens,
     })

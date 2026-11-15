@@ -43,9 +43,7 @@ public final class LlmModelSupport {
         if (!StringUtils.hasText(model.getBaseUrl())) {
             throw new IllegalArgumentException("Base URL 不能为空");
         }
-        if (!StringUtils.hasText(model.getApiKey())) {
-            throw new IllegalArgumentException("API Key 不能为空");
-        }
+        // apiKey 允许空白：运行时由 OpenAiApiKeyResolver 读 OPENAI_API_KEY / YAML
         if (!StringUtils.hasText(model.getModelId())) {
             throw new IllegalArgumentException("模型 ID 不能为空");
         }
@@ -59,10 +57,10 @@ public final class LlmModelSupport {
         model.setModelId(model.getModelId().trim());
     }
 
-    /** 列表/详情用：密钥只留头尾。 */
+    /** 列表/详情用：密钥只留头尾；空白表示跟随环境变量 / 配置。 */
     public static String maskApiKey(String apiKey) {
         if (!StringUtils.hasText(apiKey)) {
-            return "";
+            return "（OPENAI_API_KEY / 配置）";
         }
         String key = apiKey.trim();
         if (key.length() <= 8) {

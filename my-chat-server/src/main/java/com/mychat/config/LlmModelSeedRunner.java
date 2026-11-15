@@ -62,14 +62,18 @@ public class LlmModelSeedRunner implements ApplicationRunner {
         seed.setName(labelOf(provider) + " (YAML)");
         seed.setProvider(provider);
         seed.setBaseUrl(baseUrl);
-        seed.setApiKey(StringUtils.hasText(apiKey) ? apiKey : "unset");
+        // 库内留空：运行时读 OPENAI_API_KEY / YAML，云上改 .env 即可，不必再改库
+        seed.setApiKey("");
         seed.setModelId(modelId);
         seed.setMaxTokens(maxTokens != null ? maxTokens : LlmModelSupport.DEFAULT_MAX_TOKENS);
         seed.setEnabled(true);
         seed.setIsDefault(true);
         LlmModelSupport.applyDefaults(seed);
         llmModelMapper.insert(seed);
-        log.info("已从 YAML 种子默认模型 provider={} modelId={}", provider, modelId);
+        if (!StringUtils.hasText(apiKey) && !StringUtils.hasText(System.getenv("OPENAI_API_KEY"))) {
+            log.warn("已种子默认模型但 OPENAI_API_KEY / YAML api-key 均为空，对话前请配置");
+        }
+        log.info("已从 YAML 种子默认模型 provider={} modelId={}（api_key 跟随环境）", provider, modelId);
     }
 
     /** 把预设键转成中文/英文展示名。 */

@@ -27,6 +27,7 @@ export interface LlmModelUpsert {
   name: string
   provider: string
   baseUrl: string
+  /** 留空表示跟随 OPENAI_API_KEY / YAML；更新时请传空串而非省略 */
   apiKey?: string
   modelId: string
   maxTokens: number
@@ -39,6 +40,7 @@ export interface LlmModelTestRequest {
   id?: string
   provider?: string
   baseUrl?: string
+  /** 留空表示跟随 OPENAI_API_KEY / YAML；更新时请传空串而非省略 */
   apiKey?: string
   modelId?: string
   maxTokens?: number

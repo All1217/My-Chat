@@ -36,6 +36,9 @@ spring:
       request-timeout: 24h
   application:
     name: my-chat
+  # 缓存由 CacheConfiguration（Caffeine）提供；不上 Redis
+  cache:
+    type: caffeine
   threads:
     virtual:
       enabled: true

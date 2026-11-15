@@ -324,12 +324,44 @@ public class PaperTradeService {
     @Transactional
     public PaperAccountVO resetAccount() {
         PaperAccount account = requireAccount();
-        positionMapper.delete(new LambdaQueryWrapper<PaperPosition>()
+        clearLedger(account.getId());
+        restoreCashAndRisk(account);
+        accountMapper.updateById(account);
+        return toAccountVo(account);
+    }
+
+    /** 修改初始资金；无持仓时同步可用现金与阶段高点。 */
+    @Transactional
+    public PaperAccountVO updateInitialCash(BigDecimal initialCash) {
+        if (initialCash == null || initialCash.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("初始资金必须大于 0");
+        }
+        PaperAccount account = requireAccount();
+        BigDecimal cash = initialCash.setScale(4, RoundingMode.HALF_UP);
+        account.setInitialCash(cash);
+        Long posCount = positionMapper.selectCount(new LambdaQueryWrapper<PaperPosition>()
                 .eq(PaperPosition::getAccountId, account.getId()));
+        if (posCount == null || posCount == 0L) {
+            account.setCash(cash);
+            account.setPeakEquity(cash);
+        }
+        account.setUpdatedAt(LocalDateTime.now());
+        accountMapper.updateById(account);
+        return toAccountVo(account);
+    }
+
+    /** 仅清持仓/订单/冷却（供 wipe 复用）。 */
+    public void clearLedger(String accountId) {
+        positionMapper.delete(new LambdaQueryWrapper<PaperPosition>()
+                .eq(PaperPosition::getAccountId, accountId));
         orderMapper.delete(new LambdaQueryWrapper<PaperOrder>()
-                .eq(PaperOrder::getAccountId, account.getId()));
+                .eq(PaperOrder::getAccountId, accountId));
         cooldownMapper.delete(new LambdaQueryWrapper<PaperCooldown>()
-                .eq(PaperCooldown::getAccountId, account.getId()));
+                .eq(PaperCooldown::getAccountId, accountId));
+    }
+
+    /** 现金与风控字段回到初始态。 */
+    public void restoreCashAndRisk(PaperAccount account) {
         BigDecimal cash = account.getInitialCash() != null
                 ? account.getInitialCash()
                 : (properties.getInitialCash() == null
@@ -341,8 +373,7 @@ public class PaperTradeService {
         account.setLossStreak(0);
         account.setBuyPauseUntil(null);
         account.setStageStartedAt(LocalDateTime.now());
-        accountMapper.updateById(account);
-        return toAccountVo(account);
+        account.setUpdatedAt(LocalDateTime.now());
     }
 
     /** 确保默认账户存在。 */

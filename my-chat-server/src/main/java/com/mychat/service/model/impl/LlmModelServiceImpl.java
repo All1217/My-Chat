@@ -3,10 +3,12 @@ package com.mychat.service.model.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.mychat.config.CacheConfiguration;
 import com.mychat.config.ChatClientAssembler;
 import com.mychat.config.ChatClientRegistry;
 import com.mychat.config.ChatModelFactory;
 import com.mychat.config.LlmProviderPresets;
+import com.mychat.config.OpenAiApiKeyResolver;
 import com.mychat.entity.dto.LlmModelTestRequest;
 import com.mychat.entity.dto.LlmModelUpsertRequest;
 import com.mychat.entity.po.LlmModel;
@@ -19,6 +21,8 @@ import com.mychat.vo.LlmProviderPresetVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -37,19 +41,23 @@ public class LlmModelServiceImpl extends ServiceImpl<LlmModelMapper, LlmModel> i
     private final ChatModelFactory chatModelFactory;
     private final ChatClientAssembler chatClientAssembler;
     private final ObjectProvider<ChatClientRegistry> chatClientRegistry;
+    private final OpenAiApiKeyResolver apiKeyResolver;
 
     /** Registry 用 ObjectProvider，打破与缓存层的循环依赖。 */
     public LlmModelServiceImpl(LlmModelMapper llmModelMapper,
                                ChatModelFactory chatModelFactory,
                                ChatClientAssembler chatClientAssembler,
-                               ObjectProvider<ChatClientRegistry> chatClientRegistry) {
+                               ObjectProvider<ChatClientRegistry> chatClientRegistry,
+                               OpenAiApiKeyResolver apiKeyResolver) {
         this.llmModelMapper = llmModelMapper;
         this.chatModelFactory = chatModelFactory;
         this.chatClientAssembler = chatClientAssembler;
         this.chatClientRegistry = chatClientRegistry;
+        this.apiKeyResolver = apiKeyResolver;
     }
 
     @Override
+    @Cacheable(cacheNames = CacheConfiguration.LLM_MODELS, key = "'list'")
     public List<LlmModelVO> listMasked() {
         return llmModelMapper.selectList(new LambdaQueryWrapper<LlmModel>()
                         .orderByDesc(LlmModel::getIsDefault)
@@ -68,13 +76,14 @@ public class LlmModelServiceImpl extends ServiceImpl<LlmModelMapper, LlmModel> i
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @CacheEvict(cacheNames = CacheConfiguration.LLM_MODELS, allEntries = true)
     public LlmModelVO create(LlmModelUpsertRequest request) {
         LlmModel model = new LlmModel();
         model.setId(UUID.randomUUID().toString());
         model.setName(request.getName());
         model.setProvider(request.getProvider());
         model.setBaseUrl(request.getBaseUrl());
-        model.setApiKey(request.getApiKey());
+        model.setApiKey(resolveStoredApiKey(request.getApiKey()));
         model.setModelId(request.getModelId());
         model.setMaxTokens(request.getMaxTokens());
         model.setEnabled(request.getEnabled());
@@ -98,6 +107,7 @@ public class LlmModelServiceImpl extends ServiceImpl<LlmModelMapper, LlmModel> i
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @CacheEvict(cacheNames = CacheConfiguration.LLM_MODELS, allEntries = true)
     public LlmModelVO updateModel(LlmModelUpsertRequest request) {
         if (request == null || !StringUtils.hasText(request.getId())) {
             throw new IllegalArgumentException("模型 ID 不能为空");
@@ -114,8 +124,9 @@ public class LlmModelServiceImpl extends ServiceImpl<LlmModelMapper, LlmModel> i
         if (request.getBaseUrl() != null) {
             existing.setBaseUrl(request.getBaseUrl());
         }
-        if (StringUtils.hasText(request.getApiKey())) {
-            existing.setApiKey(request.getApiKey());
+        // 请求带了 apiKey 字段：有值则写入；空白则清空，运行时读 OPENAI_API_KEY / YAML
+        if (request.getApiKey() != null) {
+            existing.setApiKey(resolveStoredApiKey(request.getApiKey()));
         }
         if (request.getModelId() != null) {
             existing.setModelId(request.getModelId());
@@ -140,6 +151,7 @@ public class LlmModelServiceImpl extends ServiceImpl<LlmModelMapper, LlmModel> i
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @CacheEvict(cacheNames = CacheConfiguration.LLM_MODELS, allEntries = true)
     public void deleteModel(String id) {
         if (!StringUtils.hasText(id)) {
             throw new IllegalArgumentException("模型 ID 不能为空");
@@ -159,6 +171,7 @@ public class LlmModelServiceImpl extends ServiceImpl<LlmModelMapper, LlmModel> i
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @CacheEvict(cacheNames = CacheConfiguration.LLM_MODELS, allEntries = true)
     public LlmModelVO setDefault(String id) {
         if (!StringUtils.hasText(id)) {
             throw new IllegalArgumentException("模型 ID 不能为空");
@@ -204,8 +217,9 @@ public class LlmModelServiceImpl extends ServiceImpl<LlmModelMapper, LlmModel> i
         }
         if (StringUtils.hasText(request.getId())) {
             LlmModel stored = requireById(request.getId().trim());
-            if (StringUtils.hasText(request.getApiKey())) {
-                stored.setApiKey(request.getApiKey());
+            if (request.getApiKey() != null) {
+                // 空白 = 测「跟随环境变量」；非空 = 用表单临时 key（不落库）
+                stored.setApiKey(request.getApiKey().trim());
             }
             if (StringUtils.hasText(request.getBaseUrl())) {
                 stored.setBaseUrl(request.getBaseUrl());
@@ -222,11 +236,22 @@ public class LlmModelServiceImpl extends ServiceImpl<LlmModelMapper, LlmModel> i
         draft.setName("probe");
         draft.setProvider(request.getProvider());
         draft.setBaseUrl(request.getBaseUrl());
-        draft.setApiKey(request.getApiKey());
+        draft.setApiKey(request.getApiKey() != null ? request.getApiKey().trim() : "");
         draft.setModelId(request.getModelId());
         draft.setMaxTokens(request.getMaxTokens());
         draft.setEnabled(true);
         return draft;
+    }
+
+    /**
+     * 持久化用的 api_key：有值原样存；留空则存空串并确认环境变量 / YAML 可用。
+     */
+    private String resolveStoredApiKey(String raw) {
+        if (StringUtils.hasText(raw)) {
+            return raw.trim();
+        }
+        apiKeyResolver.requireFallback();
+        return "";
     }
 
     /** 按 ID 取行，不存在则 400。 */

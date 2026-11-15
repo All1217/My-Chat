@@ -100,7 +100,7 @@ export interface PaperAiRun {
   decisions?: PaperAiDecision[] | null
 }
 
-/** 已留下的研究卡片。 */
+/** 已留下的研究卡片（持仓页）。 */
 export interface PaperResearchNote {
   symbol: string
   name?: string | null
@@ -110,11 +110,49 @@ export interface PaperResearchNote {
   updatedAt?: string | null
 }
 
+/** 管理端研究卡片。 */
+export interface PaperResearchNoteAdmin {
+  symbol: string
+  name?: string | null
+  quoteSummary?: string | null
+  story?: string | null
+  risks?: string | null
+  kept?: boolean | null
+  rejectReason?: string | null
+  sourcesJson?: string | null
+  runId?: string | null
+  createdAt?: string | null
+  updatedAt?: string | null
+}
+
 /** 搜集轮次状态。 */
 export interface PaperResearchRun {
   id: string
+  jobId?: string | null
   status: string
   errorMessage?: string | null
   screenedCount?: number | null
   keptCount?: number | null
+  frameworkTrace?: string | null
+  createdAt?: string | null
+  finishedAt?: string | null
+}
+
+/** 阶段总结。 */
+export interface PaperStageSummary {
+  id: string
+  stageNo: number
+  startedAt?: string | null
+  endedAt?: string | null
+  startCash: number
+  endEquity: number
+  tradeCount: number
+  winRate?: number | null
+  payoffRatio?: number | null
+  maxDrawdown?: number | null
+  avgHoldDays?: number | null
+  totalFee: number
+  lossSources?: string | null
+  summaryText: string
+  createdAt?: string | null
 }

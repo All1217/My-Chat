@@ -18,7 +18,7 @@ public class LlmModelUpsertRequest {
     /** OpenAI 兼容根地址 */
     private String baseUrl;
 
-    /** 密钥；更新时留空表示保持原值 */
+    /** 密钥；留空表示跟随 OPENAI_API_KEY / YAML；更新时省略该字段则保留库中原值 */
     private String apiKey;
 
     /** 供应商侧模型名 */

@@ -105,7 +105,7 @@ My-Chat 是个人学习与交流用的大模型应用开发实验平台：在 **
 
 ### 其它
 
-- MCP：本地数据库（`mcp-server-database`）、Smithery 工具箱；单连接失败不拖垮启动；联网搜索优先本机 `searchWeb`（Exa → Bocha → Tavily → DuckDuckGo）
+- MCP：本地数据库（`mcp-server-database`）、本地网页抓取（`mcp-server-crawler`）、Smithery 工具箱；单连接失败不拖垮启动；联网搜索优先本机 `searchWeb`（Exa → Bocha → Tavily → DuckDuckGo）
 - 模型管理：列表 / 供应商 / 测试连通 / 设默认
 
 ---
@@ -207,7 +207,14 @@ cd mcp-server-database
 .\mvnw.cmd spring-boot:run
 ```
 
-详见 [`mcp-server-database/README.md`](mcp-server-database/README.md)。`.cursor/mcp.json` 不入库，换机后请按 [docs/Cursor本地MCP接入提醒.md](docs/Cursor本地MCP接入提醒.md) 自行配置。
+可选：启动本地网页抓取 MCP（通用 HTML 正文，端口 8103）：
+
+```bash
+cd mcp-server-crawler
+.\scripts\run.ps1
+```
+
+详见 [`mcp-server-database/README.md`](mcp-server-database/README.md)、[`mcp-server-crawler/README.md`](mcp-server-crawler/README.md)。`.cursor/mcp.json` 不入库，换机后请按 [docs/Cursor本地MCP接入提醒.md](docs/Cursor本地MCP接入提醒.md) 自行配置。
 
 ### 4. 启动前端
 

@@ -88,6 +88,10 @@ spring:
               # url 为服务根地址；endpoint 默认 /mcp，显式写出避免歧义
               url: http://localhost:8102
               endpoint: /mcp
+            # 本地网页抓取 MCP（Python FastMCP）；未启动时惰性握手不拖垮主应用
+            mcp-crawler-server:
+              url: http://localhost:8103
+              endpoint: /mcp
             # Smithery 工具箱 Namespace MCP Endpoint（含 Exa Search 等）
             # 切勿把完整 URL 写到 url 且留下默认 endpoint=/mcp，否则会请求到 .../2625705206/mcp
             smithery-toolbox:
@@ -158,6 +162,9 @@ app:
     database:
       enabled: true
       connection-name: mcp-database-server
+    crawler:
+      enabled: true
+      connection-name: mcp-crawler-server
     smithery:
       enabled: true
       # 缺省为空串，避免未设环境变量时 Spring 属性解析失败拖垮启动

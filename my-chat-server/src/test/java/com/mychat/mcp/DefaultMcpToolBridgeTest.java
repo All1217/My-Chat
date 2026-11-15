@@ -13,7 +13,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * Bridge 按 database / smithery 子开关与 API Key 过滤连接。
+ * Bridge 按 database / crawler / smithery 子开关与 API Key 过滤连接。
  */
 class DefaultMcpToolBridgeTest {
 
@@ -51,6 +51,23 @@ class DefaultMcpToolBridgeTest {
         assertEquals(1, allowed.size());
         assertFalse(bridge.isAllowed(database));
         assertTrue(bridge.isAllowed(smithery));
+    }
+
+    @Test
+    void skipsCrawlerWhenDisabled() {
+        McpProperties props = new McpProperties();
+        props.getCrawler().setEnabled(false);
+        props.getDatabase().setEnabled(true);
+
+        McpSyncClient crawler = clientNamed("mcp-crawler-server");
+        McpSyncClient database = clientNamed("mcp-database-server");
+
+        var bridge = new DefaultMcpToolBridge(props, List.of(crawler, database), null);
+        List<McpSyncClient> allowed = bridge.filterClients(List.of(crawler, database));
+
+        assertEquals(1, allowed.size());
+        assertFalse(bridge.isAllowed(crawler));
+        assertTrue(bridge.isAllowed(database));
     }
 
     /** mock 一个带 title 的 client，便于 describe() 命中 connection 名。 */

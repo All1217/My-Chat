@@ -1,0 +1,2 @@
+[console_scripts]
+mcp-crawler = crawler_mcp.server:main

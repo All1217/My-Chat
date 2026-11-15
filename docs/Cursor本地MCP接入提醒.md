@@ -23,6 +23,15 @@ $env:PGSQL_PASS="你的密码"
 
 默认地址：`http://localhost:8102/mcp`。
 
+可选：启动网页抓取 MCP（Python，端口 8103）：
+
+```powershell
+cd mcp-server-crawler
+.\scripts\run.ps1
+```
+
+默认地址：`http://localhost:8103/mcp`。
+
 2. 在项目根创建 `.cursor/mcp.json`（仅本机）：
 
 ```json
@@ -30,11 +39,14 @@ $env:PGSQL_PASS="你的密码"
   "mcpServers": {
     "mcp-database-server": {
       "url": "http://localhost:8102/mcp"
+    },
+    "mcp-crawler-server": {
+      "url": "http://localhost:8103/mcp"
     }
   }
 }
 ```
 
-3. 重载 Cursor MCP（Customize → MCP，或重开窗口），确认 `mcp-database-server` 工具可见。建议先调 `connection_info` 做自检。
+3. 重载 Cursor MCP（Customize → MCP，或重开窗口），确认工具可见。数据库 MCP 建议先调 `connection_info` 做自检。
 
-服务说明与工具列表见 [`mcp-server-database/README.md`](../mcp-server-database/README.md)。
+服务说明见 [`mcp-server-database/README.md`](../mcp-server-database/README.md)、[`mcp-server-crawler/README.md`](../mcp-server-crawler/README.md)。

@@ -48,7 +48,7 @@ public final class DefaultMcpToolBridge implements McpToolBridge {
     }
 
     /**
-     * 按 database / smithery 子开关与 API Key 过滤客户端。
+     * 按 database / crawler / smithery 子开关与 API Key 过滤客户端。
      */
     List<McpSyncClient> filterClients(List<McpSyncClient> source) {
         if (CollectionUtils.isEmpty(source)) {
@@ -72,13 +72,18 @@ public final class DefaultMcpToolBridge implements McpToolBridge {
     boolean isAllowed(McpSyncClient client) {
         String name = TolerantMcpToolCallbackProvider.describe(client);
         String databaseName = properties.getDatabase().getConnectionName();
+        String crawlerName = properties.getCrawler().getConnectionName();
         String smitheryName = properties.getSmithery().getConnectionName();
 
         // 1) 数据库 MCP：按子开关挂载
         if (matchesConnection(name, databaseName) || TolerantMcpToolCallbackProvider.isDatabase(client)) {
             return properties.getDatabase().isEnabled();
         }
-        // 2) Smithery：开关开且有 key 才挂载
+        // 2) 爬虫 MCP：按子开关挂载
+        if (matchesConnection(name, crawlerName)) {
+            return properties.getCrawler().isEnabled();
+        }
+        // 3) Smithery：开关开且有 key 才挂载
         if (matchesConnection(name, smitheryName) || TolerantMcpToolCallbackProvider.isSmithery(client)) {
             if (!properties.getSmithery().isEnabled()) {
                 return false;
@@ -89,7 +94,7 @@ public final class DefaultMcpToolBridge implements McpToolBridge {
             }
             return true;
         }
-        // 3) 未知连接：总开关已开则保留，由 Tolerant 自行跳过失败
+        // 4) 未知连接：总开关已开则保留，由 Tolerant 自行跳过失败
         return true;
     }
 

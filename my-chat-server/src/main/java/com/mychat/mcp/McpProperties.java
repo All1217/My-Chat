@@ -16,6 +16,9 @@ public class McpProperties {
     /** 本地数据库 MCP（mcp-server-database）连接开关。 */
     private Database database = new Database();
 
+    /** 本地网页抓取 MCP（mcp-server-crawler）连接开关。 */
+    private Crawler crawler = new Crawler();
+
     /** Smithery 命名空间 MCP 连接与鉴权。 */
     private Smithery smithery = new Smithery();
 
@@ -26,6 +29,15 @@ public class McpProperties {
         private boolean enabled = true;
         /** YAML connection 名，默认 mcp-database-server。 */
         private String connectionName = "mcp-database-server";
+    }
+
+    /** 爬虫连接子配置。 */
+    @Data
+    public static class Crawler {
+        /** 是否挂载爬虫 MCP 工具。 */
+        private boolean enabled = true;
+        /** YAML connection 名，默认 mcp-crawler-server。 */
+        private String connectionName = "mcp-crawler-server";
     }
 
     /** Smithery 连接子配置。 */

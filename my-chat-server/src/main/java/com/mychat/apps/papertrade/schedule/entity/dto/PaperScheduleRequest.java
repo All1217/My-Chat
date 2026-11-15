@@ -12,4 +12,7 @@ public class PaperScheduleRequest {
     private String zoneId;
     /** 是否纳入自选。 */
     private Boolean includeWatchlist;
+
+    /** 是否启用工具检索。 */
+    private Boolean researchToolSearchEnabled;
 }

@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /** 按代码累积的研究卡片。 */
@@ -36,6 +37,19 @@ public class PaperResearchNote {
 
     @TableField("sources_json")
     private String sourcesJson;
+
+    @TableField("fit_score")
+    private BigDecimal fitScore;
+
+    @TableField("evidence_score")
+    private BigDecimal evidenceScore;
+
+    @TableField("signal_tags")
+    private String signalTags;
+
+    /** A_ONLY / A_PLUS_WEB */
+    @TableField("source_tier")
+    private String sourceTier;
 
     @TableField("run_id")
     private String runId;

@@ -66,6 +66,8 @@ export interface PaperScheduleSettings {
   zoneId: string
   /** 是否纳入自选：是则自选优先，否则交易员看不到自选。 */
   includeWatchlist: boolean
+  /** 是否启用工具检索（Exa/Bocha/Tavily），默认关。 */
+  researchToolSearchEnabled: boolean
   updatedAt?: string | null
 }
 
@@ -119,6 +121,10 @@ export interface PaperResearchNote {
   story?: string | null
   risks?: string | null
   sourceTitles?: string | null
+  fitScore?: number | null
+  evidenceScore?: number | null
+  signalTags?: string | null
+  sourceTier?: string | null
   updatedAt?: string | null
 }
 
@@ -134,6 +140,10 @@ export interface PaperResearchNoteAdmin {
   watchlist?: boolean | null
   rejectReason?: string | null
   sourcesJson?: string | null
+  fitScore?: number | null
+  evidenceScore?: number | null
+  signalTags?: string | null
+  sourceTier?: string | null
   runId?: string | null
   createdAt?: string | null
   updatedAt?: string | null

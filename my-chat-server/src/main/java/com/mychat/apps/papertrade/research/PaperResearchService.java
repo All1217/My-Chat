@@ -1,6 +1,7 @@
 package com.mychat.apps.papertrade.research;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -18,6 +19,9 @@ import com.mychat.apps.papertrade.risk.PaperSymbolFacts;
 import com.mychat.apps.papertrade.risk.PaperSymbolGate;
 import com.mychat.apps.papertrade.research.entity.po.PaperResearchNote;
 import com.mychat.apps.papertrade.research.entity.po.PaperResearchRun;
+import com.mychat.apps.papertrade.schedule.PaperScheduleService;
+import com.mychat.apps.papertrade.trader.PaperStrategyService;
+import com.mychat.apps.papertrade.trader.entity.po.PaperStrategy;
 import com.mychat.apps.papertrade.trader.entity.vo.PaperAiSubmitVO;
 import com.mychat.apps.papertrade.research.entity.vo.PaperResearchNoteVO;
 import com.mychat.apps.papertrade.research.mapper.PaperResearchNoteMapper;
@@ -30,11 +34,13 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -51,10 +57,15 @@ public class PaperResearchService {
     public static final String JOB_TYPE = "paper_trade_research";
     private static final DateTimeFormatter TS = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final int MAX_PAGES = 8;
+    private static final int STRATEGY_CLIP = 6000;
+    private static final String TIER_A = "A_ONLY";
+    private static final String TIER_A_WEB = "A_PLUS_WEB";
 
     private final PaperResearchRunMapper runMapper;
     private final PaperResearchNoteMapper noteMapper;
     private final PaperStoryFeed feed;
+    private final PaperMacroFeed macroFeed;
+    private final PaperResearchWebEnricher webEnricher;
     private final MarketQuoteClient quoteClient;
     private final EtfPremiumClient premiumClient;
     private final PaperSymbolGate symbolGate;
@@ -62,22 +73,30 @@ public class PaperResearchService {
     private final PaperTradeProperties properties;
     private final PaperFrameworkCall frameworkCall;
     private final AsyncJobService asyncJobService;
+    private final PaperScheduleService scheduleService;
+    private final PaperStrategyService strategyService;
     private final ObjectMapper objectMapper = new ObjectMapper()
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
     public PaperResearchService(PaperResearchRunMapper runMapper,
                                 PaperResearchNoteMapper noteMapper,
                                 PaperStoryFeed feed,
+                                PaperMacroFeed macroFeed,
+                                PaperResearchWebEnricher webEnricher,
                                 MarketQuoteClient quoteClient,
                                 EtfPremiumClient premiumClient,
                                 PaperSymbolGate symbolGate,
                                 PaperTradeService tradeService,
                                 PaperTradeProperties properties,
                                 PaperFrameworkCall frameworkCall,
-                                AsyncJobService asyncJobService) {
+                                AsyncJobService asyncJobService,
+                                PaperScheduleService scheduleService,
+                                PaperStrategyService strategyService) {
         this.runMapper = runMapper;
         this.noteMapper = noteMapper;
         this.feed = feed;
+        this.macroFeed = macroFeed;
+        this.webEnricher = webEnricher;
         this.quoteClient = quoteClient;
         this.premiumClient = premiumClient;
         this.symbolGate = symbolGate;
@@ -85,6 +104,8 @@ public class PaperResearchService {
         this.properties = properties;
         this.frameworkCall = frameworkCall;
         this.asyncJobService = asyncJobService;
+        this.scheduleService = scheduleService;
+        this.strategyService = strategyService;
     }
 
     /** 提交一轮搜集，立刻返回。 */
@@ -115,15 +136,17 @@ public class PaperResearchService {
         run.setStatus(PaperResearchRun.STATUS_RUNNING);
         runMapper.updateById(run);
         try {
-            // 1. 名单：跳过近期整理过的，再按闸门收成一小批
-            List<Material> batch = screen();
+            boolean toolSearch = Boolean.TRUE.equals(
+                    scheduleService.requireSettings().getResearchToolSearchEnabled());
+            // 1. 名单：跳过近期整理过的，再按闸门收成一小批；可选预取 B 源
+            List<Material> batch = screen(toolSearch);
             run.setScreenedCount(batch.size());
             if (batch.isEmpty()) {
                 finish(run, 0, null, null);
                 return;
             }
             // 2. 编排器整理，解析后按代码更新
-            PaperFrameworkCall.Outcome outcome = frameworkCall.call(prompt(batch), 4);
+            PaperFrameworkCall.Outcome outcome = frameworkCall.call(prompt(batch, toolSearch), 4);
             run.setFrameworkTrace(outcome.traceJson());
             String text = firstJson(outcome.answer(), outcome.observations());
             if (!hasArray(text)) {
@@ -156,6 +179,10 @@ public class PaperResearchService {
             vo.setStory(row.getStory());
             vo.setRisks(row.getRisks());
             vo.setSourceTitles(titles(row.getSourcesJson()));
+            vo.setFitScore(row.getFitScore());
+            vo.setEvidenceScore(row.getEvidenceScore());
+            vo.setSignalTags(row.getSignalTags());
+            vo.setSourceTier(row.getSourceTier());
             if (row.getUpdatedAt() != null) {
                 vo.setUpdatedAt(row.getUpdatedAt().format(TS));
             }
@@ -185,7 +212,7 @@ public class PaperResearchService {
     }
 
     /** 翻页直到凑够一批，或翻完上限。 */
-    private List<Material> screen() {
+    private List<Material> screen(boolean toolSearch) {
         int batchSize = Math.max(1, properties.getResearchBatchSize());
         BigDecimal cash = tradeService.requireAccount().getCash();
         Set<String> recent = recentSymbols();
@@ -210,7 +237,7 @@ public class PaperResearchService {
                 picked.add(row);
             }
         }
-        return qualify(picked);
+        return qualify(picked, toolSearch);
     }
 
     private Set<String> recentSymbols() {
@@ -226,8 +253,9 @@ public class PaperResearchService {
     }
 
     /** 日 K 闸门和相对低点。上市天数用一年日 K，月 K 不够 60 根。 */
-    private List<Material> qualify(List<PaperStoryFeed.ListRow> picked) {
+    private List<Material> qualify(List<PaperStoryFeed.ListRow> picked, boolean toolSearch) {
         EtfPremiumClient.Session premiums = premiumClient.newSession();
+        List<PaperStoryFeed.SourceItem> macroPool = macroFeed.headlines();
         List<Material> out = new ArrayList<>();
         int quoteFailures = 0;
         for (PaperStoryFeed.ListRow row : picked) {
@@ -241,9 +269,16 @@ public class PaperResearchService {
                 if (!relativelyLow(snap)) {
                     continue;
                 }
+                String name = facts.name() == null ? row.name() : facts.name();
                 List<PaperStoryFeed.SourceItem> sources = new ArrayList<>();
-                sources.addAll(feed.announcements(row.code()));
-                sources.addAll(feed.news(row.code()));
+                mergeSources(sources, feed.announcements(row.code()));
+                mergeSources(sources, feed.news(row.code()));
+                mergeSources(sources, macroPool);
+                mergeSources(sources, macroFeed.sectorBriefs(name));
+                boolean webAdded = false;
+                if (toolSearch) {
+                    webAdded = webEnricher.enrich(row.code(), name, sources);
+                }
                 Double premium = null;
                 if (facts.etf()) {
                     EtfPremiumClient.PremiumQuote pq = premiums.lookup(row.code(), snap.lastPrice());
@@ -252,7 +287,7 @@ public class PaperResearchService {
                     }
                 }
                 out.add(new Material(facts.symbol().toUpperCase(Locale.ROOT),
-                        facts.name() == null ? row.name() : facts.name(), snap, facts, premium, sources));
+                        name, snap, facts, premium, sources, webAdded ? TIER_A_WEB : TIER_A));
             } catch (Exception e) {
                 quoteFailures++;
                 log.debug("搜集剔除 {}: {}", row.code(), e.getMessage());
@@ -260,6 +295,32 @@ public class PaperResearchService {
         }
         requireAnyQuote(picked.size(), quoteFailures);
         return out;
+    }
+
+    /** 按 URL/标题去重追加。 */
+    static void mergeSources(List<PaperStoryFeed.SourceItem> into, List<PaperStoryFeed.SourceItem> add) {
+        if (add == null || add.isEmpty()) {
+            return;
+        }
+        Set<String> seen = new LinkedHashSet<>();
+        for (PaperStoryFeed.SourceItem s : into) {
+            seen.add(sourceKey(s));
+        }
+        for (PaperStoryFeed.SourceItem s : add) {
+            if (s == null || !StringUtils.hasText(s.title())) {
+                continue;
+            }
+            if (seen.add(sourceKey(s))) {
+                into.add(s);
+            }
+        }
+    }
+
+    private static String sourceKey(PaperStoryFeed.SourceItem s) {
+        if (StringUtils.hasText(s.url())) {
+            return "u:" + s.url().trim().toLowerCase(Locale.ROOT);
+        }
+        return "t:" + s.title().trim().toLowerCase(Locale.ROOT);
     }
 
     /** 本批候选都因行情失败被剔除时，不能记成成功。闸门筛空仍允许留下 0。 */
@@ -287,12 +348,13 @@ public class PaperResearchService {
         return belowMa || drawn;
     }
 
-    private String prompt(List<Material> batch) throws Exception {
+    private String prompt(List<Material> batch, boolean toolSearch) throws Exception {
         ArrayNode arr = objectMapper.createArrayNode();
         for (Material m : batch) {
             ObjectNode n = arr.addObject();
             n.put("symbol", m.symbol());
             n.put("name", m.name());
+            n.put("sourceTier", m.sourceTier());
             put(n, "lastPrice", m.snap().lastPrice());
             put(n, "changePct", m.snap().changePct());
             put(n, "vsMa20Pct", m.snap().vsMa20Pct());
@@ -304,19 +366,33 @@ public class PaperResearchService {
                 ObjectNode src = sources.addObject();
                 src.put("kind", s.kind());
                 src.put("title", s.title());
+                if (s.url() != null) {
+                    src.put("url", s.url());
+                }
                 if (s.publishedAt() != null) {
                     src.put("publishedAt", s.publishedAt());
                 }
             }
         }
+        PaperStrategy strategy = strategyService.requireDefault();
+        String strategyText = clip(strategy.getContent(), STRATEGY_CLIP);
+        String searchRule = toolSearch
+                ? "材料已含 A 股信源与预取网页标题；禁止再发起搜索，禁止编造未给出的标题或链接。"
+                : "材料已齐（仅 A 股 HTTP 信源）；禁止再发起联网搜索，禁止编造未给出的新闻。";
         return """
-                你是模拟炒股的信息搜集员，不下单。下面是本批候选的行情和已抓到的公告、新闻标题。
-                请整理成 JSON 数组，不要 Markdown。每项字段：symbol,name,kept,story,risks,rejectReason。
-                kept 为 true 才留给操盘手。故事只能引用本批 sources 的标题或行情数字，没有材料就写证据不足并把 kept 设为 false。
-                禁止编造未给出的新闻。不要选择联网搜索以外的新代码。
+                你是模拟炒股的信息搜集员，不下单。下面是本批候选的行情与已合并的信源（公告/新闻/宏观/可选网页）。
+                请对照投资策略整理成 JSON 数组，不要 Markdown。
+                每项字段：symbol,name,kept,story,risks,rejectReason,fitScore,evidenceScore,signalTags。
+                fitScore、evidenceScore 为 0 到 1 的小数；signalTags 为短字符串数组（如相对低点、企稳、流动性、溢价、跳空、策略冲突）。
+                kept 由你根据策略契合与证据充分度判定，true 才留给操盘手。
+                评判轴：相对低点、企稳、流动性、溢价/跳空、与策略冲突；故事只能引用本批 sources 标题或行情数字，证据不足则 kept=false。
+                %s
+                不要选择材料以外的新代码。
+                投资策略：
+                %s
                 材料：
                 %s
-                """.formatted(objectMapper.writeValueAsString(arr));
+                """.formatted(searchRule, strategyText, objectMapper.writeValueAsString(arr));
     }
 
     /** 从最终答复或各步观察里取出 JSON 数组。操盘手也用来读编排结果。 */
@@ -398,6 +474,10 @@ public class PaperResearchService {
             note.setKept(keep);
             note.setRejectReason(clip(reject, 500));
             note.setSourcesJson(objectMapper.writeValueAsString(material.sources()));
+            note.setFitScore(score(card.fitScore));
+            note.setEvidenceScore(score(card.evidenceScore));
+            note.setSignalTags(clip(tagsJson(card.signalTags), 500));
+            note.setSourceTier(material.sourceTier());
             note.setRunId(runId);
             // AI 新建非自选；更新保留原 watchlist
             if (existing == null) {
@@ -410,6 +490,24 @@ public class PaperResearchService {
         return newlyKept;
     }
 
+    private String tagsJson(Object signalTags) throws Exception {
+        if (signalTags == null) {
+            return null;
+        }
+        if (signalTags instanceof String s) {
+            return StringUtils.hasText(s) ? s : null;
+        }
+        return objectMapper.writeValueAsString(signalTags);
+    }
+
+    private static BigDecimal score(Double v) {
+        if (v == null || !Double.isFinite(v)) {
+            return null;
+        }
+        double clamped = Math.max(0d, Math.min(1d, v));
+        return BigDecimal.valueOf(clamped).setScale(4, RoundingMode.HALF_UP);
+    }
+
     private String quoteSummary(Material material) throws Exception {
         ObjectNode n = objectMapper.createObjectNode();
         put(n, "lastPrice", material.snap().lastPrice());
@@ -418,6 +516,7 @@ public class PaperResearchService {
         put(n, "drawdown60Pct", material.snap().drawdown60Pct());
         put(n, "avgAmount20", material.facts().avgAmount20());
         put(n, "premiumPct", material.premiumPct());
+        n.put("sourceTier", material.sourceTier());
         return n.toString();
     }
 
@@ -461,7 +560,8 @@ public class PaperResearchService {
     }
 
     private record Material(String symbol, String name, MarketDipIndicators.Snapshot snap,
-                             PaperSymbolFacts facts, Double premiumPct, List<PaperStoryFeed.SourceItem> sources) {
+                             PaperSymbolFacts facts, Double premiumPct,
+                             List<PaperStoryFeed.SourceItem> sources, String sourceTier) {
     }
 
     /** 搜集员 JSON 的一行。 */
@@ -473,5 +573,11 @@ public class PaperResearchService {
         public String story;
         public String risks;
         public String rejectReason;
+        @JsonAlias({"fit_score"})
+        public Double fitScore;
+        @JsonAlias({"evidence_score"})
+        public Double evidenceScore;
+        @JsonAlias({"signal_tags"})
+        public Object signalTags;
     }
 }

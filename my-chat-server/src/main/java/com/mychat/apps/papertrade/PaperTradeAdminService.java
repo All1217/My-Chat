@@ -365,6 +365,18 @@ public class PaperTradeAdminService {
         if (req.getQuoteSummary() != null) {
             row.setQuoteSummary(req.getQuoteSummary());
         }
+        if (req.getFitScore() != null) {
+            row.setFitScore(req.getFitScore());
+        }
+        if (req.getEvidenceScore() != null) {
+            row.setEvidenceScore(req.getEvidenceScore());
+        }
+        if (req.getSignalTags() != null) {
+            row.setSignalTags(req.getSignalTags());
+        }
+        if (req.getSourceTier() != null) {
+            row.setSourceTier(blankToNull(req.getSourceTier()));
+        }
     }
 
     private int nextStageNo() {
@@ -436,6 +448,10 @@ public class PaperTradeAdminService {
         vo.setWatchlist(Boolean.TRUE.equals(row.getWatchlist()));
         vo.setRejectReason(row.getRejectReason());
         vo.setSourcesJson(row.getSourcesJson());
+        vo.setFitScore(row.getFitScore());
+        vo.setEvidenceScore(row.getEvidenceScore());
+        vo.setSignalTags(row.getSignalTags());
+        vo.setSourceTier(row.getSourceTier());
         vo.setRunId(row.getRunId());
         if (row.getCreatedAt() != null) {
             vo.setCreatedAt(row.getCreatedAt().format(TS));

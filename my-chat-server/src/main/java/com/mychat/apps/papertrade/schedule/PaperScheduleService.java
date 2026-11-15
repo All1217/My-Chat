@@ -51,6 +51,7 @@ public class PaperScheduleService {
         seed.setTraderCron(blankTo(properties.getScheduleCron(), "0 35 15 * * MON-FRI"));
         seed.setZoneId(blankTo(properties.getScheduleZone(), "Asia/Shanghai"));
         seed.setIncludeWatchlist(true);
+        seed.setResearchToolSearchEnabled(false);
         seed.setUpdatedAt(LocalDateTime.now());
         validateCron(seed.getResearchCron());
         validateCron(seed.getTraderCron());
@@ -95,6 +96,9 @@ public class PaperScheduleService {
         if (req.getIncludeWatchlist() != null) {
             row.setIncludeWatchlist(req.getIncludeWatchlist());
         }
+        if (req.getResearchToolSearchEnabled() != null) {
+            row.setResearchToolSearchEnabled(req.getResearchToolSearchEnabled());
+        }
         row.setUpdatedAt(LocalDateTime.now());
         mapper.updateById(row);
         return row;
@@ -133,6 +137,7 @@ public class PaperScheduleService {
         vo.setZoneId(row.getZoneId());
         // 缺省纳入自选（旧行迁移前兼容）
         vo.setIncludeWatchlist(row.getIncludeWatchlist() == null || Boolean.TRUE.equals(row.getIncludeWatchlist()));
+        vo.setResearchToolSearchEnabled(Boolean.TRUE.equals(row.getResearchToolSearchEnabled()));
         if (row.getUpdatedAt() != null) {
             vo.setUpdatedAt(row.getUpdatedAt().format(TS));
         }

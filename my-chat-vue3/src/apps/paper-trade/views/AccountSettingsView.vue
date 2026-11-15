@@ -40,6 +40,13 @@
         <el-switch v-model="schedule.researchEnabled" />
       </div>
       <el-input v-model="schedule.researchCron" placeholder="0 0 9 * * *" class="cron-input" />
+      <div class="sched-row trader-pref">
+        <div class="sched-meta">
+          <strong>是否启用工具检索</strong>
+          <p>关：仅东财/新浪等 A 股 HTTP 信源；开：额外用 Exa→Bocha→Tavily 预取网页标题再分析（需已配置密钥）</p>
+        </div>
+        <el-switch v-model="schedule.researchToolSearchEnabled" />
+      </div>
       <div class="sched-row">
         <div class="sched-meta">
           <strong>交易员（盘后单次）</strong>
@@ -127,6 +134,7 @@ const schedule = reactive({
   traderCron: '0 35 15 * * MON-FRI',
   zoneId: 'Asia/Shanghai',
   includeWatchlist: true,
+  researchToolSearchEnabled: false,
 })
 
 async function load() {
@@ -144,6 +152,7 @@ async function load() {
   schedule.traderCron = sch.traderCron || '0 35 15 * * MON-FRI'
   schedule.zoneId = sch.zoneId || 'Asia/Shanghai'
   schedule.includeWatchlist = sch.includeWatchlist !== false
+  schedule.researchToolSearchEnabled = !!sch.researchToolSearchEnabled
 }
 
 async function onSaveSchedule() {
@@ -160,6 +169,7 @@ async function onSaveSchedule() {
       traderCron: schedule.traderCron.trim(),
       zoneId: schedule.zoneId,
       includeWatchlist: schedule.includeWatchlist,
+      researchToolSearchEnabled: schedule.researchToolSearchEnabled,
     })
     schedule.researchEnabled = !!saved.researchEnabled
     schedule.researchCron = saved.researchCron
@@ -167,6 +177,7 @@ async function onSaveSchedule() {
     schedule.traderCron = saved.traderCron
     schedule.zoneId = saved.zoneId
     schedule.includeWatchlist = saved.includeWatchlist !== false
+    schedule.researchToolSearchEnabled = !!saved.researchToolSearchEnabled
     ElMessage.success('设置已保存并重挂定时')
   } catch {
     /* toast */

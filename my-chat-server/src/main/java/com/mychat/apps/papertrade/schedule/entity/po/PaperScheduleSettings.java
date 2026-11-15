@@ -39,6 +39,10 @@ public class PaperScheduleSettings {
     @TableField("include_watchlist")
     private Boolean includeWatchlist;
 
+    /** 是否启用工具检索（Exa/Bocha/Tavily），默认关。 */
+    @TableField("research_tool_search_enabled")
+    private Boolean researchToolSearchEnabled;
+
     @TableField(value = "updated_at", fill = FieldFill.INSERT_UPDATE)
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
     private LocalDateTime updatedAt;

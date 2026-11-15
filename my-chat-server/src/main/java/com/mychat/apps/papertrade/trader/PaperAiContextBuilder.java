@@ -1,5 +1,6 @@
 package com.mychat.apps.papertrade.trader;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -9,6 +10,7 @@ import com.mychat.apps.market.MarketQuoteClient;
 import com.mychat.apps.market.entity.vo.MarketQuoteVO;
 import com.mychat.apps.papertrade.PaperTradeProperties;
 import com.mychat.apps.papertrade.ledger.PaperTradeService;
+import com.mychat.apps.papertrade.research.PaperStoryFeed;
 import com.mychat.apps.papertrade.risk.PaperSymbolFacts;
 import com.mychat.apps.papertrade.risk.PaperSymbolGate;
 import com.mychat.apps.papertrade.research.entity.po.PaperResearchNote;
@@ -162,7 +164,19 @@ public class PaperAiContextBuilder {
                 if (note != null) {
                     row.put("story", note.getStory() == null ? "" : note.getStory());
                     row.put("risks", note.getRisks() == null ? "" : note.getRisks());
-                    row.put("sourceTitles", note.getSourcesJson() == null ? "" : note.getSourcesJson());
+                    row.put("sourceTitles", sourceTitles(note.getSourcesJson()));
+                    if (note.getFitScore() != null) {
+                        row.put("fitScore", note.getFitScore());
+                    } else {
+                        row.putNull("fitScore");
+                    }
+                    if (note.getEvidenceScore() != null) {
+                        row.put("evidenceScore", note.getEvidenceScore());
+                    } else {
+                        row.putNull("evidenceScore");
+                    }
+                    row.put("signalTags", note.getSignalTags() == null ? "" : note.getSignalTags());
+                    row.put("sourceTier", note.getSourceTier() == null ? "" : note.getSourceTier());
                     row.put("watchlist", Boolean.TRUE.equals(note.getWatchlist()));
                     if (note.getUpdatedAt() != null) {
                         row.put("noteUpdatedAt", note.getUpdatedAt().toString());
@@ -288,6 +302,28 @@ public class PaperAiContextBuilder {
             n.putNull(field);
         } else {
             n.put(field, v);
+        }
+    }
+
+    /** 将来源 JSON 压成可读标题列表。 */
+    private String sourceTitles(String sourcesJson) {
+        if (!StringUtils.hasText(sourcesJson)) {
+            return "";
+        }
+        try {
+            List<PaperStoryFeed.SourceItem> items = objectMapper.readValue(sourcesJson,
+                    new TypeReference<List<PaperStoryFeed.SourceItem>>() {
+                    });
+            List<String> titles = new ArrayList<>();
+            for (PaperStoryFeed.SourceItem item : items) {
+                if (item != null && StringUtils.hasText(item.title())) {
+                    String kind = StringUtils.hasText(item.kind()) ? item.kind() + ":" : "";
+                    titles.add(kind + item.title());
+                }
+            }
+            return String.join("；", titles);
+        } catch (Exception e) {
+            return sourcesJson.length() <= 500 ? sourcesJson : sourcesJson.substring(0, 500);
         }
     }
 

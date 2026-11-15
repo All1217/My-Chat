@@ -11,5 +11,6 @@ public class PaperScheduleVO {
     private String traderCron;
     private String zoneId;
     private Boolean includeWatchlist;
+    private Boolean researchToolSearchEnabled;
     private String updatedAt;
 }

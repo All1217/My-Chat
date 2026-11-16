@@ -6,14 +6,9 @@
         <p class="banner">虚拟盘 · 东财收盘价撮合 · 不接实盘</p>
       </div>
       <div class="actions">
-        <el-button size="small" :loading="researchRunning" @click="onResearch">搜集一轮</el-button>
-        <el-button size="small" type="primary" :loading="aiRunning" @click="onAiRun">
-          AI 跑一轮
-        </el-button>
         <el-button size="small" @click="refreshAll">刷新</el-button>
       </div>
     </div>
-    <p v-if="runHint" class="hint">{{ runHint }}</p>
 
     <section class="metrics">
       <div class="metric">
@@ -163,7 +158,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+import { onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import StockBoardPanel from '@/apps/paper-trade/components/StockBoardPanel.vue'
 import { paperTradeApi } from '@/apps/paper-trade/api'
@@ -180,13 +175,8 @@ const positions = ref<PaperPosition[]>([])
 const orders = ref<PaperOrder[]>([])
 const decisions = ref<PaperAiDecision[]>([])
 const submitting = ref(false)
-const aiRunning = ref(false)
-const researchRunning = ref(false)
-const runHint = ref('')
 const boardSymbol = ref('')
 const probeSymbol = ref('600519')
-let pollTimer: ReturnType<typeof setInterval> | null = null
-let researchTimer: ReturnType<typeof setInterval> | null = null
 let boardAutoPicked = false
 
 const form = reactive({
@@ -283,112 +273,12 @@ async function onDismiss(id: string) {
   }
 }
 
-async function onAiRun() {
-  aiRunning.value = true
-  runHint.value = '已提交 AI 轮次…'
-  try {
-    const sub = await paperTradeApi.aiRun()
-    runHint.value = `AI ${sub.runId.slice(0, 8)}… 运行中`
-    startPoll(sub.runId)
-  } catch {
-    runHint.value = 'AI 提交失败'
-    aiRunning.value = false
-  }
-}
-
-function startPoll(runId: string) {
-  stopPoll()
-  let tries = 0
-  pollTimer = setInterval(async () => {
-    tries += 1
-    try {
-      const run = await paperTradeApi.aiRunDetail(runId)
-      runHint.value = `AI 状态：${run.status}`
-      if (run.status === 'SUCCEEDED' || run.status === 'FAILED') {
-        stopPoll()
-        aiRunning.value = false
-        if (run.status === 'FAILED') {
-          ElMessage.error(run.errorMessage || 'AI 轮次失败')
-        } else {
-          ElMessage.success('AI 轮次完成')
-        }
-        await refreshAll()
-      }
-    } catch {
-      /* 忽略单次轮询失败 */
-    }
-    if (tries > 90) {
-      stopPoll()
-      aiRunning.value = false
-      runHint.value = 'AI 轮询超时，请稍后刷新'
-    }
-  }, 2000)
-}
-
-function stopPoll() {
-  if (pollTimer) {
-    clearInterval(pollTimer)
-    pollTimer = null
-  }
-}
-
-async function onResearch() {
-  researchRunning.value = true
-  runHint.value = '已提交搜集…'
-  try {
-    const sub = await paperTradeApi.researchRun()
-    runHint.value = `搜集 ${sub.runId.slice(0, 8)}… 运行中`
-    startResearchPoll(sub.runId)
-  } catch {
-    runHint.value = '搜集提交失败'
-    researchRunning.value = false
-  }
-}
-
-function startResearchPoll(runId: string) {
-  if (researchTimer) clearInterval(researchTimer)
-  let tries = 0
-  researchTimer = setInterval(async () => {
-    tries += 1
-    try {
-      const run = await paperTradeApi.researchRunDetail(runId)
-      runHint.value = `搜集状态：${run.status}`
-      if (run.status === 'SUCCEEDED' || run.status === 'FAILED') {
-        if (researchTimer) {
-          clearInterval(researchTimer)
-          researchTimer = null
-        }
-        researchRunning.value = false
-        if (run.status === 'FAILED') {
-          ElMessage.error(run.errorMessage || '搜集失败')
-        } else {
-          ElMessage.success('搜集完成')
-        }
-      }
-    } catch {
-      /* ignore */
-    }
-    if (tries > 90) {
-      if (researchTimer) {
-        clearInterval(researchTimer)
-        researchTimer = null
-      }
-      researchRunning.value = false
-      runHint.value = '搜集轮询超时'
-    }
-  }, 2000)
-}
-
 onMounted(() => {
   refreshAll().catch((e: unknown) => {
     ElMessage.error(e instanceof Error ? e.message : '加载失败')
   })
 })
 
-onUnmounted(() => {
-  stopPoll()
-  if (researchTimer) clearInterval(researchTimer)
-})
 </script>
 
 <style scoped lang="less">

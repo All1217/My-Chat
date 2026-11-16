@@ -2,7 +2,7 @@
   <div class="settings">
     <div class="settings-head">
       <h1>账户设置</h1>
-      <p>初始资金、定时与偏好、投资策略与危险操作</p>
+      <p>初始资金、定时工作流、偏好设置、投资策略与危险操作</p>
     </div>
 
     <section class="panel">
@@ -26,9 +26,9 @@
 
     <section class="panel">
       <div class="panel-head">
-        <h2>定时与偏好</h2>
+        <h2>定时工作流</h2>
         <el-button size="small" type="primary" plain :loading="savingSchedule" @click="onSaveSchedule">
-          保存设置
+          保存工作流
         </el-button>
       </div>
       <p class="hint schedule-zone">时区：{{ schedule.zoneId || 'Asia/Shanghai' }}（Spring 6 域 cron）</p>
@@ -37,10 +37,35 @@
           <strong>搜集员</strong>
           <p>默认每天 09:00；可改 cron，如仅工作日 <code>0 0 9 * * MON-FRI</code></p>
         </div>
-        <el-switch v-model="schedule.researchEnabled" />
+        <div class="sched-ops">
+          <el-button size="small" :loading="researchRunning" @click="onRunResearch">执行一次</el-button>
+          <el-switch v-model="schedule.researchEnabled" />
+        </div>
       </div>
       <el-input v-model="schedule.researchCron" placeholder="0 0 9 * * *" class="cron-input" />
-      <div class="sched-row trader-pref">
+      <div class="sched-row">
+        <div class="sched-meta">
+          <strong>交易员（盘后单次）</strong>
+          <p>与收盘价撮合一致；建议 ≥15:05，默认 <code>0 35 15 * * MON-FRI</code></p>
+        </div>
+        <div class="sched-ops">
+          <el-button size="small" type="primary" :loading="traderRunning" @click="onRunTrader">
+            执行一次
+          </el-button>
+          <el-switch v-model="schedule.traderEnabled" />
+        </div>
+      </div>
+      <el-input v-model="schedule.traderCron" placeholder="0 35 15 * * MON-FRI" class="cron-input" />
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>偏好设置</h2>
+        <el-button size="small" type="primary" plain :loading="savingPrefs" @click="onSavePrefs">
+          保存偏好
+        </el-button>
+      </div>
+      <div class="sched-row">
         <div class="sched-meta">
           <strong>是否启用工具检索</strong>
           <p>关：仅东财/新浪等 A 股 HTTP 信源；开：额外用 Exa→Bocha→Tavily 预取网页标题再分析（需已配置密钥）</p>
@@ -48,14 +73,6 @@
         <el-switch v-model="schedule.researchToolSearchEnabled" />
       </div>
       <div class="sched-row">
-        <div class="sched-meta">
-          <strong>交易员（盘后单次）</strong>
-          <p>与收盘价撮合一致；建议 ≥15:05，默认 <code>0 35 15 * * MON-FRI</code></p>
-        </div>
-        <el-switch v-model="schedule.traderEnabled" />
-      </div>
-      <el-input v-model="schedule.traderCron" placeholder="0 35 15 * * MON-FRI" class="cron-input" />
-      <div class="sched-row trader-pref">
         <div class="sched-meta">
           <strong>是否纳入自选</strong>
           <p>开：自选股优先进入交易员候选；关：交易员列表不包含自选股</p>
@@ -112,7 +129,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { onMounted, onUnmounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { paperTradeApi } from '@/apps/paper-trade/api'
 import type { PaperAccount } from '@/apps/paper-trade/types'
@@ -124,8 +141,13 @@ const strategyText = ref('')
 const savingCash = ref(false)
 const savingStrategy = ref(false)
 const savingSchedule = ref(false)
+const savingPrefs = ref(false)
+const researchRunning = ref(false)
+const traderRunning = ref(false)
 const resetting = ref(false)
 const wiping = ref(false)
+let researchTimer: ReturnType<typeof setInterval> | null = null
+let traderTimer: ReturnType<typeof setInterval> | null = null
 
 const schedule = reactive({
   researchEnabled: false,
@@ -178,11 +200,109 @@ async function onSaveSchedule() {
     schedule.zoneId = saved.zoneId
     schedule.includeWatchlist = saved.includeWatchlist !== false
     schedule.researchToolSearchEnabled = !!saved.researchToolSearchEnabled
-    ElMessage.success('设置已保存并重挂定时')
+    ElMessage.success('定时工作流已保存并重挂')
   } catch {
     /* toast */
   } finally {
     savingSchedule.value = false
+  }
+}
+
+async function onSavePrefs() {
+  if (!schedule.researchCron?.trim() || !schedule.traderCron?.trim()) {
+    ElMessage.warning('cron 不能为空')
+    return
+  }
+  savingPrefs.value = true
+  try {
+    const saved = await paperTradeApi.saveSchedule({
+      researchEnabled: schedule.researchEnabled,
+      researchCron: schedule.researchCron.trim(),
+      traderEnabled: schedule.traderEnabled,
+      traderCron: schedule.traderCron.trim(),
+      zoneId: schedule.zoneId,
+      includeWatchlist: schedule.includeWatchlist,
+      researchToolSearchEnabled: schedule.researchToolSearchEnabled,
+    })
+    schedule.includeWatchlist = saved.includeWatchlist !== false
+    schedule.researchToolSearchEnabled = !!saved.researchToolSearchEnabled
+    ElMessage.success('偏好已保存')
+  } catch {
+    /* toast */
+  } finally {
+    savingPrefs.value = false
+  }
+}
+
+function stopResearchPoll() {
+  if (researchTimer) clearInterval(researchTimer)
+  researchTimer = null
+}
+
+function stopTraderPoll() {
+  if (traderTimer) clearInterval(traderTimer)
+  traderTimer = null
+}
+
+/** 搜集员执行一次：提交后短轮询，结束时提示。 */
+async function onRunResearch() {
+  researchRunning.value = true
+  try {
+    const sub = await paperTradeApi.researchRun()
+    stopResearchPoll()
+    let tries = 0
+    researchTimer = setInterval(async () => {
+      tries += 1
+      try {
+        const run = await paperTradeApi.researchRunDetail(sub.runId)
+        if (run.status === 'SUCCEEDED' || run.status === 'FAILED') {
+          stopResearchPoll()
+          researchRunning.value = false
+          if (run.status === 'FAILED') ElMessage.error(run.errorMessage || '搜集失败')
+          else ElMessage.success('搜集完成')
+        }
+      } catch {
+        /* 单次轮询失败忽略 */
+      }
+      if (tries > 45) {
+        stopResearchPoll()
+        researchRunning.value = false
+        ElMessage.warning('搜集仍在运行，可到历史记录查看')
+      }
+    }, 2000)
+  } catch {
+    researchRunning.value = false
+  }
+}
+
+/** 交易员执行一次：提交后短轮询，结束时提示。 */
+async function onRunTrader() {
+  traderRunning.value = true
+  try {
+    const sub = await paperTradeApi.aiRun()
+    stopTraderPoll()
+    let tries = 0
+    traderTimer = setInterval(async () => {
+      tries += 1
+      try {
+        const run = await paperTradeApi.aiRunDetail(sub.runId)
+        if (run.status === 'SUCCEEDED' || run.status === 'FAILED') {
+          stopTraderPoll()
+          traderRunning.value = false
+          if (run.status === 'FAILED') ElMessage.error(run.errorMessage || '交易员本轮失败')
+          else ElMessage.success('交易员本轮完成')
+        }
+      } catch {
+        /* 单次轮询失败忽略 */
+      }
+      if (tries > 45) {
+        stopTraderPoll()
+        traderRunning.value = false
+        ElMessage.warning('交易员仍在运行，可到历史记录查看')
+      }
+    }, 2000)
+  } catch {
+    traderRunning.value = false
   }
 }
 
@@ -268,6 +388,11 @@ onMounted(() => {
   load().catch((e: unknown) => {
     ElMessage.error(e instanceof Error ? e.message : '加载失败')
   })
+})
+
+onUnmounted(() => {
+  stopResearchPoll()
+  stopTraderPoll()
 })
 </script>
 
@@ -364,6 +489,13 @@ onMounted(() => {
       border-radius: 3px;
     }
   }
+}
+
+.sched-ops {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .cron-input {

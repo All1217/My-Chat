@@ -57,7 +57,7 @@ export interface PaperStrategy {
   updatedAt?: string | null
 }
 
-/** 搜集员 / 交易员定时与偏好配置。 */
+/** 搜集员 / 交易员定时工作流与偏好配置。 */
 export interface PaperScheduleSettings {
   researchEnabled: boolean
   researchCron: string

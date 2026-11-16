@@ -295,7 +295,6 @@ onMounted(() => {
   /* 占满内容区且不撑出外层滚动条，只让表格内部滚动 */
   flex: 1 1 0;
   min-height: 0;
-  max-width: 1200px;
   width: 100%;
   display: flex;
   flex-direction: column;

@@ -283,7 +283,7 @@ onMounted(() => {
 
 <style scoped lang="less">
 .pos {
-  max-width: 1200px;
+  width: 100%;
 }
 
 .pos-head {

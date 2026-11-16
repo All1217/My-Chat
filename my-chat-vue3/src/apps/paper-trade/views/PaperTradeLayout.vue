@@ -128,6 +128,7 @@ function goLobby() {
     padding: 12px 16px 20px;
     display: flex;
     flex-direction: column;
+    container-type: inline-size;
   }
 }
 </style>

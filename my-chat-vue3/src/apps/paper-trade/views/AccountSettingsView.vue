@@ -5,7 +5,7 @@
       <p>初始资金、定时工作流、偏好设置、投资策略与危险操作</p>
     </div>
 
-    <section class="panel">
+    <section class="panel panel-cash">
       <div class="panel-head">
         <h2>初始资金</h2>
         <el-button size="small" type="primary" plain :loading="savingCash" @click="onSaveCash">
@@ -24,7 +24,7 @@
       </div>
     </section>
 
-    <section class="panel">
+    <section class="panel panel-workflow">
       <div class="panel-head">
         <h2>定时工作流</h2>
         <el-button size="small" type="primary" plain :loading="savingSchedule" @click="onSaveSchedule">
@@ -58,7 +58,7 @@
       <el-input v-model="schedule.traderCron" placeholder="0 35 15 * * MON-FRI" class="cron-input" />
     </section>
 
-    <section class="panel">
+    <section class="panel panel-prefs">
       <div class="panel-head">
         <h2>偏好设置</h2>
         <el-button size="small" type="primary" plain :loading="savingPrefs" @click="onSavePrefs">
@@ -81,7 +81,7 @@
       </div>
     </section>
 
-    <section class="panel">
+    <section class="panel panel-strategy">
       <div class="panel-head">
         <h2>投资策略</h2>
         <el-button
@@ -398,11 +398,54 @@ onUnmounted(() => {
 
 <style scoped lang="less">
 .settings {
-  max-width: 900px;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  align-content: start;
+
+  > .panel {
+    margin-bottom: 0;
+  }
+}
+
+@container (min-width: 1100px) {
+  .settings {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "head head"
+      "cash workflow"
+      "prefs danger"
+      "strategy strategy";
+  }
+
+  .settings-head {
+    grid-area: head;
+  }
+
+  .panel-cash {
+    grid-area: cash;
+  }
+
+  .panel-workflow {
+    grid-area: workflow;
+  }
+
+  .panel-prefs {
+    grid-area: prefs;
+  }
+
+  .panel-strategy {
+    grid-area: strategy;
+  }
+
+  .danger-zone {
+    grid-area: danger;
+  }
 }
 
 .settings-head {
-  margin-bottom: 12px;
+  margin-bottom: 0;
 
   h1 {
     margin: 0;

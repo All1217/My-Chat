@@ -1,6 +1,5 @@
 package com.mychat.apps.papertrade.tools;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mychat.apps.papertrade.PaperTradeAdminService;
 import com.mychat.apps.papertrade.research.entity.dto.PaperResearchNoteRequest;
 import org.springframework.ai.tool.annotation.Tool;
@@ -14,11 +13,9 @@ import java.util.Map;
 public class PaperResearchNoteTools {
 
     private final PaperTradeAdminService admin;
-    private final ObjectMapper objectMapper;
 
-    public PaperResearchNoteTools(PaperTradeAdminService admin, ObjectMapper objectMapper) {
+    public PaperResearchNoteTools(PaperTradeAdminService admin) {
         this.admin = admin;
-        this.objectMapper = objectMapper;
     }
 
     @Tool(description = "列出模拟炒股研究卡片，含未留下的，按更新时间倒序")
@@ -34,14 +31,14 @@ public class PaperResearchNoteTools {
 
     @Tool(description = "新建研究卡片。body 为 JSON，必须含 symbol")
     public String createResearchNote(@ToolParam(description = "研究卡片 JSON") String body) {
-        return call(() -> admin.createResearchNote(PaperToolJson.read(objectMapper, body, PaperResearchNoteRequest.class)));
+        return call(() -> admin.createResearchNote(PaperToolJson.read(body, PaperResearchNoteRequest.class)));
     }
 
     @Tool(description = "按股票代码修改研究卡片。body 为 JSON，只填要改的字段")
     public String updateResearchNote(
             @ToolParam(description = "股票代码") String symbol,
             @ToolParam(description = "要更新的字段 JSON") String body) {
-        return call(() -> admin.updateResearchNote(symbol, PaperToolJson.read(objectMapper, body, PaperResearchNoteRequest.class)));
+        return call(() -> admin.updateResearchNote(symbol, PaperToolJson.read(body, PaperResearchNoteRequest.class)));
     }
 
     @Tool(description = "按股票代码删除一张研究卡片")
@@ -54,7 +51,7 @@ public class PaperResearchNoteTools {
 
     private String call(java.util.function.Supplier<Object> action) {
         try {
-            return PaperToolJson.write(objectMapper, action.get());
+            return PaperToolJson.write(action.get());
         } catch (Exception e) {
             return PaperToolJson.fail(e);
         }

@@ -1,27 +1,35 @@
 package com.mychat.apps.papertrade.tools;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 
 /** 工具出入参：JSON 文本，失败收成一句说明。 */
 final class PaperToolJson {
 
+    /** 自建 Jackson 2 映射器。Spring Boot 4 只暴露 Jackson 3 的 Bean。 */
+    private static final ObjectMapper MAPPER = new ObjectMapper()
+            .findAndRegisterModules()
+            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+            .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+
     private PaperToolJson() {
     }
 
-    static String write(ObjectMapper mapper, Object value) {
+    static String write(Object value) {
         try {
-            return mapper.writeValueAsString(value);
+            return MAPPER.writeValueAsString(value);
         } catch (Exception e) {
             return fail(e);
         }
     }
 
-    static <T> T read(ObjectMapper mapper, String json, Class<T> type) {
+    static <T> T read(String json, Class<T> type) {
         if (json == null || json.isBlank()) {
             throw new IllegalArgumentException("JSON 不能为空");
         }
         try {
-            return mapper.readValue(json, type);
+            return MAPPER.readValue(json, type);
         } catch (Exception e) {
             throw new IllegalArgumentException("JSON 无法解析");
         }

@@ -1,6 +1,5 @@
 package com.mychat.apps.papertrade.tools;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mychat.apps.papertrade.PaperTradeAdminService;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
@@ -11,11 +10,9 @@ import org.springframework.stereotype.Component;
 public class PaperDecisionTools {
 
     private final PaperTradeAdminService admin;
-    private final ObjectMapper objectMapper;
 
-    public PaperDecisionTools(PaperTradeAdminService admin, ObjectMapper objectMapper) {
+    public PaperDecisionTools(PaperTradeAdminService admin) {
         this.admin = admin;
-        this.objectMapper = objectMapper;
     }
 
     @Tool(description = "列出模拟炒股 AI 决策，按创建时间倒序。不能修改或删除")
@@ -31,7 +28,7 @@ public class PaperDecisionTools {
 
     private String call(java.util.function.Supplier<Object> action) {
         try {
-            return PaperToolJson.write(objectMapper, action.get());
+            return PaperToolJson.write(action.get());
         } catch (Exception e) {
             return PaperToolJson.fail(e);
         }

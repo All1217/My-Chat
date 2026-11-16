@@ -7,12 +7,16 @@ export interface HistoryColumn {
   width?: number
   minWidth?: number
   overflow?: boolean
+  /** datetime → yyyy-MM-dd HH:mm:ss；bool → 是/否 */
+  format?: 'datetime' | 'bool'
 }
 
 /** 可扩展历史资源注册项。 */
 export interface HistoryResource {
   key: string
   title: string
+  /** 对应库表名，用于导出 INSERT.sql */
+  tableName: string
   idField: string
   creatable: boolean
   columns: HistoryColumn[]
@@ -37,11 +41,12 @@ export const historyResources: HistoryResource[] = [
   {
     key: 'stage-summaries',
     title: '阶段总结',
+    tableName: 'paper_stage_summary',
     idField: 'id',
     creatable: true,
     columns: [
       { prop: 'stageNo', label: '阶段', width: 70 },
-      { prop: 'endedAt', label: '结束', width: 150 },
+      { prop: 'endedAt', label: '结束', width: 170, format: 'datetime' },
       { prop: 'startCash', label: '起始资金', width: 100 },
       { prop: 'endEquity', label: '结束权益', width: 100 },
       { prop: 'tradeCount', label: '笔数', width: 70 },
@@ -69,10 +74,11 @@ export const historyResources: HistoryResource[] = [
   {
     key: 'decisions',
     title: 'AI 决策',
+    tableName: 'paper_ai_decision',
     idField: 'id',
     creatable: false,
     columns: [
-      { prop: 'createdAt', label: '时间', width: 150 },
+      { prop: 'createdAt', label: '时间', width: 170, format: 'datetime' },
       { prop: 'action', label: '动作', width: 70 },
       { prop: 'symbol', label: '代码', width: 90 },
       { prop: 'qty', label: '数量', width: 70 },
@@ -100,15 +106,16 @@ export const historyResources: HistoryResource[] = [
   {
     key: 'research-runs',
     title: '搜集轮次',
+    tableName: 'paper_research_run',
     idField: 'id',
     creatable: false,
     columns: [
-      { prop: 'createdAt', label: '创建', width: 150 },
+      { prop: 'createdAt', label: '创建', width: 170, format: 'datetime' },
       { prop: 'status', label: '状态', width: 100 },
       { prop: 'screenedCount', label: '筛选数', width: 80 },
       { prop: 'keptCount', label: '留下数', width: 80 },
       { prop: 'errorMessage', label: '错误', minWidth: 160, overflow: true },
-      { prop: 'finishedAt', label: '结束', width: 150 },
+      { prop: 'finishedAt', label: '结束', width: 170, format: 'datetime' },
     ],
     formFields: [
       { key: 'id', label: 'ID', type: 'text' },
@@ -125,14 +132,15 @@ export const historyResources: HistoryResource[] = [
   {
     key: 'research-notes',
     title: '研究卡片',
+    tableName: 'paper_research_note',
     idField: 'symbol',
     creatable: true,
     columns: [
-      { prop: 'updatedAt', label: '更新', width: 150 },
+      { prop: 'updatedAt', label: '更新', width: 170, format: 'datetime' },
       { prop: 'symbol', label: '代码', width: 90 },
       { prop: 'name', label: '名称', width: 120 },
-      { prop: 'kept', label: '留下', width: 70 },
-      { prop: 'watchlist', label: '自选', width: 70 },
+      { prop: 'kept', label: '留下', width: 70, format: 'bool' },
+      { prop: 'watchlist', label: '自选', width: 70, format: 'bool' },
       { prop: 'fitScore', label: '契合', width: 70 },
       { prop: 'evidenceScore', label: '证据', width: 70 },
       { prop: 'sourceTier', label: '信源', width: 100 },

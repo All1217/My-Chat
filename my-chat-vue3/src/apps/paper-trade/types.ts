@@ -149,7 +149,14 @@ export interface PaperResearchNoteAdmin {
   updatedAt?: string | null
 }
 
-/** 搜集轮次状态。 */
+/** 历史表 SQL 导出。 */
+export interface PaperSqlExport {
+  tableName: string
+  filename: string
+  content: string
+}
+
+/** 搜集轮次。 */
 export interface PaperResearchRun {
   id: string
   jobId?: string | null

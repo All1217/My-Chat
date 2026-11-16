@@ -1,5 +1,6 @@
 package com.mychat.apps.papertrade;
 
+import com.mychat.apps.papertrade.entity.vo.PaperSqlExportVO;
 import com.mychat.apps.papertrade.ledger.PaperTradeService;
 import com.mychat.apps.papertrade.ledger.entity.dto.PaperInitialCashRequest;
 import com.mychat.apps.papertrade.ledger.entity.vo.PaperAccountVO;
@@ -34,6 +35,7 @@ public class PaperTradeAdminController {
     private final PaperTradeService paperTradeService;
     private final PaperTradeAdminService adminService;
     private final PaperStageService stageService;
+    private final PaperSqlExportService sqlExportService;
 
     /** 修改初始资金。 */
     @PutMapping("/account/initial-cash")
@@ -206,6 +208,18 @@ public class PaperTradeAdminController {
             return Result.ok(null);
         } catch (IllegalArgumentException e) {
             return Result.fail(404, e.getMessage());
+        }
+    }
+
+    /** 导出历史表白名单全表 INSERT.sql（表名：paper_*）。 */
+    @GetMapping("/admin/export/{table}")
+    public Result<PaperSqlExportVO> exportSql(@PathVariable String table) {
+        try {
+            return Result.ok(sqlExportService.exportTable(table));
+        } catch (IllegalArgumentException e) {
+            return Result.fail(400, e.getMessage());
+        } catch (IllegalStateException e) {
+            return Result.fail(500, e.getMessage());
         }
     }
 }

@@ -2,13 +2,16 @@ package com.mychat.service.agent.pipeline;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mychat.agent.context.DefaultContextAssembler;
 import com.mychat.service.agent.AgentOrchestratorService;
 import com.mychat.service.agent.OrchestrateDialogueContextService;
 import com.mychat.service.agent.OrchestrateListener;
+import com.mychat.service.agent.context.MainChatShadowContextAssembler;
 import com.mychat.service.agent.pipeline.stage.EmitRouteStage;
 import com.mychat.service.agent.pipeline.stage.LoadDialogueContextStage;
 import com.mychat.service.agent.pipeline.stage.OrchestrateStage;
 import com.mychat.service.agent.pipeline.stage.QualityLoopStage;
+import com.mychat.service.agent.pipeline.stage.ShadowAssembleContextStage;
 import com.mychat.service.agent.pipeline.stage.StreamFinalAnswerStage;
 import com.mychat.service.agent.quality.AgentEvaluatorOptimizerService;
 import com.mychat.service.chat.ChatAssistantTurnService;
@@ -63,6 +66,8 @@ class ChatTurnPipelineFlowTest {
                 new EmitRouteStage(),
                 new LoadDialogueContextStage(dialogue),
                 new OrchestrateStage(orchestrator),
+                new ShadowAssembleContextStage(
+                        new MainChatShadowContextAssembler(new DefaultContextAssembler())),
                 new StreamFinalAnswerStage(orchestrator),
                 new QualityLoopStage(mock(AgentEvaluatorOptimizerService.class), mock(WorkspaceUtil.class)),
                 new ChatTurnFinalizer(new OrchestrateTurnPersistence(chatMemory), turns),

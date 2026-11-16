@@ -141,9 +141,11 @@ public class MarketQuoteClient {
         return getJsonRest(uri);
     }
 
+    /** 东财偶发掐流：最多 3 次，流重置时清连接池并指数退避。 */
     private JsonNode getJsonOkHttp(URI uri) {
         Exception last = null;
-        for (int attempt = 1; attempt <= 2; attempt++) {
+        final int maxAttempts = 3;
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             Request request = new Request.Builder()
                     .url(uri.toString())
                     .header("User-Agent", UA)
@@ -160,18 +162,28 @@ public class MarketQuoteClient {
                 throw e;
             } catch (Exception e) {
                 last = e;
-                if (attempt == 1) {
-                    if (streamReset(e)) {
-                        okHttp.connectionPool().evictAll();
-                    }
-                    continue;
+                if (attempt >= maxAttempts) {
+                    break;
                 }
-                log.warn("拉取行情失败 uri={}: {}", uri, e.getMessage());
-                throw new IllegalArgumentException("无法识别或暂无行情");
+                // 1. 流被掐断则丢弃坏连接
+                if (streamReset(e)) {
+                    okHttp.connectionPool().evictAll();
+                }
+                // 2. 退避后再试：200ms、400ms
+                sleepQuietly(200L * attempt);
             }
         }
         log.warn("拉取行情失败 uri={}: {}", uri, last == null ? "" : last.getMessage());
         throw new IllegalArgumentException("无法识别或暂无行情");
+    }
+
+    /** 重试等待；打断则恢复中断标记。 */
+    private static void sleepQuietly(long millis) {
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     /** 连接被掐断。清掉连接池后再请求，避免后面的代码沿用坏连接。 */

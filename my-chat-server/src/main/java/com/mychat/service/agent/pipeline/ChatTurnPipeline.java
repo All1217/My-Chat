@@ -4,6 +4,7 @@ import com.mychat.service.agent.pipeline.stage.EmitRouteStage;
 import com.mychat.service.agent.pipeline.stage.LoadDialogueContextStage;
 import com.mychat.service.agent.pipeline.stage.OrchestrateStage;
 import com.mychat.service.agent.pipeline.stage.QualityLoopStage;
+import com.mychat.service.agent.pipeline.stage.ShadowAssembleContextStage;
 import com.mychat.service.agent.pipeline.stage.StreamFinalAnswerStage;
 import com.mychat.utils.ChatStreamEventWriter;
 import com.mychat.utils.NdjsonStreamSupport;
@@ -33,6 +34,7 @@ public class ChatTurnPipeline {
             EmitRouteStage emitRouteStage,
             LoadDialogueContextStage loadDialogueContextStage,
             OrchestrateStage orchestrateStage,
+            ShadowAssembleContextStage shadowAssembleContextStage,
             StreamFinalAnswerStage streamFinalAnswerStage,
             QualityLoopStage qualityLoopStage,
             ChatTurnFinalizer finalizer,
@@ -42,6 +44,7 @@ public class ChatTurnPipeline {
                 emitRouteStage,
                 loadDialogueContextStage,
                 orchestrateStage,
+                shadowAssembleContextStage,
                 streamFinalAnswerStage,
                 qualityLoopStage);
         this.finalizer = finalizer;

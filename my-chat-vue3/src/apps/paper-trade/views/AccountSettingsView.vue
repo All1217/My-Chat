@@ -399,48 +399,13 @@ onUnmounted(() => {
 <style scoped lang="less">
 .settings {
   width: 100%;
-  display: grid;
-  grid-template-columns: 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 12px;
-  align-content: start;
+  align-items: stretch;
 
   > .panel {
     margin-bottom: 0;
-  }
-}
-
-@container (min-width: 1100px) {
-  .settings {
-    grid-template-columns: 1fr 1fr;
-    grid-template-areas:
-      "head head"
-      "cash workflow"
-      "prefs danger"
-      "strategy strategy";
-  }
-
-  .settings-head {
-    grid-area: head;
-  }
-
-  .panel-cash {
-    grid-area: cash;
-  }
-
-  .panel-workflow {
-    grid-area: workflow;
-  }
-
-  .panel-prefs {
-    grid-area: prefs;
-  }
-
-  .panel-strategy {
-    grid-area: strategy;
-  }
-
-  .danger-zone {
-    grid-area: danger;
   }
 }
 

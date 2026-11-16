@@ -1,5 +1,7 @@
 package com.mychat.service.agent.pipeline;
 
+import com.mychat.agent.api.AgentRunContext;
+import com.mychat.agent.context.ContextBundle;
 import com.mychat.common.ChatStreamEvent;
 import com.mychat.config.WorkspaceContext;
 import com.mychat.vo.OrchestrateResultVO;
@@ -106,6 +108,14 @@ public class ChatTurnContext {
      */
     @Setter
     private volatile OrchestrateResultVO orchestrateResult;
+
+    /** Phase 1 shadow 显式运行上下文；不参与生产编排。 */
+    @Setter
+    private volatile AgentRunContext shadowRunContext;
+
+    /** Phase 1 shadow 上下文快照；不参与生产 Prompt 或 NDJSON。 */
+    @Setter
+    private volatile ContextBundle shadowContextBundle;
 
     private ChatTurnContext(
             String agentInput,

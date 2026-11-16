@@ -629,11 +629,11 @@ public class PaperAiTraderService {
         public String name;
         @JsonAlias({"executeAt", "planned_time"})
         public String plannedTime;
-        @JsonAlias("qty")
+        @JsonAlias({"qty", "shares"})
         public Integer quantity;
         @JsonAlias({"allocationPct", "capital_ratio"})
         public Double capitalRatio;
-        @JsonAlias({"refPrice", "reference_price"})
+        @JsonAlias({"refPrice", "reference_price", "price"})
         public Double referencePrice;
         @JsonAlias({"takeProfitPct", "take_profit"})
         public Double takeProfit;
@@ -646,7 +646,7 @@ public class PaperAiTraderService {
         @JsonProperty("cooldown_until")
         public JsonNode cooldownUntil;
         public Double confidence;
-        @JsonAlias("rationale")
+        @JsonAlias({"rationale", "reason"})
         public String reasoning;
         @JsonAlias({"risks", "risk_flags"})
         public List<String> riskFlags;

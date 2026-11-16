@@ -48,4 +48,19 @@ class PaperAiDecisionParseTest {
         assertNull(d.cooldownUntil);
         assertEquals(Boolean.FALSE, d.manualReview);
     }
+
+    /** 模型常用 shares/price/reason 也能落到 quantity/referencePrice/reasoning。 */
+    @Test
+    void readsModelShorthandFieldNames() {
+        PaperAiTraderService.RawDecision d = service.parseDecisions("""
+                {"action":"BUY","symbol":"601899","name":"紫金矿业","shares":500,
+                "price":27.0,"stop_loss":25.18,"take_profit":29.5,
+                "confidence":0.72,"reason":"回调企稳"}
+                """).get(0);
+        assertEquals(500, d.quantity);
+        assertEquals(27.0, d.referencePrice);
+        assertEquals("回调企稳", d.reasoning);
+        assertEquals(29.5, d.takeProfit);
+        assertEquals(25.18, d.stopLoss);
+    }
 }

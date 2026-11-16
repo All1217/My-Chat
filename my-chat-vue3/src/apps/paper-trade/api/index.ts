@@ -13,6 +13,7 @@ import type {
   PaperResearchNoteAdmin,
   PaperResearchRun,
   PaperScheduleSettings,
+  PaperSqlExport,
   PaperStageSummary,
   PaperStrategy,
 } from '@/apps/paper-trade/types'
@@ -142,5 +143,11 @@ export const paperTradeApi = {
   adminDeleteResearchNote: (symbol: string) =>
     ragClient.delete<void>(
       `/ai/apps/paper-trade/admin/research-notes/${encodeURIComponent(symbol)}`,
+    ),
+
+  /** 导出历史表全量 INSERT.sql。 */
+  adminExportSql: (table: string) =>
+    ragClient.get<PaperSqlExport>(
+      `/ai/apps/paper-trade/admin/export/${encodeURIComponent(table)}`,
     ),
 }

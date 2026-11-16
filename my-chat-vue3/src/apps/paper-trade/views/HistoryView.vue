@@ -17,6 +17,7 @@
           <h2>{{ current?.title }}</h2>
           <div class="toolbar-actions">
             <el-button size="small" :loading="loading" @click="loadList">刷新</el-button>
+            <el-button size="small" :loading="exporting" @click="onExport">导出</el-button>
             <el-button
               v-if="current?.creatable"
               size="small"
@@ -45,9 +46,7 @@
             :width="col.width"
             :min-width="col.minWidth"
             :show-overflow-tooltip="col.overflow"
-            :formatter="
-              col.prop === 'kept' || col.prop === 'watchlist' ? boolFormatter : undefined
-            "
+            :formatter="columnFormatter(col)"
           />
           <el-table-column
             label="操作"
@@ -133,12 +132,19 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import StockBoardPanel from '@/apps/paper-trade/components/StockBoardPanel.vue'
-import { historyResources, type HistoryResource } from '@/apps/paper-trade/history/resources'
+import { paperTradeApi } from '@/apps/paper-trade/api'
+import {
+  historyResources,
+  type HistoryColumn,
+  type HistoryResource,
+} from '@/apps/paper-trade/history/resources'
+import { formatDateTime } from '@/apps/paper-trade/utils/format'
 
 const resources = historyResources
 const activeKey = ref(resources[0]?.key ?? '')
 const rows = ref<Record<string, unknown>[]>([])
 const loading = ref(false)
+const exporting = ref(false)
 const saving = ref(false)
 const drawerOpen = ref(false)
 const creating = ref(false)
@@ -179,9 +185,39 @@ function boolFormatter(_row: unknown, _col: unknown, cell: unknown) {
   return cell ? '是' : '否'
 }
 
+/** 按列 format 选择 formatter；无 format 时原样展示。 */
+function columnFormatter(col: HistoryColumn) {
+  if (col.format === 'bool') return boolFormatter
+  if (col.format === 'datetime') {
+    return (_row: unknown, _c: unknown, cell: unknown) => formatDateTime(cell)
+  }
+  return undefined
+}
+
 function onSelect(key: string) {
   activeKey.value = key
   loadList()
+}
+
+/** 下载当前表全量 INSERT.sql。 */
+async function onExport() {
+  if (!current.value) return
+  exporting.value = true
+  try {
+    const file = await paperTradeApi.adminExportSql(current.value.tableName)
+    const blob = new Blob([file.content], { type: 'application/sql;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = file.filename
+    a.click()
+    URL.revokeObjectURL(url)
+    ElMessage.success(`已导出 ${file.filename}`)
+  } catch {
+    /* 拦截器已提示 */
+  } finally {
+    exporting.value = false
+  }
 }
 
 async function loadList() {

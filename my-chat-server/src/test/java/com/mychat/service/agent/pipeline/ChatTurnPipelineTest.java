@@ -4,6 +4,7 @@ import com.mychat.service.agent.pipeline.stage.EmitRouteStage;
 import com.mychat.service.agent.pipeline.stage.LoadDialogueContextStage;
 import com.mychat.service.agent.pipeline.stage.OrchestrateStage;
 import com.mychat.service.agent.pipeline.stage.QualityLoopStage;
+import com.mychat.service.agent.pipeline.stage.ShadowAssembleContextStage;
 import com.mychat.service.agent.pipeline.stage.StreamFinalAnswerStage;
 import com.mychat.utils.ChatStreamEventWriter;
 import org.junit.jupiter.api.Test;
@@ -30,10 +31,17 @@ class ChatTurnPipelineTest {
                 mockNamed(EmitRouteStage.class, "emit_route"),
                 mockNamed(LoadDialogueContextStage.class, "load_dialogue"),
                 mockNamed(OrchestrateStage.class, "orchestrate"),
+                mockNamed(ShadowAssembleContextStage.class, "assemble_context_shadow"),
                 mockNamed(StreamFinalAnswerStage.class, "stream_final"),
                 mockNamed(QualityLoopStage.class, "quality_loop"));
         assertEquals(
-                List.of("emit_route", "load_dialogue", "orchestrate", "stream_final", "quality_loop"),
+                List.of(
+                        "emit_route",
+                        "load_dialogue",
+                        "orchestrate",
+                        "assemble_context_shadow",
+                        "stream_final",
+                        "quality_loop"),
                 pipeline.stageNames());
     }
 
@@ -68,10 +76,11 @@ class ChatTurnPipelineTest {
             EmitRouteStage emit,
             LoadDialogueContextStage load,
             OrchestrateStage orch,
+            ShadowAssembleContextStage shadow,
             StreamFinalAnswerStage stream,
             QualityLoopStage quality) {
         return new ChatTurnPipeline(
-                emit, load, orch, stream, quality,
+                emit, load, orch, shadow, stream, quality,
                 mock(ChatTurnFinalizer.class),
                 new ChatStreamEventWriter());
     }

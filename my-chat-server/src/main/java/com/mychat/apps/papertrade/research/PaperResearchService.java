@@ -255,7 +255,7 @@ public class PaperResearchService {
     /** 日 K 闸门和相对低点。上市天数用一年日 K，月 K 不够 60 根。 */
     private List<Material> qualify(List<PaperStoryFeed.ListRow> picked, boolean toolSearch) {
         EtfPremiumClient.Session premiums = premiumClient.newSession();
-        List<PaperStoryFeed.SourceItem> macroPool = macroFeed.headlines();
+        // 全市场宏观头条不再广播到每个标的，避免无关 MACRO 噪音；仅保留按名称的板块检索。
         List<Material> out = new ArrayList<>();
         int quoteFailures = 0;
         for (PaperStoryFeed.ListRow row : picked) {
@@ -273,7 +273,6 @@ public class PaperResearchService {
                 List<PaperStoryFeed.SourceItem> sources = new ArrayList<>();
                 mergeSources(sources, feed.announcements(row.code()));
                 mergeSources(sources, feed.news(row.code()));
-                mergeSources(sources, macroPool);
                 mergeSources(sources, macroFeed.sectorBriefs(name));
                 boolean webAdded = false;
                 if (toolSearch) {
@@ -383,7 +382,7 @@ public class PaperResearchService {
                 你是模拟炒股的信息搜集员，不下单。下面是本批候选的行情与已合并的信源（公告/新闻/宏观/可选网页）。
                 请对照投资策略整理成 JSON 数组，不要 Markdown。
                 每项字段：symbol,name,kept,story,risks,rejectReason,fitScore,evidenceScore,signalTags。
-                fitScore、evidenceScore 为 0 到 1 的小数；signalTags 为短字符串数组（如相对低点、企稳、流动性、溢价、跳空、策略冲突）。
+                fitScore、evidenceScore 必须给出 0 到 1 的小数，缺一不可；signalTags 为短字符串数组（如相对低点、企稳、流动性、溢价、跳空、策略冲突）。
                 kept 由你根据策略契合与证据充分度判定，true 才留给操盘手。
                 评判轴：相对低点、企稳、流动性、溢价/跳空、与策略冲突；故事只能引用本批 sources 标题或行情数字，证据不足则 kept=false。
                 %s
@@ -457,6 +456,15 @@ public class PaperResearchService {
             boolean wasKept = existing != null && Boolean.TRUE.equals(existing.getKept());
             boolean keep = Boolean.TRUE.equals(card.kept);
             String reject = card.rejectReason;
+            // 评分缺失则强制不留下，避免空分卡片进入操盘手视图
+            BigDecimal fit = score(card.fitScore);
+            BigDecimal evidence = score(card.evidenceScore);
+            if (fit == null || evidence == null) {
+                keep = false;
+                if (!StringUtils.hasText(reject)) {
+                    reject = "MISSING_SCORE";
+                }
+            }
             if (keep && !wasKept) {
                 if (newlyKept >= limit) {
                     keep = false;
@@ -474,8 +482,8 @@ public class PaperResearchService {
             note.setKept(keep);
             note.setRejectReason(clip(reject, 500));
             note.setSourcesJson(objectMapper.writeValueAsString(material.sources()));
-            note.setFitScore(score(card.fitScore));
-            note.setEvidenceScore(score(card.evidenceScore));
+            note.setFitScore(fit);
+            note.setEvidenceScore(evidence);
             note.setSignalTags(clip(tagsJson(card.signalTags), 500));
             note.setSourceTier(material.sourceTier());
             note.setRunId(runId);

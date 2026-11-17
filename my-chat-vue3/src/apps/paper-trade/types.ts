@@ -51,9 +51,38 @@ export interface PaperOrderRequest {
 }
 
 /** AI 策略。 */
+/** 运行时风控（与闸门 / 锁定策略同源）。 */
+export interface PaperRiskSettings {
+  maxPositions: number
+  maxSingleAllocation: number
+  riskBudgetPct: number
+  riskBudgetTightPct: number
+  drawdownRestrictPct: number
+  lossStreakLimit: number
+  buyPauseDays: number
+  reviewConfidenceThreshold: number
+  autoExecute: boolean
+  cooldownDaysStock: number
+  cooldownDaysEtf: number
+  stockTakeProfitPct: number
+  stockStopLossPct: number
+  stockMaxHoldDays: number
+  etfTakeProfitPct: number
+  etfStopLossPct: number
+  etfMaxHoldDays: number
+  qdiiTakeProfitPct: number
+  qdiiStopLossPct: number
+  qdiiMaxHoldDays: number
+  updatedAt?: string | null
+}
+
 export interface PaperStrategy {
   id: string
+  /** 拼接后的完整正文（只读产物）。 */
   content: string
+  lockedContent?: string
+  customContent?: string
+  risk?: PaperRiskSettings
   updatedAt?: string | null
 }
 

@@ -28,6 +28,7 @@ public class PaperPositionExitService {
     private final PaperTradeService tradeService;
     private final PaperAiDecisionMapper decisionMapper;
     private final PaperSymbolGate symbolGate;
+    private final PaperRiskSettingsService riskSettingsService;
 
     /** 扫描持仓并写入本轮 SELL 决策（PENDING）。 */
     public void scanAndEnqueue(String runId) {
@@ -76,7 +77,13 @@ public class PaperPositionExitService {
             d.setRationale("持仓扫描自动出场：" + reason);
             d.setRisksJson("[\"exit_scan\"]");
             d.setExecStatus(PaperAiDecision.EXEC_PENDING);
-            d.setCooldownDays(EtfPremiumClient.looksLikeEtf(pos.getSymbol(), null) ? 1 : 2);
+            var risk = riskSettingsService.requireSettings();
+            boolean etf = EtfPremiumClient.looksLikeEtf(pos.getSymbol(), null);
+            d.setCooldownDays(etf
+                    ? (risk.getCooldownDaysEtf() == null || risk.getCooldownDaysEtf() < 0
+                    ? 1 : risk.getCooldownDaysEtf())
+                    : (risk.getCooldownDaysStock() == null || risk.getCooldownDaysStock() < 0
+                    ? 2 : risk.getCooldownDaysStock()));
             decisionMapper.insert(d);
             log.info("出场决策 {} {} qty={} {}", pos.getSymbol(), reason, avail, runId);
         }

@@ -114,11 +114,11 @@ public class PaperTradeController {
         return Result.ok(strategyService.get());
     }
 
-    /** 保存默认 AI 策略。 */
+    /** 保存可编辑风格 + 结构化风控；锁定区由服务端重算。 */
     @PutMapping("/strategy")
     public Result<PaperStrategyVO> saveStrategy(@RequestBody PaperStrategyRequest request) {
         try {
-            return Result.ok(strategyService.save(request == null ? null : request.getContent()));
+            return Result.ok(strategyService.save(request));
         } catch (IllegalArgumentException e) {
             return Result.fail(400, e.getMessage());
         }

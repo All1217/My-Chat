@@ -7,6 +7,7 @@ import com.mychat.apps.market.MarketSymbolParser;
 import com.mychat.apps.market.ResolvedSymbol;
 import com.mychat.apps.market.entity.vo.MarketQuoteVO;
 import com.mychat.apps.papertrade.PaperTradeProperties;
+import com.mychat.apps.papertrade.risk.PaperRiskSettingsService;
 import com.mychat.apps.papertrade.ledger.entity.dto.PaperOrderRequest;
 import com.mychat.apps.papertrade.ledger.entity.po.PaperAccount;
 import com.mychat.apps.papertrade.ledger.entity.po.PaperCooldown;
@@ -21,6 +22,7 @@ import com.mychat.apps.papertrade.ledger.mapper.PaperOrderMapper;
 import com.mychat.apps.papertrade.ledger.mapper.PaperPositionMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -52,6 +54,7 @@ public class PaperTradeService {
     private final PaperCooldownMapper cooldownMapper;
     private final MarketQuoteClient quoteClient;
     private final PaperTradeProperties properties;
+    private final PaperRiskSettingsService riskSettingsService;
 
     /** 注入账本 Mapper 与行情客户端。 */
     public PaperTradeService(PaperAccountMapper accountMapper,
@@ -59,13 +62,15 @@ public class PaperTradeService {
                              PaperOrderMapper orderMapper,
                              PaperCooldownMapper cooldownMapper,
                              MarketQuoteClient quoteClient,
-                             PaperTradeProperties properties) {
+                             PaperTradeProperties properties,
+                             @Lazy PaperRiskSettingsService riskSettingsService) {
         this.accountMapper = accountMapper;
         this.positionMapper = positionMapper;
         this.orderMapper = orderMapper;
         this.cooldownMapper = cooldownMapper;
         this.quoteClient = quoteClient;
         this.properties = properties;
+        this.riskSettingsService = riskSettingsService;
     }
 
     /** 返回默认模拟账户，并按持仓市值估算权益。 */
@@ -452,9 +457,12 @@ public class PaperTradeService {
         if (PaperOrder.EXIT_STOP_LOSS.equals(exitReason)) {
             int streak = (account.getLossStreak() == null ? 0 : account.getLossStreak()) + 1;
             account.setLossStreak(streak);
-            int limit = properties.getLossStreakLimit() <= 0 ? 3 : properties.getLossStreakLimit();
+            var risk = riskSettingsService.requireSettings();
+            int limit = risk.getLossStreakLimit() == null || risk.getLossStreakLimit() <= 0
+                    ? 3 : risk.getLossStreakLimit();
             if (streak >= limit) {
-                int days = properties.getBuyPauseDays() <= 0 ? 2 : properties.getBuyPauseDays();
+                int days = risk.getBuyPauseDays() == null || risk.getBuyPauseDays() < 0
+                        ? 2 : risk.getBuyPauseDays();
                 account.setBuyPauseUntil(PaperTradeCalendar.plusWeekdays(LocalDate.now(), days));
             }
         } else {
@@ -498,8 +506,10 @@ public class PaperTradeService {
         if (peak == null || peak.compareTo(BigDecimal.ZERO) <= 0 || equity == null) {
             return false;
         }
-        double threshold = properties.getDrawdownRestrictPct() <= 0
-                ? 0.08 : properties.getDrawdownRestrictPct();
+        var risk = riskSettingsService.requireSettings();
+        double threshold = risk.getDrawdownRestrictPct() == null || risk.getDrawdownRestrictPct() <= 0
+                ? (properties.getDrawdownRestrictPct() <= 0 ? 0.08 : properties.getDrawdownRestrictPct())
+                : risk.getDrawdownRestrictPct();
         BigDecimal dd = peak.subtract(equity).max(BigDecimal.ZERO)
                 .divide(peak, 6, RoundingMode.HALF_UP);
         return dd.doubleValue() >= threshold;
@@ -573,9 +583,13 @@ public class PaperTradeService {
     }
 
     private void writeCooldown(String accountId, String symbol, Integer cooldownDays) {
-        int days = cooldownDays != null && cooldownDays > 0
-                ? cooldownDays
-                : (EtfPremiumClient.looksLikeEtf(symbol, null) ? 1 : 2);
+        var risk = riskSettingsService.requireSettings();
+        int defaultDays = EtfPremiumClient.looksLikeEtf(symbol, null)
+                ? (risk.getCooldownDaysEtf() == null || risk.getCooldownDaysEtf() < 0
+                ? 1 : risk.getCooldownDaysEtf())
+                : (risk.getCooldownDaysStock() == null || risk.getCooldownDaysStock() < 0
+                ? 2 : risk.getCooldownDaysStock());
+        int days = cooldownDays != null && cooldownDays > 0 ? cooldownDays : defaultDays;
         LocalDate until = LocalDate.now().plusDays(days);
         PaperCooldown existing = cooldownMapper.selectOne(new LambdaQueryWrapper<PaperCooldown>()
                 .eq(PaperCooldown::getAccountId, accountId)

@@ -3,6 +3,8 @@ package com.mychat.apps.papertrade.ledger;
 import com.mychat.apps.market.MarketQuoteClient;
 import com.mychat.apps.papertrade.PaperTradeProperties;
 import com.mychat.apps.market.entity.vo.MarketQuoteVO;
+import com.mychat.apps.papertrade.risk.PaperRiskSettingsService;
+import com.mychat.apps.papertrade.risk.entity.po.PaperRiskSettings;
 import com.mychat.apps.papertrade.ledger.entity.dto.PaperOrderRequest;
 import com.mychat.apps.papertrade.ledger.entity.po.PaperAccount;
 import com.mychat.apps.papertrade.ledger.entity.po.PaperOrder;
@@ -24,6 +26,7 @@ import java.math.BigDecimal;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -44,6 +47,8 @@ class PaperTradeServiceTest {
     private PaperCooldownMapper cooldownMapper;
     @Mock
     private MarketQuoteClient quoteClient;
+    @Mock
+    private PaperRiskSettingsService riskSettingsService;
 
     private PaperTradeService service;
 
@@ -54,7 +59,16 @@ class PaperTradeServiceTest {
         props.setCommissionRate(BigDecimal.ZERO);
         props.setStampDutyRate(BigDecimal.ZERO);
         props.setMinCommission(BigDecimal.ZERO);
-        service = new PaperTradeService(accountMapper, positionMapper, orderMapper, cooldownMapper, quoteClient, props);
+        PaperRiskSettings risk = new PaperRiskSettings();
+        risk.setMaxPositions(2);
+        risk.setCooldownDaysStock(2);
+        risk.setCooldownDaysEtf(1);
+        risk.setLossStreakLimit(3);
+        risk.setBuyPauseDays(2);
+        risk.setDrawdownRestrictPct(0.08);
+        lenient().when(riskSettingsService.requireSettings()).thenReturn(risk);
+        service = new PaperTradeService(accountMapper, positionMapper, orderMapper, cooldownMapper,
+                quoteClient, props, riskSettingsService);
     }
 
     @Test
@@ -106,7 +120,7 @@ class PaperTradeServiceTest {
         props.setStampDutyRate(BigDecimal.ZERO);
         props.setMinCommission(new BigDecimal("5"));
         PaperTradeService priced = new PaperTradeService(
-                accountMapper, positionMapper, orderMapper, cooldownMapper, quoteClient, props);
+                accountMapper, positionMapper, orderMapper, cooldownMapper, quoteClient, props, riskSettingsService);
         PaperAccount account = account(new BigDecimal("1000000"));
         when(accountMapper.selectById(PaperAccount.DEFAULT_ID)).thenReturn(account);
         when(quoteClient.fetch("600519", "1M")).thenReturn(quote(1700.0));

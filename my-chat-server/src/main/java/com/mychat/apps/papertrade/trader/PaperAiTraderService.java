@@ -22,6 +22,7 @@ import com.mychat.apps.papertrade.research.PaperResearchService;
 import com.mychat.apps.papertrade.risk.PaperGateContext;
 import com.mychat.apps.papertrade.risk.PaperPositionExitService;
 import com.mychat.apps.papertrade.risk.PaperRiskGuard;
+import com.mychat.apps.papertrade.risk.PaperRiskSettingsService;
 import com.mychat.apps.papertrade.risk.PaperStageService;
 import com.mychat.apps.papertrade.risk.PaperSymbolFacts;
 import com.mychat.apps.papertrade.trader.entity.po.PaperAiDecision;
@@ -79,6 +80,7 @@ public class PaperAiTraderService {
     private final PaperRunLifecycle lifecycle;
     private final AgentRunRepository agentRunRepository;
     private final PaperResearchService researchService;
+    private final PaperRiskSettingsService riskSettingsService;
     private final ObjectMapper objectMapper = new ObjectMapper()
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     /** Agent 工具已落库决策的 runId。 */
@@ -97,7 +99,8 @@ public class PaperAiTraderService {
                                 PaperAgentRuntimeAdapter agentRuntime,
                                 PaperRunLifecycle lifecycle,
                                 AgentRunRepository agentRunRepository,
-                                PaperResearchService researchService) {
+                                PaperResearchService researchService,
+                                PaperRiskSettingsService riskSettingsService) {
         this.runMapper = runMapper;
         this.decisionMapper = decisionMapper;
         this.strategyService = strategyService;
@@ -112,6 +115,7 @@ public class PaperAiTraderService {
         this.lifecycle = lifecycle;
         this.agentRunRepository = agentRunRepository;
         this.researchService = researchService;
+        this.riskSettingsService = riskSettingsService;
     }
 
     /** 提交一轮：立刻返回 runId + jobId；拒绝重叠活动轮次。 */
@@ -619,7 +623,9 @@ public class PaperAiTraderService {
         }
         boolean needReview = Boolean.TRUE.equals(d.getNeedsHumanReview())
                 || confidenceLow(d.getConfidence());
-        if (properties.isAutoExecute() && !needReview) {
+        Boolean autoFlag = riskSettingsService.requireSettings().getAutoExecute();
+        boolean auto = autoFlag == null || Boolean.TRUE.equals(autoFlag);
+        if (auto && !needReview) {
             place(d, source);
         } else {
             decisionMapper.updateById(d);
@@ -695,9 +701,12 @@ public class PaperAiTraderService {
         gate.setEquity(mark.equity());
         gate.setBuyPaused(tradeService.isBuyPaused());
         gate.setDrawdownRestricted(mark.complete() && tradeService.isDrawdownRestricted(mark.equity()));
-        double budget = gate.isDrawdownRestricted()
-                ? properties.getRiskBudgetTightPct()
-                : properties.getRiskBudgetPct();
+        var risk = riskSettingsService.requireSettings();
+        double tight = risk.getRiskBudgetTightPct() == null || risk.getRiskBudgetTightPct() <= 0
+                ? properties.getRiskBudgetTightPct() : risk.getRiskBudgetTightPct();
+        double normal = risk.getRiskBudgetPct() == null || risk.getRiskBudgetPct() <= 0
+                ? properties.getRiskBudgetPct() : risk.getRiskBudgetPct();
+        double budget = gate.isDrawdownRestricted() ? tight : normal;
         gate.setRiskBudgetPct(budget <= 0 ? 0.02 : budget);
         gate.setPremiums(Map.of());
         gate.setFacts(Map.of());
@@ -746,7 +755,11 @@ public class PaperAiTraderService {
         if (confidence == null) {
             return true;
         }
-        return confidence.doubleValue() < properties.getReviewConfidenceThreshold();
+        var risk = riskSettingsService.requireSettings();
+        double threshold = risk.getReviewConfidenceThreshold() == null
+                ? properties.getReviewConfidenceThreshold()
+                : risk.getReviewConfidenceThreshold();
+        return confidence.doubleValue() < threshold;
     }
 
     private String resolveAgentRunId(String businessRef) {

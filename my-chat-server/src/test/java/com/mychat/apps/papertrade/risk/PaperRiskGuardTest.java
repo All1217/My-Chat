@@ -1,6 +1,7 @@
 package com.mychat.apps.papertrade.risk;
 
 import com.mychat.apps.papertrade.PaperTradeProperties;
+import com.mychat.apps.papertrade.risk.entity.po.PaperRiskSettings;
 import com.mychat.apps.papertrade.trader.entity.po.PaperAiDecision;
 import com.mychat.apps.papertrade.ledger.entity.po.PaperPosition;
 import org.junit.jupiter.api.BeforeEach;
@@ -12,6 +13,8 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /** 买入裁股、禁止加仓、暂停和跌停拒卖。 */
 class PaperRiskGuardTest {
@@ -20,7 +23,13 @@ class PaperRiskGuardTest {
 
     @BeforeEach
     void setUp() {
-        guard = new PaperRiskGuard(new PaperTradeProperties());
+        PaperRiskSettingsService riskService = mock(PaperRiskSettingsService.class);
+        PaperRiskSettings risk = new PaperRiskSettings();
+        risk.setMaxPositions(2);
+        risk.setMaxSingleAllocation(0.95);
+        risk.setRiskBudgetPct(0.02);
+        when(riskService.requireSettings()).thenReturn(risk);
+        guard = new PaperRiskGuard(new PaperTradeProperties(), riskService);
     }
 
     @Test

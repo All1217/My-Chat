@@ -15,6 +15,8 @@ import com.mychat.apps.papertrade.risk.PaperSymbolFacts;
 import com.mychat.apps.papertrade.risk.PaperSymbolGate;
 import com.mychat.apps.papertrade.research.entity.po.PaperResearchNote;
 import com.mychat.apps.papertrade.research.mapper.PaperResearchNoteMapper;
+import com.mychat.apps.papertrade.risk.PaperRiskSettingsService;
+import com.mychat.apps.papertrade.risk.entity.po.PaperRiskSettings;
 import com.mychat.apps.papertrade.schedule.PaperScheduleService;
 import com.mychat.apps.papertrade.schedule.entity.po.PaperScheduleSettings;
 import com.mychat.apps.papertrade.ledger.entity.po.PaperAccount;
@@ -57,6 +59,7 @@ public class PaperAiContextBuilder {
     private final PaperTradeProperties properties;
     private final PaperResearchNoteMapper noteMapper;
     private final PaperScheduleService scheduleService;
+    private final PaperRiskSettingsService riskSettingsService;
     private final MarketQuoteClient quoteClient;
     private final EtfPremiumClient premiumClient;
     private final PaperAiDecisionMapper decisionMapper;
@@ -266,6 +269,42 @@ public class PaperAiContextBuilder {
         root.set("candidates", candidateArr);
         ArrayNode dropArr = root.putArray("droppedCandidates");
         dropped.forEach(dropArr::add);
+        // 风控策略摘要：与闸门 / 锁定文案同源
+        PaperRiskSettings risk = riskSettingsService.requireSettings();
+        ObjectNode riskPolicy = root.putObject("riskPolicy");
+        riskPolicy.put("maxPositions", risk.getMaxPositions() == null ? 2 : risk.getMaxPositions());
+        riskPolicy.put("maxSingleAllocation",
+                risk.getMaxSingleAllocation() == null ? 0.95 : risk.getMaxSingleAllocation());
+        riskPolicy.put("riskBudgetPct", risk.getRiskBudgetPct() == null ? 0.02 : risk.getRiskBudgetPct());
+        riskPolicy.put("riskBudgetTightPct",
+                risk.getRiskBudgetTightPct() == null ? 0.01 : risk.getRiskBudgetTightPct());
+        riskPolicy.put("drawdownRestrictPct",
+                risk.getDrawdownRestrictPct() == null ? 0.08 : risk.getDrawdownRestrictPct());
+        riskPolicy.put("cooldownDaysStock",
+                risk.getCooldownDaysStock() == null ? 2 : risk.getCooldownDaysStock());
+        riskPolicy.put("cooldownDaysEtf",
+                risk.getCooldownDaysEtf() == null ? 1 : risk.getCooldownDaysEtf());
+        riskPolicy.put("stockTakeProfitPct",
+                risk.getStockTakeProfitPct() == null ? 0.04 : risk.getStockTakeProfitPct());
+        riskPolicy.put("stockStopLossPct",
+                risk.getStockStopLossPct() == null ? 0.03 : risk.getStockStopLossPct());
+        riskPolicy.put("stockMaxHoldDays",
+                risk.getStockMaxHoldDays() == null ? 10 : risk.getStockMaxHoldDays());
+        riskPolicy.put("etfTakeProfitPct",
+                risk.getEtfTakeProfitPct() == null ? 0.03 : risk.getEtfTakeProfitPct());
+        riskPolicy.put("etfStopLossPct",
+                risk.getEtfStopLossPct() == null ? 0.02 : risk.getEtfStopLossPct());
+        riskPolicy.put("etfMaxHoldDays",
+                risk.getEtfMaxHoldDays() == null ? 15 : risk.getEtfMaxHoldDays());
+        riskPolicy.put("qdiiTakeProfitPct",
+                risk.getQdiiTakeProfitPct() == null ? 0.045 : risk.getQdiiTakeProfitPct());
+        riskPolicy.put("qdiiStopLossPct",
+                risk.getQdiiStopLossPct() == null ? 0.03 : risk.getQdiiStopLossPct());
+        riskPolicy.put("qdiiMaxHoldDays",
+                risk.getQdiiMaxHoldDays() == null ? 10 : risk.getQdiiMaxHoldDays());
+        riskPolicy.put("autoExecute",
+                risk.getAutoExecute() == null || Boolean.TRUE.equals(risk.getAutoExecute()));
+        riskPolicy.put("buyPaused", tradeService.isBuyPaused());
         String bestEtf = bestLiquidEtf(facts);
         if (bestEtf != null) {
             root.put("bestEtfSymbol", bestEtf);

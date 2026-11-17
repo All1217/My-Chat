@@ -22,6 +22,7 @@ import java.util.Set;
 public class PaperRiskGuard {
 
     private final PaperTradeProperties properties;
+    private final PaperRiskSettingsService riskSettingsService;
 
     /**
      * 校验并可能缩小买入数量。通过返回 null，并把 d.qty 写成合法股数。
@@ -40,7 +41,9 @@ public class PaperRiskGuard {
         if (cooldown.contains(symbol)) {
             return "IN_COOLDOWN";
         }
-        int maxPos = properties.getMaxPositions() <= 0 ? 2 : properties.getMaxPositions();
+        var risk = riskSettingsService.requireSettings();
+        int maxPos = risk.getMaxPositions() == null || risk.getMaxPositions() <= 0
+                ? 2 : risk.getMaxPositions();
         boolean alreadyHeld = positions.stream().anyMatch(p -> symbol.equalsIgnoreCase(p.getSymbol()));
         if (!alreadyHeld && positions.size() >= maxPos) {
             return "MAX_POSITIONS";
@@ -66,7 +69,9 @@ public class PaperRiskGuard {
         BigDecimal cash = ctx == null || ctx.getCash() == null ? BigDecimal.ZERO : ctx.getCash();
         BigDecimal equity = ctx == null || ctx.getEquity() == null ? cash : ctx.getEquity();
         double budget = ctx == null || ctx.getRiskBudgetPct() <= 0
-                ? properties.getRiskBudgetPct() : ctx.getRiskBudgetPct();
+                ? (risk.getRiskBudgetPct() == null || risk.getRiskBudgetPct() <= 0
+                ? properties.getRiskBudgetPct() : risk.getRiskBudgetPct())
+                : ctx.getRiskBudgetPct();
         Integer capped = capQty(d.getQty(), d.getRefPrice(), d.getStopLossPct(), cash, equity, budget);
         if (capped == null) {
             return "LOT_BELOW_MIN";
@@ -179,7 +184,10 @@ public class PaperRiskGuard {
         }
         int byRequest = requested == null || requested <= 0 ? Integer.MAX_VALUE : floorLot(requested);
         int byCash = lotsAffordable(cash, refPrice);
-        double maxAlloc = properties.getMaxSingleAllocation() <= 0 ? 0.95 : properties.getMaxSingleAllocation();
+        var risk = riskSettingsService.requireSettings();
+        double maxAlloc = risk.getMaxSingleAllocation() == null || risk.getMaxSingleAllocation() <= 0
+                ? (properties.getMaxSingleAllocation() <= 0 ? 0.95 : properties.getMaxSingleAllocation())
+                : risk.getMaxSingleAllocation();
         int byAlloc = floorLot(cash.multiply(BigDecimal.valueOf(maxAlloc))
                 .divide(refPrice, 0, RoundingMode.DOWN).intValue());
         BigDecimal riskCash = equity.multiply(BigDecimal.valueOf(budget));

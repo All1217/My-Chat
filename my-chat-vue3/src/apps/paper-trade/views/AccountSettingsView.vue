@@ -109,14 +109,169 @@
           :loading="savingStrategy"
           @click="onSaveStrategy"
         >
-          保存策略
+          保存策略与风控
         </el-button>
       </div>
+      <p class="hint strategy-hint">
+        数值改动会同步闸门与锁定文案；风格区只影响模型推理。输出格式 / value_tier / 整手等平台硬约束不可改。
+      </p>
+
+      <h3 class="sub-title">结构化风控</h3>
+      <div class="risk-grid">
+        <label>最多持仓
+          <el-input-number v-model="risk.maxPositions" :min="1" :max="20" controls-position="right" />
+        </label>
+        <label>单票上限
+          <el-input-number
+            v-model="risk.maxSingleAllocation"
+            :min="0.05"
+            :max="1"
+            :step="0.05"
+            :precision="2"
+            controls-position="right"
+          />
+        </label>
+        <label>风险预算
+          <el-input-number
+            v-model="risk.riskBudgetPct"
+            :min="0.001"
+            :max="0.2"
+            :step="0.005"
+            :precision="3"
+            controls-position="right"
+          />
+        </label>
+        <label>收紧预算
+          <el-input-number
+            v-model="risk.riskBudgetTightPct"
+            :min="0.001"
+            :max="0.2"
+            :step="0.005"
+            :precision="3"
+            controls-position="right"
+          />
+        </label>
+        <label>回撤熔断
+          <el-input-number
+            v-model="risk.drawdownRestrictPct"
+            :min="0.01"
+            :max="0.5"
+            :step="0.01"
+            :precision="2"
+            controls-position="right"
+          />
+        </label>
+        <label>连亏笔数
+          <el-input-number v-model="risk.lossStreakLimit" :min="1" :max="20" controls-position="right" />
+        </label>
+        <label>暂停天数
+          <el-input-number v-model="risk.buyPauseDays" :min="0" :max="30" controls-position="right" />
+        </label>
+        <label>置信度阈值
+          <el-input-number
+            v-model="risk.reviewConfidenceThreshold"
+            :min="0"
+            :max="1"
+            :step="0.05"
+            :precision="2"
+            controls-position="right"
+          />
+        </label>
+        <label class="switch-label">自动执行
+          <el-switch v-model="risk.autoExecute" />
+        </label>
+        <label>股冷却日
+          <el-input-number v-model="risk.cooldownDaysStock" :min="0" :max="30" controls-position="right" />
+        </label>
+        <label>ETF冷却日
+          <el-input-number v-model="risk.cooldownDaysEtf" :min="0" :max="30" controls-position="right" />
+        </label>
+        <label>股止盈
+          <el-input-number
+            v-model="risk.stockTakeProfitPct"
+            :min="0.005"
+            :max="0.5"
+            :step="0.005"
+            :precision="3"
+            controls-position="right"
+          />
+        </label>
+        <label>股止损
+          <el-input-number
+            v-model="risk.stockStopLossPct"
+            :min="0.005"
+            :max="0.5"
+            :step="0.005"
+            :precision="3"
+            controls-position="right"
+          />
+        </label>
+        <label>股最长持有
+          <el-input-number v-model="risk.stockMaxHoldDays" :min="1" :max="120" controls-position="right" />
+        </label>
+        <label>ETF止盈
+          <el-input-number
+            v-model="risk.etfTakeProfitPct"
+            :min="0.005"
+            :max="0.5"
+            :step="0.005"
+            :precision="3"
+            controls-position="right"
+          />
+        </label>
+        <label>ETF止损
+          <el-input-number
+            v-model="risk.etfStopLossPct"
+            :min="0.005"
+            :max="0.5"
+            :step="0.005"
+            :precision="3"
+            controls-position="right"
+          />
+        </label>
+        <label>ETF最长持有
+          <el-input-number v-model="risk.etfMaxHoldDays" :min="1" :max="120" controls-position="right" />
+        </label>
+        <label>QDII止盈
+          <el-input-number
+            v-model="risk.qdiiTakeProfitPct"
+            :min="0.005"
+            :max="0.5"
+            :step="0.005"
+            :precision="3"
+            controls-position="right"
+          />
+        </label>
+        <label>QDII止损
+          <el-input-number
+            v-model="risk.qdiiStopLossPct"
+            :min="0.005"
+            :max="0.5"
+            :step="0.005"
+            :precision="3"
+            controls-position="right"
+          />
+        </label>
+        <label>QDII最长持有
+          <el-input-number v-model="risk.qdiiMaxHoldDays" :min="1" :max="120" controls-position="right" />
+        </label>
+      </div>
+
+      <h3 class="sub-title">平台锁定策略 <span class="lock-tag">只读</span></h3>
       <el-input
-        v-model="strategyText"
+        :model-value="lockedContent"
         type="textarea"
-        :rows="12"
-        placeholder="交易员策略正文（系统提示）"
+        :rows="10"
+        readonly
+        class="locked-area"
+      />
+
+      <h3 class="sub-title">可编辑风格与偏好</h3>
+      <el-input
+        v-model="customContent"
+        type="textarea"
+        :rows="10"
+        placeholder="身份、风格、低点/企稳叙事与原则口吻"
       />
     </section>
 
@@ -150,14 +305,63 @@
 import { onMounted, onUnmounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { paperTradeApi } from '@/apps/paper-trade/api'
-import type { PaperAccount } from '@/apps/paper-trade/types'
+import type { PaperAccount, PaperRiskSettings } from '@/apps/paper-trade/types'
 import { formatMoney } from '@/apps/paper-trade/utils/format'
 
 const account = ref<PaperAccount | null>(null)
 const initialCash = ref<number>(20000)
-const strategyText = ref('')
+const lockedContent = ref('')
+const customContent = ref('')
+const risk = reactive<PaperRiskSettings>({
+  maxPositions: 2,
+  maxSingleAllocation: 0.95,
+  riskBudgetPct: 0.02,
+  riskBudgetTightPct: 0.01,
+  drawdownRestrictPct: 0.08,
+  lossStreakLimit: 3,
+  buyPauseDays: 2,
+  reviewConfidenceThreshold: 0.55,
+  autoExecute: true,
+  cooldownDaysStock: 2,
+  cooldownDaysEtf: 1,
+  stockTakeProfitPct: 0.04,
+  stockStopLossPct: 0.03,
+  stockMaxHoldDays: 10,
+  etfTakeProfitPct: 0.03,
+  etfStopLossPct: 0.02,
+  etfMaxHoldDays: 15,
+  qdiiTakeProfitPct: 0.045,
+  qdiiStopLossPct: 0.03,
+  qdiiMaxHoldDays: 10,
+})
 const savingGeneral = ref(false)
 const savingStrategy = ref(false)
+
+function applyRisk(r?: Partial<PaperRiskSettings> | null) {
+  if (!r) return
+  Object.assign(risk, {
+    maxPositions: r.maxPositions ?? 2,
+    maxSingleAllocation: r.maxSingleAllocation ?? 0.95,
+    riskBudgetPct: r.riskBudgetPct ?? 0.02,
+    riskBudgetTightPct: r.riskBudgetTightPct ?? 0.01,
+    drawdownRestrictPct: r.drawdownRestrictPct ?? 0.08,
+    lossStreakLimit: r.lossStreakLimit ?? 3,
+    buyPauseDays: r.buyPauseDays ?? 2,
+    reviewConfidenceThreshold: r.reviewConfidenceThreshold ?? 0.55,
+    autoExecute: r.autoExecute !== false,
+    cooldownDaysStock: r.cooldownDaysStock ?? 2,
+    cooldownDaysEtf: r.cooldownDaysEtf ?? 1,
+    stockTakeProfitPct: r.stockTakeProfitPct ?? 0.04,
+    stockStopLossPct: r.stockStopLossPct ?? 0.03,
+    stockMaxHoldDays: r.stockMaxHoldDays ?? 10,
+    etfTakeProfitPct: r.etfTakeProfitPct ?? 0.03,
+    etfStopLossPct: r.etfStopLossPct ?? 0.02,
+    etfMaxHoldDays: r.etfMaxHoldDays ?? 15,
+    qdiiTakeProfitPct: r.qdiiTakeProfitPct ?? 0.045,
+    qdiiStopLossPct: r.qdiiStopLossPct ?? 0.03,
+    qdiiMaxHoldDays: r.qdiiMaxHoldDays ?? 10,
+  })
+}
 const savingSchedule = ref(false)
 const researchRunning = ref(false)
 const traderRunning = ref(false)
@@ -235,7 +439,9 @@ async function load() {
   ])
   account.value = a
   initialCash.value = Number(a?.initialCash ?? 20000)
-  strategyText.value = s?.content ?? ''
+  lockedContent.value = s?.lockedContent ?? ''
+  customContent.value = s?.customContent ?? s?.content ?? ''
+  applyRisk(s?.risk)
   applySchedule(sch)
 }
 
@@ -433,15 +639,20 @@ async function onRunCleanup() {
 }
 
 async function onSaveStrategy() {
-  if (!strategyText.value.trim()) {
-    ElMessage.warning('策略不能为空')
+  if (!customContent.value.trim()) {
+    ElMessage.warning('可编辑风格不能为空')
     return
   }
   savingStrategy.value = true
   try {
-    const s = await paperTradeApi.saveStrategy(strategyText.value.trim())
-    strategyText.value = s.content
-    ElMessage.success('策略已保存')
+    const s = await paperTradeApi.saveStrategy({
+      customContent: customContent.value.trim(),
+      risk: { ...risk },
+    })
+    lockedContent.value = s.lockedContent ?? ''
+    customContent.value = s.customContent ?? ''
+    applyRisk(s.risk)
+    ElMessage.success('策略与风控已保存')
   } catch {
     /* toast */
   } finally {
@@ -674,6 +885,64 @@ onUnmounted(() => {
     background: #fef2f2;
     border-color: #dc2626;
     color: #b91c1c;
+  }
+}
+
+.strategy-hint {
+  margin: 0 0 10px;
+}
+
+.sub-title {
+  margin: 12px 0 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #14532d;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lock-tag {
+  font-size: 11px;
+  font-weight: 600;
+  color: #92400e;
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  border-radius: 4px;
+  padding: 0 6px;
+}
+
+.risk-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 8px 10px;
+
+  label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #334155;
+  }
+
+  .switch-label {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 18px;
+  }
+
+  :deep(.el-input-number) {
+    width: 100%;
+  }
+}
+
+.locked-area {
+  :deep(textarea) {
+    background: #f8fafc;
+    color: #475569;
+    cursor: default;
   }
 }
 </style>

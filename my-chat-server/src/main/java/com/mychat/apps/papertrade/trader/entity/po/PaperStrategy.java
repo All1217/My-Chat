@@ -23,6 +23,10 @@ public class PaperStrategy {
     @TableField("content")
     private String content;
 
+    /** 用户可编辑风格/偏好；content = 锁定区 + custom。 */
+    @TableField("custom_content")
+    private String customContent;
+
     @TableField(value = "updated_at", fill = FieldFill.INSERT_UPDATE)
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
     private LocalDateTime updatedAt;

@@ -15,6 +15,7 @@ import type {
   PaperScheduleSettings,
   PaperSqlExport,
   PaperStageSummary,
+  PaperRiskSettings,
   PaperStrategy,
   PaperWarehouseRun,
   PaperWorkflowOverview,
@@ -49,8 +50,8 @@ export const paperTradeApi = {
 
   getStrategy: () => ragClient.get<PaperStrategy>('/ai/apps/paper-trade/strategy'),
 
-  saveStrategy: (content: string) =>
-    ragClient.put<PaperStrategy>('/ai/apps/paper-trade/strategy', { content }),
+  saveStrategy: (body: { customContent: string; risk: Partial<PaperRiskSettings> }) =>
+    ragClient.put<PaperStrategy>('/ai/apps/paper-trade/strategy', body),
 
   getSchedule: () => ragClient.get<PaperScheduleSettings>('/ai/apps/paper-trade/schedule'),
 

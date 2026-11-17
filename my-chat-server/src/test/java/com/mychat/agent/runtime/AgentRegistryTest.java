@@ -32,9 +32,10 @@ class AgentRegistryTest {
         AgentScenarioProfile profile = new AgentScenarioProfile(
                 AgentScenarioId.MAIN_CHAT, "test", Set.of("missing"),
                 Set.of(), 2, 0, "text", "direct");
+        ScenarioProfileRegistry profiles = new ScenarioProfileRegistry(List.of(profile));
 
-        assertThatThrownBy(() -> new ScenarioProfileRegistry(
-                List.of(profile), new ActionRegistry(List.of())))
+        assertThatThrownBy(() -> new AgentProfileConsistencyChecker(
+                profiles, new ActionRegistry(List.of())))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("missing");
     }

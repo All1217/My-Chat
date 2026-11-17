@@ -4,10 +4,13 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.mychat.config.SearchProperties;
+import com.mychat.mcp.settings.McpRuntimeSettingsService;
+import com.mychat.mcp.settings.entity.po.McpConnectionSettings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
@@ -38,21 +41,30 @@ public class WebSearchTools {
     private final SearchProperties properties;
     private final RestClient restClient;
     private final ObjectMapper mapper;
+    private final McpRuntimeSettingsService runtimeSettings;
 
     /**
      * 生产构造：自建带超时的 RestClient，避免改动容器里共享的 Builder。
      * {@code @Autowired} 指定给 Spring 用这一条；否则双构造器会退化成无参实例化。
      */
     @Autowired
-    public WebSearchTools(SearchProperties properties) {
-        this(properties, RestClient.builder().requestFactory(jdkFactory()).build(), new ObjectMapper());
+    public WebSearchTools(SearchProperties properties,
+                          ObjectProvider<McpRuntimeSettingsService> runtimeSettings) {
+        this(properties, RestClient.builder().requestFactory(jdkFactory()).build(), new ObjectMapper(),
+                runtimeSettings.getIfAvailable());
     }
 
     /**
      * 测试构造：注入已绑定 Mock 的 RestClient。
      */
     WebSearchTools(SearchProperties properties, RestClient restClient, ObjectMapper mapper) {
+        this(properties, restClient, mapper, null);
+    }
+
+    WebSearchTools(SearchProperties properties, RestClient restClient, ObjectMapper mapper,
+                   McpRuntimeSettingsService runtimeSettings) {
         this.properties = properties;
+        this.runtimeSettings = runtimeSettings;
         this.restClient = restClient;
         this.mapper = mapper;
     }
@@ -69,9 +81,13 @@ public class WebSearchTools {
         }
         String q = query.trim();
 
-        // 2. 按顺序尝试已配置的供应商
+        // 2. 按顺序尝试已配置的供应商（Exa 受设置页全局开关约束）
         List<String> errors = new ArrayList<>();
-        if (hasKey(properties.getExa())) {
+        boolean exaEnabled = runtimeSettings == null
+                || runtimeSettings.isEnabled(McpConnectionSettings.ID_EXA);
+        if (!exaEnabled) {
+            errors.add("provider=exa-rest disabled=true（设置页已关闭 Exa Search）");
+        } else if (hasKey(properties.getExa())) {
             String result = searchExa(q);
             if (isOk(result)) {
                 return result;

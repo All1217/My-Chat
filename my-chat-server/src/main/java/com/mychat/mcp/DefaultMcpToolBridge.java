@@ -1,5 +1,7 @@
 package com.mychat.mcp;
 
+import com.mychat.mcp.settings.McpRuntimeSettingsService;
+import com.mychat.mcp.settings.entity.po.McpConnectionSettings;
 import io.modelcontextprotocol.client.McpSyncClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,7 +16,7 @@ import java.util.Locale;
 import java.util.Set;
 
 /**
- * 按 app.mcp 子开关过滤连接后，把 Tolerant MCP 工具挂到 ChatClient。
+ * 按 yaml 底线过滤连接后挂载 Tolerant Provider；运行时 DB 开关在每次 listTools 再滤。
  */
 public final class DefaultMcpToolBridge implements McpToolBridge {
 
@@ -23,6 +25,7 @@ public final class DefaultMcpToolBridge implements McpToolBridge {
     private final McpProperties properties;
     private final List<McpSyncClient> clients;
     private final McpToolNamePrefixGenerator prefixGenerator;
+    private final McpRuntimeSettingsService runtimeSettings;
 
     /**
      * 注入属性与已创建的 MCP 客户端；clients 可为空。
@@ -30,9 +33,18 @@ public final class DefaultMcpToolBridge implements McpToolBridge {
     public DefaultMcpToolBridge(McpProperties properties,
                                 List<McpSyncClient> clients,
                                 McpToolNamePrefixGenerator prefixGenerator) {
+        this(properties, clients, prefixGenerator, null);
+    }
+
+    /** 带运行时开关的构造。 */
+    public DefaultMcpToolBridge(McpProperties properties,
+                                List<McpSyncClient> clients,
+                                McpToolNamePrefixGenerator prefixGenerator,
+                                McpRuntimeSettingsService runtimeSettings) {
         this.properties = properties;
         this.clients = clients == null ? List.of() : List.copyOf(clients);
         this.prefixGenerator = prefixGenerator;
+        this.runtimeSettings = runtimeSettings;
     }
 
     /**
@@ -46,6 +58,7 @@ public final class DefaultMcpToolBridge implements McpToolBridge {
     /** 可按连接名再收窄挂载面，例如仅 crawler。 */
     @Override
     public void attachTo(ChatClient.Builder builder, Set<String> connectionNames) {
+        // yaml 底线：挂全部 yaml 允许的客户端；运行时开关由 Provider 每次 list 再滤
         List<McpSyncClient> allowed = filterClients(clients);
         if (!CollectionUtils.isEmpty(connectionNames)) {
             allowed = allowed.stream()
@@ -56,7 +69,8 @@ public final class DefaultMcpToolBridge implements McpToolBridge {
             log.debug("MCP Bridge：无可用连接，跳过工具挂载");
             return;
         }
-        builder.defaultToolCallbacks(new TolerantMcpToolCallbackProvider(allowed, prefixGenerator));
+        builder.defaultToolCallbacks(
+                new TolerantMcpToolCallbackProvider(allowed, prefixGenerator, runtimeSettings));
         log.debug("MCP Bridge：已挂载 {} 个连接的工具回调", allowed.size());
     }
 
@@ -75,7 +89,7 @@ public final class DefaultMcpToolBridge implements McpToolBridge {
     }
 
     /**
-     * 按 database / crawler / smithery 子开关与 API Key 过滤客户端。
+     * 按 database / crawler / smithery yaml 子开关与 API Key 过滤客户端。
      */
     List<McpSyncClient> filterClients(List<McpSyncClient> source) {
         if (CollectionUtils.isEmpty(source)) {
@@ -86,7 +100,7 @@ public final class DefaultMcpToolBridge implements McpToolBridge {
             if (isAllowed(client)) {
                 out.add(client);
             } else {
-                log.info("MCP Bridge：跳过连接 [{}]（子开关关闭或缺少 API Key）",
+                log.info("MCP Bridge：跳过连接 [{}]（yaml 子开关关闭或缺少 API Key）",
                         TolerantMcpToolCallbackProvider.describe(client));
             }
         }
@@ -94,7 +108,7 @@ public final class DefaultMcpToolBridge implements McpToolBridge {
     }
 
     /**
-     * 判断单个连接是否应参与工具发现。
+     * 判断单个连接是否应参与挂载（yaml 底线；运行时 DB 在 Provider 再滤）。
      */
     boolean isAllowed(McpSyncClient client) {
         String name = TolerantMcpToolCallbackProvider.describe(client);
@@ -102,15 +116,12 @@ public final class DefaultMcpToolBridge implements McpToolBridge {
         String crawlerName = properties.getCrawler().getConnectionName();
         String smitheryName = properties.getSmithery().getConnectionName();
 
-        // 1) 数据库 MCP：按子开关挂载
         if (matchesConnection(name, databaseName) || TolerantMcpToolCallbackProvider.isDatabase(client)) {
             return properties.getDatabase().isEnabled();
         }
-        // 2) 爬虫 MCP：按子开关挂载
         if (matchesConnection(name, crawlerName)) {
             return properties.getCrawler().isEnabled();
         }
-        // 3) Smithery：开关开且有 key 才挂载
         if (matchesConnection(name, smitheryName) || TolerantMcpToolCallbackProvider.isSmithery(client)) {
             if (!properties.getSmithery().isEnabled()) {
                 return false;
@@ -121,7 +132,27 @@ public final class DefaultMcpToolBridge implements McpToolBridge {
             }
             return true;
         }
-        // 4) 未知连接：总开关已开则保留，由 Tolerant 自行跳过失败
+        return true;
+    }
+
+    /** 供诊断/测试：运行时是否仍启用该连接。 */
+    boolean isRuntimeEnabled(McpSyncClient client) {
+        if (runtimeSettings == null) {
+            return true;
+        }
+        String name = TolerantMcpToolCallbackProvider.describe(client);
+        if (TolerantMcpToolCallbackProvider.isDatabase(client)
+                || matchesConnection(name, properties.getDatabase().getConnectionName())) {
+            return runtimeSettings.isEnabled(McpConnectionSettings.ID_DATABASE);
+        }
+        if (matchesConnection(name, properties.getCrawler().getConnectionName())
+                || (name != null && name.toLowerCase(Locale.ROOT).contains("crawler"))) {
+            return runtimeSettings.isEnabled(McpConnectionSettings.ID_CRAWLER);
+        }
+        if (TolerantMcpToolCallbackProvider.isSmithery(client)
+                || matchesConnection(name, properties.getSmithery().getConnectionName())) {
+            return runtimeSettings.isEnabled(McpConnectionSettings.ID_SMITHERY);
+        }
         return true;
     }
 

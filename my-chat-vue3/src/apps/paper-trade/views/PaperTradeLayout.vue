@@ -40,6 +40,7 @@ const menuItems = [
   { label: '持仓状况', route: '/app/paper-trade/positions' },
   { label: '历史记录', route: '/app/paper-trade/history' },
   { label: '账户设置', route: '/app/paper-trade/settings' },
+  { label: '可视化工作流', route: '/app/paper-trade/workflow' },
 ]
 
 function goLobby() {

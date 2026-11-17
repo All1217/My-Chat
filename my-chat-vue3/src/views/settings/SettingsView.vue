@@ -59,6 +59,7 @@ const menuItems: MenuItem[] = [
   { label: '工作区管理', route: '/settings/workspace' },
   { label: '提示词管理', route: '/settings/prompt' },
   { label: '角色卡片管理', route: '/settings/role' },
+  { label: 'MCP工具管理', route: '/settings/mcp' },
 ]
 
 function goHome() {

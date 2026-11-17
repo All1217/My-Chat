@@ -1,5 +1,6 @@
 package com.mychat.mcp;
 
+import com.mychat.mcp.settings.McpRuntimeSettingsService;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
 import org.slf4j.Logger;
@@ -62,13 +63,18 @@ public class McpModuleConfiguration {
     @Bean
     public McpToolBridge mcpToolBridge(McpProperties properties,
                                        ObjectProvider<List<McpSyncClient>> mcpSyncClients,
-                                       ObjectProvider<McpToolNamePrefixGenerator> prefixGenerator) {
+                                       ObjectProvider<McpToolNamePrefixGenerator> prefixGenerator,
+                                       ObjectProvider<McpRuntimeSettingsService> runtimeSettings) {
         List<McpSyncClient> clients = mcpSyncClients.getIfAvailable();
         if (CollectionUtils.isEmpty(clients)) {
             log.warn("MCP 模块已启用但未发现 McpSyncClient；检查 spring.ai.mcp.client.enabled 与 connections");
             clients = List.of();
         }
-        return new DefaultMcpToolBridge(properties, clients, prefixGenerator.getIfAvailable());
+        return new DefaultMcpToolBridge(
+                properties,
+                clients,
+                prefixGenerator.getIfAvailable(),
+                runtimeSettings.getIfAvailable());
     }
 
     /**

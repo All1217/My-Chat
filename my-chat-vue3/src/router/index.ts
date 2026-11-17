@@ -45,6 +45,11 @@ const routes: RouteRecordRaw[] = [
         name: 'settings-role',
         component: () => import('@/views/settings/components/RoleManagement.vue'),
       },
+      {
+        path: 'mcp',
+        name: 'settings-mcp',
+        component: () => import('@/views/settings/components/McpToolManagement.vue'),
+      },
     ],
   },
 ]

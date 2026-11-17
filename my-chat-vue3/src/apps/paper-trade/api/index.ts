@@ -16,6 +16,7 @@ import type {
   PaperSqlExport,
   PaperStageSummary,
   PaperStrategy,
+  PaperWorkflowOverview,
 } from '@/apps/paper-trade/types'
 
 /** 模拟炒股 API：全部走 /ai/apps/paper-trade。 */
@@ -54,6 +55,9 @@ export const paperTradeApi = {
 
   saveSchedule: (body: Partial<PaperScheduleSettings>) =>
     ragClient.put<PaperScheduleSettings>('/ai/apps/paper-trade/schedule', body),
+
+  /** 只读工作流蓝图 + 最近运行高亮。 */
+  workflows: () => ragClient.get<PaperWorkflowOverview>('/ai/apps/paper-trade/workflows'),
 
   aiRun: () => ragClient.post<PaperAiSubmit>('/ai/apps/paper-trade/ai/run'),
 

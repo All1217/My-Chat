@@ -27,7 +27,6 @@ import com.mychat.apps.papertrade.risk.PaperSymbolFacts;
 import com.mychat.apps.papertrade.risk.PaperSymbolGate;
 import com.mychat.apps.papertrade.research.entity.po.PaperResearchNote;
 import com.mychat.apps.papertrade.research.entity.po.PaperResearchRun;
-import com.mychat.apps.papertrade.schedule.PaperScheduleService;
 import com.mychat.apps.papertrade.trader.PaperStrategyService;
 import com.mychat.apps.papertrade.trader.entity.po.PaperStrategy;
 import com.mychat.apps.papertrade.trader.entity.vo.PaperAiSubmitVO;
@@ -73,7 +72,7 @@ public class PaperResearchService {
     private final PaperResearchNoteMapper noteMapper;
     private final PaperStoryFeed feed;
     private final PaperMacroFeed macroFeed;
-    private final PaperResearchWebEnricher webEnricher;
+    private final PaperCrawlerClient crawlerClient;
     private final MarketQuoteClient quoteClient;
     private final EtfPremiumClient premiumClient;
     private final PaperSymbolGate symbolGate;
@@ -81,7 +80,6 @@ public class PaperResearchService {
     private final PaperTradeProperties properties;
     private final PaperAgentRuntimeAdapter agentRuntime;
     private final AsyncJobService asyncJobService;
-    private final PaperScheduleService scheduleService;
     private final PaperStrategyService strategyService;
     private final PaperRunLifecycle lifecycle;
     private final PaperTradeGuardrails guardrails;
@@ -93,7 +91,7 @@ public class PaperResearchService {
                                 PaperResearchNoteMapper noteMapper,
                                 PaperStoryFeed feed,
                                 PaperMacroFeed macroFeed,
-                                PaperResearchWebEnricher webEnricher,
+                                PaperCrawlerClient crawlerClient,
                                 MarketQuoteClient quoteClient,
                                 EtfPremiumClient premiumClient,
                                 PaperSymbolGate symbolGate,
@@ -101,7 +99,6 @@ public class PaperResearchService {
                                 PaperTradeProperties properties,
                                 PaperAgentRuntimeAdapter agentRuntime,
                                 AsyncJobService asyncJobService,
-                                PaperScheduleService scheduleService,
                                 PaperStrategyService strategyService,
                                 PaperRunLifecycle lifecycle,
                                 PaperTradeGuardrails guardrails,
@@ -110,7 +107,7 @@ public class PaperResearchService {
         this.noteMapper = noteMapper;
         this.feed = feed;
         this.macroFeed = macroFeed;
-        this.webEnricher = webEnricher;
+        this.crawlerClient = crawlerClient;
         this.quoteClient = quoteClient;
         this.premiumClient = premiumClient;
         this.symbolGate = symbolGate;
@@ -118,7 +115,6 @@ public class PaperResearchService {
         this.properties = properties;
         this.agentRuntime = agentRuntime;
         this.asyncJobService = asyncJobService;
-        this.scheduleService = scheduleService;
         this.strategyService = strategyService;
         this.lifecycle = lifecycle;
         this.guardrails = guardrails;
@@ -165,13 +161,11 @@ public class PaperResearchService {
         }
         run.setStatus(PaperResearchRun.STATUS_RUNNING);
         try {
-            boolean toolSearch = Boolean.TRUE.equals(
-                    scheduleService.requireSettings().getResearchToolSearchEnabled());
             // START_RUN 已完成条件进入 RUNNING
             trace.ok(PaperWorkflowStep.START_RUN, "jobId=" + run.getJobId());
 
-            // DISCOVER + VALIDATE_MARKET_DATA：Java 只做候选与行情闸门，证据由 Agent 按需拉取
-            List<Material> batch = screen(toolSearch);
+            // DISCOVER：列表/行情接口 + 公告新闻接口 + 爬虫正文软合并
+            List<Material> batch = screen();
             run.setScreenedCount(batch.size());
             trace.ok(PaperWorkflowStep.DISCOVER_CANDIDATES, "picked=" + batch.size());
             trace.ok(PaperWorkflowStep.VALIDATE_MARKET_DATA, "qualified=" + batch.size());
@@ -183,7 +177,7 @@ public class PaperResearchService {
             }
 
             PaperAgentRuntimeAdapter.Outcome outcome =
-                    agentRuntime.research(prompt(batch, toolSearch), run.getId(), run.getJobId());
+                    agentRuntime.research(prompt(batch), run.getId(), run.getJobId());
             trace.bindAgentRun(outcome.agentRunId());
             trace.ok(PaperWorkflowStep.AI_COLLECT_AND_ANALYZE, "agentRunId=" + outcome.agentRunId());
 
@@ -283,7 +277,7 @@ public class PaperResearchService {
     }
 
     /** 翻页直到凑够一批，或翻完上限。 */
-    private List<Material> screen(boolean toolSearch) {
+    private List<Material> screen() {
         int batchSize = Math.max(1, properties.getResearchBatchSize());
         BigDecimal cash = tradeService.requireAccount().getCash();
         Set<String> recent = recentSymbols();
@@ -308,7 +302,7 @@ public class PaperResearchService {
                 picked.add(row);
             }
         }
-        return qualify(picked, toolSearch);
+        return qualify(picked);
     }
 
     private Set<String> recentSymbols() {
@@ -323,10 +317,9 @@ public class PaperResearchService {
         return recent;
     }
 
-    /** 日 K 闸门和相对低点。上市天数用一年日 K，月 K 不够 60 根。 */
-    private List<Material> qualify(List<PaperStoryFeed.ListRow> picked, boolean toolSearch) {
+    /** 日 K 闸门和相对低点；接口信源 + 爬虫正文软合并。 */
+    private List<Material> qualify(List<PaperStoryFeed.ListRow> picked) {
         EtfPremiumClient.Session premiums = premiumClient.newSession();
-        // 全市场宏观头条不再广播到每个标的，避免无关 MACRO 噪音；仅保留按名称的板块检索。
         List<Material> out = new ArrayList<>();
         int quoteFailures = 0;
         for (PaperStoryFeed.ListRow row : picked) {
@@ -341,8 +334,27 @@ public class PaperResearchService {
                     continue;
                 }
                 String name = facts.name() == null ? row.name() : facts.name();
-                // 证据材料改由 Agent 按需工具拉取（含 mcp-crawler）
-                List<PaperStoryFeed.SourceItem> sources = List.of();
+                // 1) 接口路径：公告/新闻标题（失败不拖垮标的）
+                List<PaperStoryFeed.SourceItem> sources = new ArrayList<>();
+                try {
+                    mergeSources(sources, feed.announcements(row.code()));
+                } catch (Exception e) {
+                    log.debug("公告接口跳过 {}: {}", row.code(), e.getMessage());
+                }
+                try {
+                    mergeSources(sources, feed.news(row.code()));
+                } catch (Exception e) {
+                    log.debug("新闻接口跳过 {}: {}", row.code(), e.getMessage());
+                }
+                try {
+                    mergeSources(sources, macroFeed.sectorBriefs(name));
+                } catch (Exception e) {
+                    log.debug("板块检索跳过 {}: {}", row.code(), e.getMessage());
+                }
+                // 2) 爬虫路径：对有 URL 的条目抽正文（限 2；失败保留标题）
+                enrichWithCrawler(sources);
+                String tier = sources.stream().anyMatch(s -> "CRAWL".equals(s.kind()))
+                        ? TIER_A_WEB : TIER_A;
                 Double premium = null;
                 if (facts.etf()) {
                     EtfPremiumClient.PremiumQuote pq = premiums.lookup(row.code(), snap.lastPrice());
@@ -351,7 +363,7 @@ public class PaperResearchService {
                     }
                 }
                 out.add(new Material(facts.symbol().toUpperCase(Locale.ROOT),
-                        name, snap, facts, premium, sources, TIER_A));
+                        name, snap, facts, premium, sources, tier));
             } catch (Exception e) {
                 quoteFailures++;
                 log.debug("搜集剔除 {}: {}", row.code(), e.getMessage());
@@ -359,6 +371,31 @@ public class PaperResearchService {
         }
         requireAnyQuote(picked.size(), quoteFailures);
         return out;
+    }
+
+    /** 对最多 2 条带 URL 的信源调爬虫；失败则保留原标题项。 */
+    private void enrichWithCrawler(List<PaperStoryFeed.SourceItem> sources) {
+        if (sources == null || sources.isEmpty()) {
+            return;
+        }
+        int budget = 2;
+        List<PaperStoryFeed.SourceItem> crawled = new ArrayList<>();
+        for (PaperStoryFeed.SourceItem s : sources) {
+            if (budget <= 0) {
+                break;
+            }
+            if (s == null || !StringUtils.hasText(s.url())) {
+                continue;
+            }
+            budget--;
+            crawlerClient.fetchText(s.url()).ifPresent(text -> crawled.add(
+                    new PaperStoryFeed.SourceItem(
+                            "CRAWL",
+                            clip((s.title() == null ? "" : s.title()) + " | " + text, 500),
+                            s.url(),
+                            s.publishedAt())));
+        }
+        mergeSources(sources, crawled);
     }
 
     /** 按 URL/标题去重追加。 */
@@ -412,7 +449,7 @@ public class PaperResearchService {
         return belowMa || drawn;
     }
 
-    private String prompt(List<Material> batch, boolean toolSearch) throws Exception {
+    private String prompt(List<Material> batch) throws Exception {
         ArrayNode arr = objectMapper.createArrayNode();
         for (Material m : batch) {
             ObjectNode n = arr.addObject();
@@ -425,15 +462,19 @@ public class PaperResearchService {
             put(n, "drawdown60Pct", m.snap().drawdown60Pct());
             put(n, "avgAmount20", m.facts().avgAmount20());
             put(n, "premiumPct", m.premiumPct());
+            ArrayNode sources = n.putArray("sources");
+            for (PaperStoryFeed.SourceItem s : m.sources()) {
+                ObjectNode src = sources.addObject();
+                src.put("kind", s.kind() == null ? "" : s.kind());
+                src.put("title", s.title() == null ? "" : s.title());
+                src.put("url", s.url() == null ? "" : s.url());
+            }
         }
-        String searchRule = toolSearch
-                ? "可按需调用 web-search；公告落地页优先用 mcp-crawler 抓取正文。禁止编造未工具返回的 URL。"
-                : "不要调用 web-search；可用公告/新闻接口与 mcp-crawler 抓取已有链接正文。禁止编造 URL。";
         return """
                 你是模拟炒股的信息搜集员，不下单、不写研究卡。
-                候选列表仅含行情闸门后的标的；请按需调用工具补充证据：
-                paper-strategy、paper-market、paper-research-feed（公告/新闻/板块）、mcp-crawler（网页正文）。
-                %s
+                候选已含行情闸门结果，以及接口公告/新闻与爬虫正文（若成功）。
+                可按需再调 paper-strategy、paper-market、paper-research-feed、mcp-crawler；
+                web-search 是否可用取决于全局 Exa 开关。禁止编造未给出的 URL。
                 最终只输出紧凑 ResearchCardBatch JSON 对象（字段 cards[]），不要 Markdown。
                 每项含 symbol,name,kept,story,risks,rejectReason,fitScore,evidenceScore,signalTags,evidenceRefs。
                 story≤80字；fitScore/evidenceScore 为 0~1；
@@ -441,7 +482,7 @@ public class PaperResearchService {
                 只能使用候选列表中的代码；证据不足则 kept=false。
                 候选：
                 %s
-                """.formatted(searchRule, objectMapper.writeValueAsString(arr));
+                """.formatted(objectMapper.writeValueAsString(arr));
     }
 
     /** 从最终答复或各步观察里取出 JSON 数组。操盘手也用来读编排结果。 */

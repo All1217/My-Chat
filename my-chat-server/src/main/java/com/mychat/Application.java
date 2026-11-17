@@ -7,7 +7,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 /** 应用入口。Mapper 扫描骨架包，并递归覆盖 {@code com.mychat.apps.<id>.mapper}。 */
 @SpringBootApplication
 @MapperScan(
-        basePackages = {"com.mychat.mapper", "com.mychat.apps"},
+        basePackages = {"com.mychat.mapper", "com.mychat.apps", "com.mychat.mcp"},
         annotationClass = org.apache.ibatis.annotations.Mapper.class)
 public class Application {
 

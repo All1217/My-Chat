@@ -1,7 +1,7 @@
 import { Coin } from '@element-plus/icons-vue'
 import type { AppManifest } from '@/apps/types'
 
-/** 模拟炒股功能包：三页壳（持仓 / 历史 / 设置）。 */
+/** 模拟炒股功能包：持仓 / 历史 / 设置 / 可视化工作流。 */
 export const paperTradeApp: AppManifest = {
   id: 'paper-trade',
   title: '模拟炒股',
@@ -27,6 +27,11 @@ export const paperTradeApp: AppManifest = {
       path: 'settings',
       name: 'app-paper-trade-settings',
       component: () => import('./views/AccountSettingsView.vue'),
+    },
+    {
+      path: 'workflow',
+      name: 'app-paper-trade-workflow',
+      component: () => import('./views/WorkflowView.vue'),
     },
   ],
 }

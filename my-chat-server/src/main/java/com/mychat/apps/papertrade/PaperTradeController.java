@@ -22,6 +22,8 @@ import com.mychat.apps.papertrade.ledger.entity.vo.PaperPositionVO;
 import com.mychat.apps.papertrade.research.entity.po.PaperResearchRun;
 import com.mychat.apps.papertrade.research.entity.vo.PaperResearchNoteVO;
 import com.mychat.apps.papertrade.trader.entity.vo.PaperStrategyVO;
+import com.mychat.apps.papertrade.workflow.PaperWorkflowViewService;
+import com.mychat.apps.papertrade.workflow.entity.vo.PaperWorkflowOverviewVO;
 import com.mychat.common.result.Result;
 import lombok.AllArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -49,6 +51,7 @@ public class PaperTradeController {
     private final PaperStageService stageService;
     private final PaperScheduleService scheduleService;
     private final PaperScheduleManager scheduleManager;
+    private final PaperWorkflowViewService workflowViewService;
 
     /** 看板行情（折线 + 基础指标）；默认 range=1M。 */
     @GetMapping("/quote")
@@ -201,5 +204,11 @@ public class PaperTradeController {
         } catch (IllegalArgumentException e) {
             return Result.fail(404, e.getMessage());
         }
+    }
+
+    /** 只读工作流蓝图 + 最近一轮 domainSteps 高亮数据。 */
+    @GetMapping("/workflows")
+    public Result<PaperWorkflowOverviewVO> workflows() {
+        return Result.ok(workflowViewService.overview());
     }
 }

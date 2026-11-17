@@ -1,5 +1,7 @@
 package com.mychat.mcp;
 
+import com.mychat.mcp.settings.McpRuntimeSettingsService;
+import com.mychat.mcp.settings.entity.po.McpConnectionSettings;
 import io.modelcontextprotocol.client.McpSyncClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,9 +15,11 @@ import org.springframework.util.CollectionUtils;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * 按 MCP 连接分别 listTools：某一端 500 不影响其余连接已发现的工具。
+ * 每次发现时再按运行时 DB 开关过滤，改开关无需重启。
  */
 public final class TolerantMcpToolCallbackProvider implements ToolCallbackProvider {
 
@@ -29,12 +33,20 @@ public final class TolerantMcpToolCallbackProvider implements ToolCallbackProvid
 
     private final List<McpSyncClient> clients;
     private final ClientToolLister lister;
+    private final McpRuntimeSettingsService runtimeSettings;
 
     /**
      * 生产构造：每个 YAML connection 对应一个 {@link McpSyncClient}。
      */
     public TolerantMcpToolCallbackProvider(List<McpSyncClient> clients,
                                            McpToolNamePrefixGenerator prefixGenerator) {
+        this(clients, prefixGenerator, null);
+    }
+
+    /** 带运行时开关的生产构造。 */
+    public TolerantMcpToolCallbackProvider(List<McpSyncClient> clients,
+                                           McpToolNamePrefixGenerator prefixGenerator,
+                                           McpRuntimeSettingsService runtimeSettings) {
         McpToolNamePrefixGenerator prefix = prefixGenerator != null
                 ? prefixGenerator
                 : new DefaultMcpToolNamePrefixGenerator();
@@ -44,6 +56,7 @@ public final class TolerantMcpToolCallbackProvider implements ToolCallbackProvid
                 .toolNamePrefixGenerator(prefix)
                 .build()
                 .getToolCallbacks();
+        this.runtimeSettings = runtimeSettings;
     }
 
     /**
@@ -52,6 +65,7 @@ public final class TolerantMcpToolCallbackProvider implements ToolCallbackProvid
     TolerantMcpToolCallbackProvider(List<McpSyncClient> clients, ClientToolLister lister) {
         this.clients = copyClients(clients);
         this.lister = lister != null ? lister : client -> new ToolCallback[0];
+        this.runtimeSettings = null;
     }
 
     /**
@@ -61,6 +75,10 @@ public final class TolerantMcpToolCallbackProvider implements ToolCallbackProvid
     public ToolCallback[] getToolCallbacks() {
         List<ToolCallback> all = new ArrayList<>();
         for (McpSyncClient client : clients) {
+            if (!runtimeEnabled(client)) {
+                log.debug("MCP [{}] 运行时已关闭，跳过 listTools", describe(client));
+                continue;
+            }
             try {
                 ToolCallback[] cbs = listOne(client);
                 if (cbs != null && cbs.length > 0) {
@@ -69,7 +87,7 @@ public final class TolerantMcpToolCallbackProvider implements ToolCallbackProvid
             } catch (Exception e) {
                 log.warn("MCP [{}] listTools 失败，已跳过该连接: {}", describe(client), e.getMessage());
                 // Smithery 已 initialize 成功但 listTools 500：仍挂命名空间搜索工具，走 callTool
-                if (isSmithery(client)) {
+                if (isSmithery(client) && runtimeEnabled(client)) {
                     ToolCallback fallback = new FallbackSmitheryToolCallback(
                             client,
                             "exa.search",
@@ -83,6 +101,24 @@ public final class TolerantMcpToolCallbackProvider implements ToolCallbackProvid
         return all.toArray(ToolCallback[]::new);
     }
 
+    /** 运行时 DB 开关；无服务则视为开启。 */
+    private boolean runtimeEnabled(McpSyncClient client) {
+        if (runtimeSettings == null) {
+            return true;
+        }
+        String d = describe(client);
+        if (isDatabase(client) || (d != null && d.toLowerCase(Locale.ROOT).contains("database"))) {
+            return runtimeSettings.isEnabled(McpConnectionSettings.ID_DATABASE);
+        }
+        if (d != null && d.toLowerCase(Locale.ROOT).contains("crawler")) {
+            return runtimeSettings.isEnabled(McpConnectionSettings.ID_CRAWLER);
+        }
+        if (isSmithery(client)) {
+            return runtimeSettings.isEnabled(McpConnectionSettings.ID_SMITHERY);
+        }
+        return true;
+    }
+
     /**
      * 列出单个连接的工具；失败抛给调用方（启动诊断用）。
      */
@@ -93,7 +129,7 @@ public final class TolerantMcpToolCallbackProvider implements ToolCallbackProvid
     /**
      * 连接展示名：优先 clientInfo.title（YAML connection 名），否则 name / toString。
      */
-    static String describe(McpSyncClient client) {
+    public static String describe(McpSyncClient client) {
         if (client == null) {
             return "unknown";
         }

@@ -57,6 +57,64 @@ export interface PaperStrategy {
   updatedAt?: string | null
 }
 
+/** 工作流蓝图节点。 */
+export interface PaperWorkflowNode {
+  id: string
+  label: string
+  type: 'start' | 'process' | 'ai' | 'end' | string
+  x: number
+  y: number
+}
+
+/** 工作流边。 */
+export interface PaperWorkflowEdge {
+  id: string
+  source: string
+  target: string
+}
+
+/** 最近一轮 domainStep。 */
+export interface PaperWorkflowStepStatus {
+  step: string
+  status?: string | null
+  summary?: string | null
+  error?: string | null
+}
+
+/** 最近一轮 agent 步骤摘要。 */
+export interface PaperWorkflowAgentStep {
+  index?: number | null
+  action?: string | null
+  status?: string | null
+  observation?: string | null
+}
+
+/** 最近一次运行。 */
+export interface PaperWorkflowLatestRun {
+  runId: string
+  status?: string | null
+  createdAt?: string | null
+  finishedAt?: string | null
+  errorMessage?: string | null
+  agentRunId?: string | null
+  domainSteps?: PaperWorkflowStepStatus[] | null
+  agentSteps?: PaperWorkflowAgentStep[] | null
+}
+
+/** 一套工作流图。 */
+export interface PaperWorkflowGraph {
+  id: string
+  title: string
+  nodes: PaperWorkflowNode[]
+  edges: PaperWorkflowEdge[]
+  latest?: PaperWorkflowLatestRun | null
+}
+
+/** 工作流总览。 */
+export interface PaperWorkflowOverview {
+  graphs: PaperWorkflowGraph[]
+}
+
 /** 搜集员 / 交易员定时工作流与偏好配置。 */
 export interface PaperScheduleSettings {
   researchEnabled: boolean

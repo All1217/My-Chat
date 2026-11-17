@@ -51,6 +51,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * AI 纸面交易：提交异步轮次、解析 JSON、风控闸门、自动/挂起执行。
@@ -80,6 +81,8 @@ public class PaperAiTraderService {
     private final PaperResearchService researchService;
     private final ObjectMapper objectMapper = new ObjectMapper()
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    /** Agent 工具已落库决策的 runId。 */
+    private final ConcurrentHashMap<String, Boolean> toolWroteDecisions = new ConcurrentHashMap<>();
 
     public PaperAiTraderService(PaperAiRunMapper runMapper,
                                 PaperAiDecisionMapper decisionMapper,
@@ -190,18 +193,36 @@ public class PaperAiTraderService {
 
             List<RawDecision> parsed = parseTypedDecisions(raw);
             trace.ok(PaperWorkflowStep.VALIDATE_DECISIONS, "decisions=" + parsed.size());
-            for (RawDecision rd : parsed) {
-                PaperAiDecision d = toDecision(run.getId(), rd);
-                decisionMapper.insert(d);
-                if (outsidePool(d, ctx.candidateSymbols())) {
-                    d.setExecStatus(PaperAiDecision.EXEC_SKIPPED);
-                    d.setSkipReason("NOT_IN_POOL");
-                    decisionMapper.updateById(d);
-                    continue;
+            boolean viaTool = Boolean.TRUE.equals(toolWroteDecisions.remove(run.getId()));
+            if (viaTool) {
+                // 工具已落库：补跑仍 PENDING 的（未调 placePaperOrder 时）
+                List<PaperAiDecision> pending = decisionMapper.selectList(
+                        new LambdaQueryWrapper<PaperAiDecision>()
+                                .eq(PaperAiDecision::getRunId, run.getId())
+                                .eq(PaperAiDecision::getExecStatus, PaperAiDecision.EXEC_PENDING));
+                for (PaperAiDecision d : pending) {
+                    processDecision(d, gate, PaperOrder.SOURCE_AI);
+                    if (PaperAiDecision.EXEC_EXECUTED.equals(d.getExecStatus())) {
+                        refreshGateBook(gate);
+                    }
                 }
-                processDecision(d, gate, PaperOrder.SOURCE_AI);
-                if (PaperAiDecision.EXEC_EXECUTED.equals(d.getExecStatus())) {
-                    refreshGateBook(gate);
+            } else {
+                if (!parsed.isEmpty()) {
+                    log.warn("交易员未走 recordAiDecisions，Java 兜底落库/执行 runId={}", run.getId());
+                }
+                for (RawDecision rd : parsed) {
+                    PaperAiDecision d = toDecision(run.getId(), rd);
+                    decisionMapper.insert(d);
+                    if (outsidePool(d, ctx.candidateSymbols())) {
+                        d.setExecStatus(PaperAiDecision.EXEC_SKIPPED);
+                        d.setSkipReason("NOT_IN_POOL");
+                        decisionMapper.updateById(d);
+                        continue;
+                    }
+                    processDecision(d, gate, PaperOrder.SOURCE_AI);
+                    if (PaperAiDecision.EXEC_EXECUTED.equals(d.getExecStatus())) {
+                        refreshGateBook(gate);
+                    }
                 }
             }
 
@@ -209,7 +230,7 @@ public class PaperAiTraderService {
             run.setStatus(PaperAiRun.STATUS_SUCCEEDED);
             run.setFinishedAt(LocalDateTime.now());
             runMapper.updateById(run);
-            trace.ok(PaperWorkflowStep.SETTLE_AND_FINISH, "ok");
+            trace.ok(PaperWorkflowStep.SETTLE_AND_FINISH, viaTool ? "via-tool" : "ok");
         } catch (Exception e) {
             run.setFrameworkTrace(trace.toJson(objectMapper));
             run.setStatus(PaperAiRun.STATUS_FAILED);
@@ -336,24 +357,97 @@ public class PaperAiTraderService {
 
 
                 【平台硬约束】
-                1. 只输出 JSON 数组，不要 Markdown。
-                2. 禁止编造未在上下文给出的行情数字；可引用 candidates/positions 中的字段。
-                3. hold/flat 不下单；buy/sell 才进入执行闸门。动作请用小写或大写均可。
-                4. 数量用 quantity（A 股 100 股整数倍）。不足 1 手会被拒绝，不要向上凑整。
-                5. 买入必须给出 stop_loss 和 take_profit（小数，如 0.03）。ETF 溢价拿不到或过高时不要建议买入。
-                6. 已持有的标的不要再买。连续止损暂停、回撤收紧时遵守上下文里的限制。
-                7. 只能买卖 candidates 与 positions 里出现的代码。不要搜索新标的，不要使用知识库。
-                8. 买入仅考虑 valueTier=1（应该买入）的候选；valueTier=0 为已持仓只可卖出。
+                1. 优先调用 recordAiDecisions(runId, decisionsJson) 落库，再对 buy/sell 调用 placePaperOrder(decisionId)。
+                2. 同时可输出 TradeDecisionBatch JSON（decisions[]）供兜底；不要 Markdown。
+                3. 禁止编造未在上下文给出的行情数字；可引用 candidates/positions 中的字段。
+                4. hold/flat 不下单；buy/sell 才进入执行闸门。动作请用小写或大写均可。
+                5. 数量用 quantity（A 股 100 股整数倍）。不足 1 手会被拒绝，不要向上凑整。
+                6. 买入必须给出 stop_loss 和 take_profit（小数，如 0.03）。ETF 溢价拿不到或过高时不要建议买入。
+                7. 已持有的标的不要再买。连续止损暂停、回撤收紧时遵守上下文里的限制。
+                8. 只能买卖 candidates 与 positions 里出现的代码。不要搜索新标的，不要使用知识库。
+                9. 买入仅考虑 valueTier=1（应该买入）的候选；valueTier=0 为已持仓只可卖出。
                 """;
         String user = """
                 当前账户与行情上下文（JSON）：
                 %s
 
-                请给出本轮决策数组，每项字段：
+                本轮 runId=%s。请给出本轮决策，每项字段：
                 action,symbol,name,asset_type,planned_time,quantity,capital_ratio,reference_price,
                 take_profit,stop_loss,max_hold_days,cooldown_until,confidence,reasoning,risk_flags,manual_review
-                """.formatted(contextJson);
+                """.formatted(contextJson, runId);
         return agentRuntime.trader(system + "\n" + user, runId, asyncJobId);
+    }
+
+    /** 工具：决策批次落库（不自动下单；由 placePaperOrder 或 Java 兜底执行）。 */
+    public Map<String, Object> recordDecisionsFromTool(String runId, String decisionsJson) {
+        if (!StringUtils.hasText(runId)) {
+            throw new IllegalArgumentException("runId 不能为空");
+        }
+        PaperAiRun run = runMapper.selectById(runId.trim());
+        if (run == null) {
+            throw new IllegalArgumentException("交易轮次不存在");
+        }
+        List<RawDecision> parsed = parseTypedDecisions(decisionsJson);
+        PaperAiContextBuilder.BuiltContext ctx = contextBuilder.build();
+        PaperGateContext gate = baseGate();
+        gate.setPositions(ctx.positions());
+        gate.setCooldownSymbols(ctx.cooldownSymbols());
+        gate.setPremiums(ctx.premiums());
+        gate.setFacts(ctx.facts());
+        gate.setBestEtfSymbol(ctx.bestEtfSymbol());
+        gate.setCash(ctx.cash());
+        List<String> ids = new ArrayList<>();
+        for (RawDecision rd : parsed) {
+            PaperAiDecision d = toDecision(runId.trim(), rd);
+            decisionMapper.insert(d);
+            ids.add(d.getId());
+            if (outsidePool(d, ctx.candidateSymbols())) {
+                d.setExecStatus(PaperAiDecision.EXEC_SKIPPED);
+                d.setSkipReason("NOT_IN_POOL");
+                decisionMapper.updateById(d);
+                continue;
+            }
+            // 工具链：落库后由 placePaperOrder 触发；此处仅闸门预检 hold/flat
+            if (PaperAiDecision.ACTION_HOLD.equals(d.getAction())
+                    || PaperAiDecision.ACTION_FLAT.equals(d.getAction())) {
+                d.setExecStatus(PaperAiDecision.EXEC_SKIPPED);
+                d.setSkipReason("NO_ORDER");
+                decisionMapper.updateById(d);
+            }
+        }
+        toolWroteDecisions.put(runId.trim(), true);
+        return Map.of("ok", true, "count", ids.size(), "decisionIds", ids);
+    }
+
+    /** 工具：按决策 ID 执行下单（含风控）。 */
+    public Map<String, Object> placeFromTool(String decisionId) {
+        if (!StringUtils.hasText(decisionId)) {
+            throw new IllegalArgumentException("decisionId 不能为空");
+        }
+        PaperAiDecision d = decisionMapper.selectById(decisionId.trim());
+        if (d == null) {
+            throw new IllegalArgumentException("决策不存在");
+        }
+        if (!PaperAiDecision.EXEC_PENDING.equals(d.getExecStatus())) {
+            return Map.of("ok", false, "status", d.getExecStatus(),
+                    "reason", d.getSkipReason() == null ? "" : d.getSkipReason());
+        }
+        PaperAiContextBuilder.BuiltContext ctx = contextBuilder.build();
+        PaperGateContext gate = baseGate();
+        gate.setPositions(ctx.positions());
+        gate.setCooldownSymbols(ctx.cooldownSymbols());
+        gate.setPremiums(ctx.premiums());
+        gate.setFacts(ctx.facts());
+        gate.setBestEtfSymbol(ctx.bestEtfSymbol());
+        gate.setCash(ctx.cash());
+        processDecision(d, gate, PaperOrder.SOURCE_AI);
+        PaperAiDecision latest = decisionMapper.selectById(d.getId());
+        return Map.of(
+                "ok", true,
+                "decisionId", latest.getId(),
+                "status", latest.getExecStatus() == null ? "" : latest.getExecStatus(),
+                "orderId", latest.getOrderId() == null ? "" : latest.getOrderId(),
+                "skipReason", latest.getSkipReason() == null ? "" : latest.getSkipReason());
     }
 
     /** 买入或卖出的代码必须来自本轮候选（持仓和已留卡片）。 */

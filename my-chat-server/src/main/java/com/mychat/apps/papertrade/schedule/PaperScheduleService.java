@@ -45,16 +45,22 @@ public class PaperScheduleService {
         PaperScheduleSettings seed = new PaperScheduleSettings();
         seed.setId(PaperScheduleSettings.DEFAULT_ID);
         seed.setResearchEnabled(Boolean.TRUE.equals(properties.isResearchScheduleEnabled()));
-        seed.setResearchCron(blankTo(
-                properties.getResearchScheduleCron(), "0 0 9 * * *"));
+        seed.setResearchCron(blankTo(properties.getResearchScheduleCron(), "0 0 9 * * *"));
         seed.setTraderEnabled(Boolean.TRUE.equals(properties.isScheduleEnabled()));
         seed.setTraderCron(blankTo(properties.getScheduleCron(), "0 35 15 * * MON-FRI"));
         seed.setZoneId(blankTo(properties.getScheduleZone(), "Asia/Shanghai"));
         seed.setIncludeWatchlist(true);
         seed.setResearchToolSearchEnabled(false);
+        seed.setCleanupEnabled(true);
+        seed.setCleanupCron("0 0 23 * * *");
+        seed.setAnalystEnabled(true);
+        seed.setAnalystCron("0 0 18 * * *");
+        seed.setWarehouseTier2RetainDays(2);
         seed.setUpdatedAt(LocalDateTime.now());
         validateCron(seed.getResearchCron());
         validateCron(seed.getTraderCron());
+        validateCron(seed.getCleanupCron());
+        validateCron(seed.getAnalystCron());
         validateZone(seed.getZoneId());
         mapper.insert(seed);
         return seed;
@@ -99,6 +105,29 @@ public class PaperScheduleService {
         if (req.getResearchToolSearchEnabled() != null) {
             row.setResearchToolSearchEnabled(req.getResearchToolSearchEnabled());
         }
+        if (req.getCleanupEnabled() != null) {
+            row.setCleanupEnabled(req.getCleanupEnabled());
+        }
+        if (req.getCleanupCron() != null) {
+            String cron = req.getCleanupCron().trim();
+            validateCron(cron);
+            row.setCleanupCron(cron);
+        }
+        if (req.getAnalystEnabled() != null) {
+            row.setAnalystEnabled(req.getAnalystEnabled());
+        }
+        if (req.getAnalystCron() != null) {
+            String cron = req.getAnalystCron().trim();
+            validateCron(cron);
+            row.setAnalystCron(cron);
+        }
+        if (req.getWarehouseTier2RetainDays() != null) {
+            int days = req.getWarehouseTier2RetainDays();
+            if (days < 0 || days > 365) {
+                throw new IllegalArgumentException("滞留天数须在 0–365");
+            }
+            row.setWarehouseTier2RetainDays(days);
+        }
         row.setUpdatedAt(LocalDateTime.now());
         mapper.updateById(row);
         return row;
@@ -135,9 +164,14 @@ public class PaperScheduleService {
         vo.setTraderEnabled(Boolean.TRUE.equals(row.getTraderEnabled()));
         vo.setTraderCron(row.getTraderCron());
         vo.setZoneId(row.getZoneId());
-        // 缺省纳入自选（旧行迁移前兼容）
         vo.setIncludeWatchlist(row.getIncludeWatchlist() == null || Boolean.TRUE.equals(row.getIncludeWatchlist()));
         vo.setResearchToolSearchEnabled(Boolean.TRUE.equals(row.getResearchToolSearchEnabled()));
+        vo.setCleanupEnabled(row.getCleanupEnabled() == null || Boolean.TRUE.equals(row.getCleanupEnabled()));
+        vo.setCleanupCron(blankTo(row.getCleanupCron(), "0 0 23 * * *"));
+        vo.setAnalystEnabled(row.getAnalystEnabled() == null || Boolean.TRUE.equals(row.getAnalystEnabled()));
+        vo.setAnalystCron(blankTo(row.getAnalystCron(), "0 0 18 * * *"));
+        vo.setWarehouseTier2RetainDays(row.getWarehouseTier2RetainDays() == null
+                ? 2 : row.getWarehouseTier2RetainDays());
         if (row.getUpdatedAt() != null) {
             vo.setUpdatedAt(row.getUpdatedAt().format(TS));
         }

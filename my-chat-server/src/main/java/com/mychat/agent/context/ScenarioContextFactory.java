@@ -24,9 +24,11 @@ public class ScenarioContextFactory {
         values.put(AgentScenarioId.INTERVIEWER,
                 "按 INTRO、TECHNICAL、SCENARIO、WRAP_UP 阶段推进；评分必须可人工复核。");
         values.put(AgentScenarioId.PAPER_RESEARCH,
-                "只能研究给定候选；不得写研究卡、数据库或执行交易。");
+                "研究给定候选；终局用 upsertResearchCards 落库；禁止下单。");
         values.put(AgentScenarioId.PAPER_TRADER,
-                "只能生成 BUY/SELL/HOLD/FLAT 建议；不得执行订单或修改账户。");
+                "生成决策后优先 recordAiDecisions / placePaperOrder；规则卖出走平台。");
+        values.put(AgentScenarioId.PAPER_WAREHOUSE_ANALYST,
+                "仅对观察票深搜；用 updateValueTier 调到 1/2/3；禁止改 0、禁止下单。");
         this.policies = Map.copyOf(values);
     }
 

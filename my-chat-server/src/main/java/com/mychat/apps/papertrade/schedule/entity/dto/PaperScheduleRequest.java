@@ -15,4 +15,11 @@ public class PaperScheduleRequest {
 
     /** 是否启用工具检索。 */
     private Boolean researchToolSearchEnabled;
+
+    private Boolean cleanupEnabled;
+    private String cleanupCron;
+    private Boolean analystEnabled;
+    private String analystCron;
+    /** 价值等级=2 滞留天数。 */
+    private Integer warehouseTier2RetainDays;
 }

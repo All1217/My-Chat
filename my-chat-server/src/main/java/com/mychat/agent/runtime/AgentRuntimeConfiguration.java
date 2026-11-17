@@ -88,7 +88,7 @@ public class AgentRuntimeConfiguration {
                 "score-review");
     }
 
-    /** 模拟炒股搜集员 Profile，仅暴露只读研究工具。 */
+    /** 模拟炒股搜集员 Profile：只读研究 + 批量落库写工具。 */
     @Bean
     public AgentScenarioProfile paperResearchRuntimeProfile() {
         return new AgentScenarioProfile(
@@ -96,7 +96,7 @@ public class AgentRuntimeConfiguration {
                 "phase5-v1",
                 Set.of("paper_research", "general"),
                 Set.of("paper-market", "paper-research-feed", "paper-strategy",
-                        "web-search", "mcp-crawler"),
+                        "paper-note-batch", "web-search", "mcp-crawler"),
                 8,
                 10,
                 "research_card_batch",
@@ -107,22 +107,48 @@ public class AgentRuntimeConfiguration {
                 "explicit-rubric");
     }
 
-    /** 模拟炒股交易员 Profile，只能读取决策和轮次，不能执行订单。 */
+    /** 模拟炒股交易员 Profile：只读 + 决策落库与下单写工具。 */
     @Bean
     public AgentScenarioProfile paperTraderRuntimeProfile() {
         return new AgentScenarioProfile(
                 AgentScenarioId.PAPER_TRADER,
                 "phase5-v1",
                 Set.of("paper_trade_review", "general"),
-                Set.of("paper-decision", "paper-run", "paper-market", "paper-strategy"),
+                Set.of("paper-decision", "paper-decision-write", "paper-trade-exec",
+                        "paper-run", "paper-market", "paper-strategy"),
                 5,
-                5,
+                8,
                 "trade_decision_batch",
                 "paper-trader",
                 "chain",
                 "ephemeral",
                 "paper-trader",
                 "score-review");
+    }
+
+    /** 票仓分析员：深搜后 updateValueTier，maxSteps=3。 */
+    @Bean
+    public AgentScenarioProfile paperWarehouseAnalystRuntimeProfile() {
+        return new AgentScenarioProfile(
+                AgentScenarioId.PAPER_WAREHOUSE_ANALYST,
+                "phase5-v1",
+                Set.of("paper_warehouse_analyze", "general"),
+                Set.of("paper-market", "paper-research-feed", "paper-strategy",
+                        "paper-note", "web-search"),
+                3,
+                8,
+                "text",
+                "paper-warehouse-analyst",
+                "chain",
+                "ephemeral",
+                "paper-warehouse-analyst",
+                "none");
+    }
+
+    /** 票仓分析员观察回答策略。 */
+    @Bean
+    public AnswerPolicy paperWarehouseAnalystAnswerPolicy() {
+        return new ObservationAnswerPolicy("paper-warehouse-analyst");
     }
 
     /** 市场证据回答策略。 */

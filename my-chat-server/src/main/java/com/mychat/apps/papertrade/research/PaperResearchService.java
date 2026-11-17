@@ -53,6 +53,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 搜集员：一小批行情和公告交给编排器，结果累积进卡片表。不下单。
@@ -86,6 +87,8 @@ public class PaperResearchService {
     private final AgentRunRepository agentRunRepository;
     private final ObjectMapper objectMapper = new ObjectMapper()
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    /** Agent 写工具 upsertResearchCards 按 runId 取本批材料。 */
+    private final ConcurrentHashMap<String, List<Material>> materialByRun = new ConcurrentHashMap<>();
 
     public PaperResearchService(PaperResearchRunMapper runMapper,
                                 PaperResearchNoteMapper noteMapper,
@@ -176,26 +179,41 @@ public class PaperResearchService {
                 return;
             }
 
-            PaperAgentRuntimeAdapter.Outcome outcome =
-                    agentRuntime.research(prompt(batch), run.getId(), run.getJobId());
-            trace.bindAgentRun(outcome.agentRunId());
-            trace.ok(PaperWorkflowStep.AI_COLLECT_AND_ANALYZE, "agentRunId=" + outcome.agentRunId());
+            // 供 Agent 写工具 upsertResearchCards 取本批材料
+            materialByRun.put(run.getId(), batch);
+            try {
+                PaperAgentRuntimeAdapter.Outcome outcome =
+                        agentRuntime.research(prompt(batch, run.getId()), run.getId(), run.getJobId());
+                trace.bindAgentRun(outcome.agentRunId());
+                trace.ok(PaperWorkflowStep.AI_COLLECT_AND_ANALYZE, "agentRunId=" + outcome.agentRunId());
 
-            List<Card> cards = parseTypedCards(outcome.answer());
-            Set<String> pool = new HashSet<>();
-            for (Material m : batch) {
-                pool.add(m.symbol());
+                List<Card> cards = parseTypedCards(outcome.answer());
+                Set<String> pool = new HashSet<>();
+                for (Material m : batch) {
+                    pool.add(m.symbol());
+                }
+                cards = guardrails.validateCards(cards, pool);
+                trace.ok(PaperWorkflowStep.VALIDATE_CARDS, "cards=" + cards.size());
+                // 工具已落库则跳过；否则 Java 兜底并告警
+                long toolWrote = noteMapper.selectCount(new LambdaQueryWrapper<PaperResearchNote>()
+                        .eq(PaperResearchNote::getRunId, run.getId()));
+                int kept;
+                if (toolWrote > 0) {
+                    kept = (int) Math.min(toolWrote, Integer.MAX_VALUE);
+                    trace.ok(PaperWorkflowStep.UPSERT_NOTES, "via-tool kept≈" + kept);
+                } else if (cards.isEmpty()) {
+                    kept = 0;
+                } else {
+                    log.warn("搜集员未走 upsertResearchCards，Java 兜底落库 runId={}", run.getId());
+                    kept = upsert(run.getId(), batch, cards);
+                    trace.ok(PaperWorkflowStep.UPSERT_NOTES, "fallback kept=" + kept);
+                }
+                run.setFrameworkTrace(mergeTrace(trace, outcome.traceJson()));
+                finish(run, kept, outcome.answer(), null);
+                trace.ok(PaperWorkflowStep.FINISH_RUN, "kept=" + kept);
+            } finally {
+                materialByRun.remove(run.getId());
             }
-            cards = guardrails.validateCards(cards, pool);
-            trace.ok(PaperWorkflowStep.VALIDATE_CARDS, "cards=" + cards.size());
-            int kept = cards.isEmpty() ? 0 : upsert(run.getId(), batch, cards);
-            if (!cards.isEmpty()) {
-                trace.ok(PaperWorkflowStep.UPSERT_NOTES, "kept=" + kept);
-            }
-            // 合并领域步骤与 Agent 脱敏轨迹
-            run.setFrameworkTrace(mergeTrace(trace, outcome.traceJson()));
-            finish(run, kept, outcome.answer(), null);
-            trace.ok(PaperWorkflowStep.FINISH_RUN, "kept=" + kept);
         } catch (Exception e) {
             trace.fail(PaperWorkflowStep.FINISH_RUN, e.getMessage());
             run.setFrameworkTrace(trace.toJson(objectMapper));
@@ -450,7 +468,7 @@ public class PaperResearchService {
         return belowMa || drawn;
     }
 
-    private String prompt(List<Material> batch) throws Exception {
+    private String prompt(List<Material> batch, String runId) throws Exception {
         ArrayNode arr = objectMapper.createArrayNode();
         for (Material m : batch) {
             ObjectNode n = arr.addObject();
@@ -472,11 +490,12 @@ public class PaperResearchService {
             }
         }
         return """
-                你是模拟炒股的信息搜集员，不下单、不写研究卡。
+                你是模拟炒股的信息搜集员，不下单。
                 候选已含行情闸门结果，以及接口公告/新闻与爬虫正文（若成功）。
                 可按需再调 paper-strategy、paper-market、paper-research-feed、mcp-crawler；
                 web-search 是否可用取决于全局 Exa 开关。禁止编造未给出的 URL。
-                最终只输出紧凑 ResearchCardBatch JSON 对象（字段 cards[]），不要 Markdown。
+                终局优先调用 upsertResearchCards(runId, cardsJson) 落库；同时输出紧凑 ResearchCardBatch JSON（cards[]）供兜底。
+                本轮 runId=%s。
                 每项含 symbol,name,kept,story,risks,rejectReason,fitScore,evidenceScore,signalTags,evidenceRefs,valueTier。
                 story≤80字；fitScore/evidenceScore 为 0~1；
                 valueTier 只能是 1（应该买入）、2（继续观察）、3（移出票仓），禁止输出 0（已持仓由成交回写）。
@@ -486,7 +505,7 @@ public class PaperResearchService {
                 只能使用候选列表中的代码；证据不足则 kept=false 且 valueTier=3。
                 候选：
                 %s
-                """.formatted(objectMapper.writeValueAsString(arr));
+                """.formatted(runId, objectMapper.writeValueAsString(arr));
     }
 
     /** 从最终答复或各步观察里取出 JSON 数组。操盘手也用来读编排结果。 */
@@ -644,6 +663,49 @@ public class PaperResearchService {
             return raw;
         }
         return 2;
+    }
+
+    /** 分析员/工具：调价值等级，仅 1/2/3；禁止改 0。 */
+    public Map<String, Object> updateValueTierByTool(String symbol, Integer tier) {
+        if (!StringUtils.hasText(symbol)) {
+            throw new IllegalArgumentException("symbol 不能为空");
+        }
+        if (tier == null || (tier != 1 && tier != 2 && tier != 3)) {
+            throw new IllegalArgumentException("tier 只能是 1、2 或 3");
+        }
+        String code = symbol.trim().toUpperCase(Locale.ROOT);
+        PaperResearchNote note = noteMapper.selectById(code);
+        if (note == null) {
+            throw new IllegalArgumentException("研究卡片不存在");
+        }
+        if (note.getValueTier() != null && note.getValueTier() == 0) {
+            throw new IllegalArgumentException("已持仓(0)不可通过工具改等级");
+        }
+        int from = note.getValueTier() == null ? 2 : note.getValueTier();
+        note.setValueTier(tier);
+        if (tier == 3) {
+            note.setKept(false);
+        } else if (tier == 1 || tier == 2) {
+            note.setKept(true);
+        }
+        noteMapper.updateById(note);
+        return Map.of("ok", true, "symbol", code, "from", from, "to", tier);
+    }
+
+    /** 工具：按 runId 材料 + cardsJson 落库（Agent 可调；无材料则失败）。 */
+    public Map<String, Object> upsertCardsFromTool(String runId, String cardsJson) throws Exception {
+        List<Material> batch = materialByRun.get(runId);
+        if (batch == null || batch.isEmpty()) {
+            throw new IllegalStateException("本轮材料未就绪，无法工具落库");
+        }
+        List<Card> cards = parseTypedCards(cardsJson);
+        Set<String> pool = new HashSet<>();
+        for (Material m : batch) {
+            pool.add(m.symbol());
+        }
+        cards = guardrails.validateCards(cards, pool);
+        int kept = upsert(runId, batch, cards);
+        return Map.of("ok", true, "kept", kept, "cards", cards.size());
     }
 
     /** BUY/SELL 成交后回写价值等级；无卡片则跳过。 */

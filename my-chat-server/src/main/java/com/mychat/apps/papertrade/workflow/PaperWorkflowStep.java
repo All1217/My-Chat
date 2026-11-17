@@ -1,6 +1,6 @@
 package com.mychat.apps.papertrade.workflow;
 
-/** 模拟炒股领域固定步骤（搜集员 / 交易员共用命名空间）。 */
+/** 模拟炒股领域固定步骤（搜集员 / 交易员 / 票仓共用命名空间）。 */
 public enum PaperWorkflowStep {
     START_RUN,
     DISCOVER_CANDIDATES,
@@ -15,5 +15,11 @@ public enum PaperWorkflowStep {
     APPLY_RISK_GATES,
     EXECUTE_ORDERS,
     SETTLE_AND_FINISH,
-    FINISH_RUN
+    FINISH_RUN,
+    SCAN_NOTES,
+    APPLY_TIER_RULES,
+    DELETE_TIER3,
+    LIST_TIER2,
+    AI_DEEP_GATHER,
+    APPLY_TIER_UPDATE
 }

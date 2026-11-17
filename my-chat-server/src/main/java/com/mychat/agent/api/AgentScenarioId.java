@@ -5,6 +5,7 @@ public enum AgentScenarioId {
     MAIN_CHAT,
     PAPER_RESEARCH,
     PAPER_TRADER,
+    PAPER_WAREHOUSE_ANALYST,
     MARKET_ANALYSIS,
     ROLEPLAY,
     INTERVIEWER

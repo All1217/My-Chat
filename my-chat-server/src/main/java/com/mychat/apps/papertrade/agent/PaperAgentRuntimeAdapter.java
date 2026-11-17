@@ -38,9 +38,39 @@ public class PaperAgentRuntimeAdapter {
         return call(AgentScenarioId.PAPER_RESEARCH, input, businessRef, asyncJobId);
     }
 
-    /** 执行交易员只读建议 Agent。 */
+    /** 执行交易员建议 Agent（可写决策/下单工具）。 */
     public Outcome trader(String input, String businessRef, String asyncJobId) {
         return call(AgentScenarioId.PAPER_TRADER, input, businessRef, asyncJobId);
+    }
+
+    /** 票仓分析员：深搜后调等级；不强制批次 Schema。 */
+    public Outcome warehouseAnalyze(String input, String businessRef, String asyncJobId) {
+        long started = System.nanoTime();
+        Map<String, Object> attributes = asyncJobId == null || asyncJobId.isBlank()
+                ? Map.of()
+                : Map.of("asyncJobId", asyncJobId);
+        AgentRunResult result = scenarioAgentService.run(
+                new ScenarioAgentService.ScenarioRunCommand(
+                        AgentScenarioId.PAPER_WAREHOUSE_ANALYST,
+                        input,
+                        businessRef,
+                        null,
+                        businessRef,
+                        null,
+                        "必须调用 updateValueTier；finalOutput 仅短确认。",
+                        attributes));
+        long elapsedMs = (System.nanoTime() - started) / 1_000_000L;
+        String agentRunId = String.valueOf(result.metrics().getOrDefault("runId", ""));
+        if (result.status() != AgentRunResult.Status.SUCCEEDED) {
+            throw new IllegalStateException(
+                    "票仓分析员失败: " + result.status() + " " + result.errorMessage());
+        }
+        String answer = StringUtils.hasText(result.output()) ? result.output() : "OK";
+        String observations = result.steps().stream()
+                .map(AgentStepResult::observation)
+                .filter(value -> value != null && !value.isBlank())
+                .reduce("", (left, right) -> left + right + "\n");
+        return new Outcome(answer, observations, trace(result, elapsedMs, agentRunId, false), agentRunId);
     }
 
     /** 调用通用 Runtime；失败或截断时尽量从观察抢救可落库批次。 */

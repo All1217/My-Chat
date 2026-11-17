@@ -2,12 +2,15 @@ package com.mychat.agent.tool;
 
 import com.mychat.agent.api.AgentAction;
 import com.mychat.apps.papertrade.tools.PaperDecisionTools;
+import com.mychat.apps.papertrade.tools.PaperDecisionWriteTools;
 import com.mychat.apps.papertrade.tools.PaperMarketReadTools;
+import com.mychat.apps.papertrade.tools.PaperNoteBatchTools;
 import com.mychat.apps.papertrade.tools.PaperResearchNoteTools;
 import com.mychat.apps.papertrade.tools.PaperResearchReadTools;
 import com.mychat.apps.papertrade.tools.PaperResearchRunTools;
 import com.mychat.apps.papertrade.tools.PaperStageSummaryTools;
 import com.mychat.apps.papertrade.tools.PaperStrategyReadTools;
+import com.mychat.apps.papertrade.tools.PaperTradeExecTools;
 import com.mychat.tools.FileTools;
 import com.mychat.tools.WebSearchTools;
 import org.springframework.stereotype.Component;
@@ -27,6 +30,9 @@ public class ToolCatalog {
     public ToolCatalog(FileTools fileTools, WebSearchTools webSearchTools,
                        PaperStageSummaryTools stageTools, PaperDecisionTools decisionTools,
                        PaperResearchRunTools runTools, PaperResearchNoteTools noteTools,
+                       PaperNoteBatchTools noteBatchTools,
+                       PaperDecisionWriteTools decisionWriteTools,
+                       PaperTradeExecTools tradeExecTools,
                        PaperMarketReadTools marketReadTools,
                        PaperResearchReadTools researchReadTools,
                        PaperStrategyReadTools strategyReadTools) {
@@ -37,8 +43,14 @@ public class ToolCatalog {
                 descriptor("mcp-crawler", "remote", AgentAction.SideEffectLevel.READ_ONLY, null),
                 descriptor("paper-stage", "papertrade", AgentAction.SideEffectLevel.REVERSIBLE_WRITE, stageTools),
                 descriptor("paper-decision", "papertrade", AgentAction.SideEffectLevel.READ_ONLY, decisionTools),
+                descriptor("paper-decision-write", "papertrade",
+                        AgentAction.SideEffectLevel.REVERSIBLE_WRITE, decisionWriteTools),
+                descriptor("paper-trade-exec", "papertrade",
+                        AgentAction.SideEffectLevel.HIGH_RISK_WRITE, tradeExecTools),
                 descriptor("paper-run", "papertrade", AgentAction.SideEffectLevel.READ_ONLY, runTools),
                 descriptor("paper-note", "papertrade", AgentAction.SideEffectLevel.REVERSIBLE_WRITE, noteTools),
+                descriptor("paper-note-batch", "papertrade",
+                        AgentAction.SideEffectLevel.REVERSIBLE_WRITE, noteBatchTools),
                 descriptor("paper-market", "papertrade", AgentAction.SideEffectLevel.READ_ONLY, marketReadTools),
                 descriptor("paper-research-feed", "papertrade", AgentAction.SideEffectLevel.READ_ONLY, researchReadTools),
                 descriptor("paper-strategy", "papertrade", AgentAction.SideEffectLevel.READ_ONLY, strategyReadTools));

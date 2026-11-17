@@ -42,20 +42,29 @@ class AgentProfileIsolationTest {
         assertThat(profile.qualityPolicy()).isEqualTo("explicit-rubric");
     }
 
-    /** 模拟交易两个 Profile 均不可看到写工具、文件和通用 MCP。 */
+    /** 搜集员/交易员可挂写工具；仍隔离文件与通用 MCP。 */
     @Test
-    void paperProfilesShouldExposeOnlyReadOnlyDomainTools() {
+    void paperProfilesShouldExposeDomainWriteToolsWithoutFileOrGenericMcp() {
         AgentScenarioProfile research = configuration.paperResearchRuntimeProfile();
         AgentScenarioProfile trader = configuration.paperTraderRuntimeProfile();
+        AgentScenarioProfile analyst = configuration.paperWarehouseAnalystRuntimeProfile();
 
         assertThat(research.allowedTools())
                 .contains("paper-market", "paper-research-feed", "paper-strategy",
-                        "web-search", "mcp-crawler")
-                .doesNotContain("paper-note", "file", "mcp", "paper-stage");
+                        "paper-note-batch", "web-search", "mcp-crawler")
+                .doesNotContain("paper-note", "file", "mcp", "paper-stage",
+                        "paper-decision-write", "paper-trade-exec");
         assertThat(trader.allowedTools())
-                .contains("paper-decision", "paper-run", "paper-market", "paper-strategy")
-                .doesNotContain("paper-stage", "paper-note", "file", "mcp",
+                .contains("paper-decision", "paper-decision-write", "paper-trade-exec",
+                        "paper-run", "paper-market", "paper-strategy")
+                .doesNotContain("paper-stage", "paper-note", "paper-note-batch", "file", "mcp",
                         "web-search", "mcp-crawler");
+        assertThat(analyst.allowedActions()).contains("paper_warehouse_analyze", "general");
+        assertThat(analyst.allowedTools())
+                .contains("paper-market", "paper-research-feed", "paper-strategy",
+                        "paper-note", "web-search")
+                .doesNotContain("paper-trade-exec", "file", "mcp");
+        assertThat(analyst.maxSteps()).isEqualTo(3);
     }
 
     /** 面试官使用独立上下文、Memory、质量和回答策略。 */

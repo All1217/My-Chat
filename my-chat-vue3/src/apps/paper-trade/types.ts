@@ -115,18 +115,38 @@ export interface PaperWorkflowOverview {
   graphs: PaperWorkflowGraph[]
 }
 
-/** 搜集员 / 交易员定时工作流与偏好配置。 */
+/** 搜集员 / 交易员 / 票仓定时工作流与偏好配置。 */
 export interface PaperScheduleSettings {
   researchEnabled: boolean
   researchCron: string
   traderEnabled: boolean
   traderCron: string
+  cleanupEnabled: boolean
+  cleanupCron: string
+  analystEnabled: boolean
+  analystCron: string
+  /** 价值等级=2 滞留自然日阈值。 */
+  warehouseTier2RetainDays: number
   zoneId: string
   /** 是否纳入自选：是则自选优先，否则交易员看不到自选。 */
   includeWatchlist: boolean
   /** 是否启用工具检索（Exa/Bocha/Tavily），默认关。 */
   researchToolSearchEnabled: boolean
   updatedAt?: string | null
+}
+
+/** 票仓清理 / 分析员轮次。 */
+export interface PaperWarehouseRun {
+  id: string
+  jobId?: string | null
+  status: string
+  screenedCount?: number | null
+  adjustedCount?: number | null
+  statsJson?: string | null
+  frameworkTrace?: string | null
+  errorMessage?: string | null
+  createdAt?: string | null
+  finishedAt?: string | null
 }
 
 /** AI 轮次提交结果。 */

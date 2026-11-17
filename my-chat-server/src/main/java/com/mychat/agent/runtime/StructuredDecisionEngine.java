@@ -93,14 +93,18 @@ public class StructuredDecisionEngine implements DecisionEngine {
     private String paperRules(AgentDecisionContext context) {
         AgentScenarioId scenarioId = context.profile().scenarioId();
         if (scenarioId != AgentScenarioId.PAPER_RESEARCH
-                && scenarioId != AgentScenarioId.PAPER_TRADER) {
+                && scenarioId != AgentScenarioId.PAPER_TRADER
+                && scenarioId != AgentScenarioId.PAPER_WAREHOUSE_ANALYST) {
             return "";
         }
-        String action = scenarioId == AgentScenarioId.PAPER_RESEARCH
-                ? "paper_research" : "paper_trade_review";
+        String action = switch (scenarioId) {
+            case PAPER_RESEARCH -> "paper_research";
+            case PAPER_TRADER -> "paper_trade_review";
+            default -> "paper_warehouse_analyze";
+        };
         return """
                 【PAPER 强制规则】
-                1. 必须先调用动作 %s；批次 JSON 只能出现在该动作的 observation 中。
+                1. 必须先调用动作 %s；批次 JSON / 等级变更只能出现在该动作 observation 或写工具中。
                 2. 动作成功后 finish=true，finalOutput 只写短确认（如 OK），不超过 %d 字。
                 3. 严禁把 ResearchCardBatch / TradeDecisionBatch / cards / decisions 写入 finalOutput。
                 """.formatted(action, PAPER_FINAL_OUTPUT_MAX);
@@ -123,7 +127,8 @@ public class StructuredDecisionEngine implements DecisionEngine {
             }
             AgentScenarioId scenarioId = context.profile().scenarioId();
             if ((scenarioId == AgentScenarioId.PAPER_RESEARCH
-                    || scenarioId == AgentScenarioId.PAPER_TRADER)
+                    || scenarioId == AgentScenarioId.PAPER_TRADER
+                    || scenarioId == AgentScenarioId.PAPER_WAREHOUSE_ANALYST)
                     && decision.finalOutput().length() > PAPER_FINAL_OUTPUT_MAX) {
                 return "PAPER 场景 finish 时 finalOutput 不得超过 "
                         + PAPER_FINAL_OUTPUT_MAX

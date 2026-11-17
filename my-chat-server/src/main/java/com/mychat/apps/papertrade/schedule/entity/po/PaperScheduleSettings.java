@@ -43,6 +43,22 @@ public class PaperScheduleSettings {
     @TableField("research_tool_search_enabled")
     private Boolean researchToolSearchEnabled;
 
+    @TableField("cleanup_enabled")
+    private Boolean cleanupEnabled;
+
+    @TableField("cleanup_cron")
+    private String cleanupCron;
+
+    @TableField("analyst_enabled")
+    private Boolean analystEnabled;
+
+    @TableField("analyst_cron")
+    private String analystCron;
+
+    /** 价值等级=2 滞留自然日阈值，默认 2。 */
+    @TableField("warehouse_tier2_retain_days")
+    private Integer warehouseTier2RetainDays;
+
     @TableField(value = "updated_at", fill = FieldFill.INSERT_UPDATE)
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
     private LocalDateTime updatedAt;

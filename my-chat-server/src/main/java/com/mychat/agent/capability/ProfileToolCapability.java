@@ -4,6 +4,7 @@ import com.mychat.agent.api.AgentRunRequest;
 import com.mychat.agent.api.AgentScenarioId;
 import com.mychat.agent.runtime.ScenarioProfileRegistry;
 import com.mychat.agent.tool.ChatClientProfileFactory;
+import com.mychat.apps.papertrade.audit.AgentToolAuditContext;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Component;
@@ -33,19 +34,25 @@ public class ProfileToolCapability {
             AgentRunRequest request,
             String message,
             Set<String> actionTools) {
-        ChatClient.ChatClientRequestSpec prompt = clientFactory.create(
-                        profileRegistry.require(scenarioId), actionTools)
-                .prompt()
-                .user(message)
-                .advisors(advisor -> advisor.param(
-                        ChatMemory.CONVERSATION_ID,
-                        "agent:" + request.context().runId()));
-        if (StringUtils.hasText(request.context().workDir())) {
-            prompt.toolContext(Map.of("workDir", request.context().workDir()));
+        // 标记 Agent 工具链，供写库 AOP 审计
+        AgentToolAuditContext.enter(scenarioId, request.context().runId());
+        try {
+            ChatClient.ChatClientRequestSpec prompt = clientFactory.create(
+                            profileRegistry.require(scenarioId), actionTools)
+                    .prompt()
+                    .user(message)
+                    .advisors(advisor -> advisor.param(
+                            ChatMemory.CONVERSATION_ID,
+                            "agent:" + request.context().runId()));
+            if (StringUtils.hasText(request.context().workDir())) {
+                prompt.toolContext(Map.of("workDir", request.context().workDir()));
+            }
+            String content = prompt
+                    .call()
+                    .content();
+            return content == null ? "" : content;
+        } finally {
+            AgentToolAuditContext.clear();
         }
-        String content = prompt
-                .call()
-                .content();
-        return content == null ? "" : content;
     }
 }

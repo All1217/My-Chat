@@ -43,6 +43,11 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
+        <!-- AOP：Agent 工具写库审计切面（Boot 4 起为 starter-aspectj） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-aspectj</artifactId>
+        </dependency>
         <!-- Agent Runtime health and Micrometer operational metrics -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

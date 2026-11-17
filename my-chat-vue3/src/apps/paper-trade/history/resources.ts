@@ -7,8 +7,8 @@ export interface HistoryColumn {
   width?: number
   minWidth?: number
   overflow?: boolean
-  /** datetime → yyyy-MM-dd HH:mm:ss；bool → 是/否 */
-  format?: 'datetime' | 'bool'
+  /** datetime → yyyy-MM-dd HH:mm:ss；bool → 是/否；valueTier → 已持仓/应该买入… */
+  format?: 'datetime' | 'bool' | 'valueTier'
 }
 
 /** 可扩展历史资源注册项。 */
@@ -20,7 +20,11 @@ export interface HistoryResource {
   idField: string
   creatable: boolean
   columns: HistoryColumn[]
-  formFields: { key: string; label: string; type?: 'text' | 'textarea' | 'number' | 'switch' }[]
+  formFields: {
+    key: string
+    label: string
+    type?: 'text' | 'textarea' | 'number' | 'switch' | 'valueTier'
+  }[]
   list: (limit?: number) => Promise<Record<string, unknown>[]>
   get: (id: string) => Promise<Record<string, unknown>>
   create?: (body: Record<string, unknown>) => Promise<Record<string, unknown>>
@@ -171,7 +175,7 @@ export const historyResources: HistoryResource[] = [
       { prop: 'name', label: '名称', width: 120 },
       { prop: 'kept', label: '留下', width: 70, format: 'bool' },
       { prop: 'watchlist', label: '自选', width: 70, format: 'bool' },
-      { prop: 'valueTier', label: '价值等级', width: 88 },
+      { prop: 'valueTier', label: '价值等级', width: 100, format: 'valueTier' },
       { prop: 'fitScore', label: '契合', width: 70 },
       { prop: 'evidenceScore', label: '证据', width: 70 },
       { prop: 'sourceTier', label: '信源', width: 100 },
@@ -184,7 +188,7 @@ export const historyResources: HistoryResource[] = [
       { key: 'name', label: '名称', type: 'text' },
       { key: 'kept', label: '留下', type: 'switch' },
       { key: 'watchlist', label: '是否自选', type: 'switch' },
-      { key: 'valueTier', label: '价值等级(0-3)', type: 'text' },
+      { key: 'valueTier', label: '价值等级', type: 'valueTier' },
       { key: 'fitScore', label: '契合分', type: 'text' },
       { key: 'evidenceScore', label: '证据分', type: 'text' },
       { key: 'signalTags', label: '信号标签', type: 'text' },

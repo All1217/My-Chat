@@ -65,6 +65,50 @@ public final class PaperWorkflowBlueprints {
         return g;
     }
 
+    /** 票仓清理流水线（无 AI）。 */
+    public static PaperWorkflowGraphVO warehouseCleanup() {
+        PaperWorkflowGraphVO g = new PaperWorkflowGraphVO();
+        g.setId("warehouse-cleanup");
+        g.setTitle("票仓清理");
+        g.setNodes(List.of(
+                node(PaperWorkflowStep.START_RUN, "启动清理", "start", 0, 80),
+                node(PaperWorkflowStep.SCAN_NOTES, "扫描研究卡片", "process", 240, 80),
+                node(PaperWorkflowStep.APPLY_TIER_RULES, "应用等级规则", "process", 480, 80),
+                node(PaperWorkflowStep.DELETE_TIER3, "删除移出票", "process", 720, 80),
+                node(PaperWorkflowStep.FINISH_RUN, "结束", "end", 960, 80)
+        ));
+        g.setEdges(chain(
+                PaperWorkflowStep.START_RUN,
+                PaperWorkflowStep.SCAN_NOTES,
+                PaperWorkflowStep.APPLY_TIER_RULES,
+                PaperWorkflowStep.DELETE_TIER3,
+                PaperWorkflowStep.FINISH_RUN
+        ));
+        return g;
+    }
+
+    /** 票仓分析员流水线。 */
+    public static PaperWorkflowGraphVO warehouseAnalyst() {
+        PaperWorkflowGraphVO g = new PaperWorkflowGraphVO();
+        g.setId("warehouse-analyst");
+        g.setTitle("票仓分析员");
+        g.setNodes(List.of(
+                node(PaperWorkflowStep.START_RUN, "启动分析", "start", 0, 80),
+                node(PaperWorkflowStep.LIST_TIER2, "列出观察票", "process", 240, 80),
+                node(PaperWorkflowStep.AI_DEEP_GATHER, "AI 深搜", "ai", 480, 80),
+                node(PaperWorkflowStep.APPLY_TIER_UPDATE, "更新价值等级", "process", 720, 80),
+                node(PaperWorkflowStep.FINISH_RUN, "结束", "end", 960, 80)
+        ));
+        g.setEdges(chain(
+                PaperWorkflowStep.START_RUN,
+                PaperWorkflowStep.LIST_TIER2,
+                PaperWorkflowStep.AI_DEEP_GATHER,
+                PaperWorkflowStep.APPLY_TIER_UPDATE,
+                PaperWorkflowStep.FINISH_RUN
+        ));
+        return g;
+    }
+
     private static PaperWorkflowNodeVO node(PaperWorkflowStep step, String label, String type,
                                             double x, double y) {
         PaperWorkflowNodeVO n = new PaperWorkflowNodeVO();

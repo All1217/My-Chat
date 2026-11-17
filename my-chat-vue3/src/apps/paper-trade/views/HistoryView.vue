@@ -106,6 +106,19 @@
             style="width: 100%"
             :disabled="isFieldReadonly(field.key)"
           />
+          <el-select
+            v-else-if="field.type === 'valueTier'"
+            v-model="form[field.key]"
+            style="width: 100%"
+            :disabled="isFieldReadonly(field.key)"
+          >
+            <el-option
+              v-for="opt in VALUE_TIER_OPTIONS"
+              :key="opt.value"
+              :label="opt.label"
+              :value="opt.value"
+            />
+          </el-select>
           <el-input
             v-else
             v-model="form[field.key]"
@@ -139,6 +152,10 @@ import {
   type HistoryResource,
 } from '@/apps/paper-trade/history/resources'
 import { formatDateTime } from '@/apps/paper-trade/utils/format'
+import {
+  VALUE_TIER_OPTIONS,
+  formatValueTier,
+} from '@/apps/paper-trade/utils/valueTier'
 
 const resources = historyResources
 const activeKey = ref(resources[0]?.key ?? '')
@@ -190,6 +207,9 @@ function columnFormatter(col: HistoryColumn) {
   if (col.format === 'bool') return boolFormatter
   if (col.format === 'datetime') {
     return (_row: unknown, _c: unknown, cell: unknown) => formatDateTime(cell)
+  }
+  if (col.format === 'valueTier') {
+    return (_row: unknown, _c: unknown, cell: unknown) => formatValueTier(cell)
   }
   return undefined
 }
@@ -251,9 +271,11 @@ function resetForm(seed: Record<string, unknown> = {}) {
 function openCreate() {
   creating.value = true
   editingId.value = ''
-  // 人工新建研究卡片：留下 + 自选默认开启
+  // 人工新建研究卡片：留下 + 自选默认开启；价值等级默认继续观察
   resetForm(
-    current.value?.key === 'research-notes' ? { kept: true, watchlist: true } : { kept: true },
+    current.value?.key === 'research-notes'
+      ? { kept: true, watchlist: true, valueTier: 2 }
+      : { kept: true },
   )
   drawerOpen.value = true
 }

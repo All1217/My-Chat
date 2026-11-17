@@ -3,6 +3,8 @@ package com.mychat.apps.papertrade.schedule;
 import com.mychat.apps.papertrade.research.PaperResearchService;
 import com.mychat.apps.papertrade.schedule.entity.po.PaperScheduleSettings;
 import com.mychat.apps.papertrade.trader.PaperAiTraderService;
+import com.mychat.apps.papertrade.warehouse.PaperWarehouseAnalystService;
+import com.mychat.apps.papertrade.warehouse.PaperWarehouseCleanupService;
 import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,7 +23,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * 按 DB 配置动态挂载搜集员 / 交易员 cron（不引入 Quartz）。
+ * 按 DB 配置动态挂载搜集员 / 交易员 / 票仓分析员 / 票仓清理 cron。
  */
 @Slf4j
 @Component
@@ -32,12 +34,15 @@ public class PaperScheduleManager implements ApplicationRunner {
     private final PaperScheduleService scheduleService;
     private final PaperResearchService researchService;
     private final PaperAiTraderService traderService;
+    private final PaperWarehouseCleanupService cleanupService;
+    private final PaperWarehouseAnalystService analystService;
     private final ThreadPoolTaskScheduler paperTradeTaskScheduler;
 
     private final AtomicReference<ScheduledFuture<?>> researchFuture = new AtomicReference<>();
     private final AtomicReference<ScheduledFuture<?>> traderFuture = new AtomicReference<>();
+    private final AtomicReference<ScheduledFuture<?>> cleanupFuture = new AtomicReference<>();
+    private final AtomicReference<ScheduledFuture<?>> analystFuture = new AtomicReference<>();
 
-    /** 启动后 seed + 挂载。 */
     @Override
     public void run(ApplicationArguments args) {
         try {
@@ -54,6 +59,8 @@ public class PaperScheduleManager implements ApplicationRunner {
         ZoneId zone = ZoneId.of(cfg.getZoneId());
         cancel(researchFuture);
         cancel(traderFuture);
+        cancel(cleanupFuture);
+        cancel(analystFuture);
         if (Boolean.TRUE.equals(cfg.getResearchEnabled())) {
             ScheduledFuture<?> f = paperTradeTaskScheduler.schedule(
                     this::runResearch,
@@ -72,9 +79,30 @@ public class PaperScheduleManager implements ApplicationRunner {
         } else {
             log.info("交易员定时已关闭");
         }
+        if (cfg.getAnalystEnabled() == null || Boolean.TRUE.equals(cfg.getAnalystEnabled())) {
+            String cron = cfg.getAnalystCron() == null || cfg.getAnalystCron().isBlank()
+                    ? "0 0 18 * * *" : cfg.getAnalystCron();
+            ScheduledFuture<?> f = paperTradeTaskScheduler.schedule(
+                    this::runAnalyst,
+                    new CronTrigger(cron, zone));
+            analystFuture.set(f);
+            log.info("票仓分析员定时已挂载 cron={} zone={}", cron, cfg.getZoneId());
+        } else {
+            log.info("票仓分析员定时已关闭");
+        }
+        if (cfg.getCleanupEnabled() == null || Boolean.TRUE.equals(cfg.getCleanupEnabled())) {
+            String cron = cfg.getCleanupCron() == null || cfg.getCleanupCron().isBlank()
+                    ? "0 0 23 * * *" : cfg.getCleanupCron();
+            ScheduledFuture<?> f = paperTradeTaskScheduler.schedule(
+                    this::runCleanup,
+                    new CronTrigger(cron, zone));
+            cleanupFuture.set(f);
+            log.info("票仓清理定时已挂载 cron={} zone={}", cron, cfg.getZoneId());
+        } else {
+            log.info("票仓清理定时已关闭");
+        }
     }
 
-    /** 搜集一轮。 */
     void runResearch() {
         try {
             log.info("定时触发 paper_trade_research");
@@ -84,7 +112,6 @@ public class PaperScheduleManager implements ApplicationRunner {
         }
     }
 
-    /** 交易员盘后一轮；若落在工作日盘中仅告警仍执行。 */
     void runTrader() {
         try {
             warnIfIntraday();
@@ -92,6 +119,24 @@ public class PaperScheduleManager implements ApplicationRunner {
             traderService.submitRun();
         } catch (Exception e) {
             log.warn("盘后 AI 轮提交失败: {}", e.getMessage());
+        }
+    }
+
+    void runAnalyst() {
+        try {
+            log.info("定时触发 paper_trade_warehouse_analyst");
+            analystService.submitRun();
+        } catch (Exception e) {
+            log.warn("票仓分析员提交失败: {}", e.getMessage());
+        }
+    }
+
+    void runCleanup() {
+        try {
+            log.info("定时触发 paper_trade_warehouse_cleanup");
+            cleanupService.submitRun();
+        } catch (Exception e) {
+            log.warn("票仓清理提交失败: {}", e.getMessage());
         }
     }
 
@@ -123,5 +168,7 @@ public class PaperScheduleManager implements ApplicationRunner {
     public void shutdown() {
         cancel(researchFuture);
         cancel(traderFuture);
+        cancel(cleanupFuture);
+        cancel(analystFuture);
     }
 }

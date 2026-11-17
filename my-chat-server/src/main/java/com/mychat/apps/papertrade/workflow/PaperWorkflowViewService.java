@@ -7,6 +7,10 @@ import com.mychat.apps.papertrade.research.entity.po.PaperResearchRun;
 import com.mychat.apps.papertrade.research.mapper.PaperResearchRunMapper;
 import com.mychat.apps.papertrade.trader.entity.po.PaperAiRun;
 import com.mychat.apps.papertrade.trader.mapper.PaperAiRunMapper;
+import com.mychat.apps.papertrade.warehouse.entity.po.PaperWarehouseAnalystRun;
+import com.mychat.apps.papertrade.warehouse.entity.po.PaperWarehouseCleanupRun;
+import com.mychat.apps.papertrade.warehouse.mapper.PaperWarehouseAnalystRunMapper;
+import com.mychat.apps.papertrade.warehouse.mapper.PaperWarehouseCleanupRunMapper;
 import com.mychat.apps.papertrade.workflow.entity.vo.PaperWorkflowAgentStepVO;
 import com.mychat.apps.papertrade.workflow.entity.vo.PaperWorkflowGraphVO;
 import com.mychat.apps.papertrade.workflow.entity.vo.PaperWorkflowLatestRunVO;
@@ -32,16 +36,22 @@ public class PaperWorkflowViewService {
 
     private final PaperResearchRunMapper researchRunMapper;
     private final PaperAiRunMapper aiRunMapper;
+    private final PaperWarehouseCleanupRunMapper cleanupRunMapper;
+    private final PaperWarehouseAnalystRunMapper analystRunMapper;
     private final ObjectMapper objectMapper;
 
-    /** 搜集员 + 交易员总览。 */
+    /** 搜集员 + 交易员 + 票仓分析员 + 票仓清理总览。 */
     public PaperWorkflowOverviewVO overview() {
         PaperWorkflowOverviewVO out = new PaperWorkflowOverviewVO();
         PaperWorkflowGraphVO researcher = PaperWorkflowBlueprints.researcher();
         researcher.setLatest(latestResearch());
         PaperWorkflowGraphVO trader = PaperWorkflowBlueprints.trader();
         trader.setLatest(latestTrader());
-        out.setGraphs(List.of(researcher, trader));
+        PaperWorkflowGraphVO analyst = PaperWorkflowBlueprints.warehouseAnalyst();
+        analyst.setLatest(latestAnalyst());
+        PaperWorkflowGraphVO cleanup = PaperWorkflowBlueprints.warehouseCleanup();
+        cleanup.setLatest(latestCleanup());
+        out.setGraphs(List.of(researcher, trader, analyst, cleanup));
         return out;
     }
 
@@ -62,6 +72,30 @@ public class PaperWorkflowViewService {
         PaperAiRun run = aiRunMapper.selectOne(new LambdaQueryWrapper<PaperAiRun>()
                 .orderByDesc(PaperAiRun::getCreatedAt)
                 .last("LIMIT 1"));
+        if (run == null) {
+            return null;
+        }
+        return toLatest(run.getId(), run.getStatus(), run.getCreatedAt(), run.getFinishedAt(),
+                run.getErrorMessage(), run.getFrameworkTrace());
+    }
+
+    private PaperWorkflowLatestRunVO latestAnalyst() {
+        PaperWarehouseAnalystRun run = analystRunMapper.selectOne(
+                new LambdaQueryWrapper<PaperWarehouseAnalystRun>()
+                        .orderByDesc(PaperWarehouseAnalystRun::getCreatedAt)
+                        .last("LIMIT 1"));
+        if (run == null) {
+            return null;
+        }
+        return toLatest(run.getId(), run.getStatus(), run.getCreatedAt(), run.getFinishedAt(),
+                run.getErrorMessage(), run.getFrameworkTrace());
+    }
+
+    private PaperWorkflowLatestRunVO latestCleanup() {
+        PaperWarehouseCleanupRun run = cleanupRunMapper.selectOne(
+                new LambdaQueryWrapper<PaperWarehouseCleanupRun>()
+                        .orderByDesc(PaperWarehouseCleanupRun::getCreatedAt)
+                        .last("LIMIT 1"));
         if (run == null) {
             return null;
         }

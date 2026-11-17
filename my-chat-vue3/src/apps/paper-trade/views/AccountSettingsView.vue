@@ -30,6 +30,17 @@
         </div>
         <el-switch v-model="schedule.includeWatchlist" />
       </div>
+      <div class="cash-row">
+        <span class="field-label">观察票滞留天数</span>
+        <el-input-number
+          v-model="schedule.warehouseTier2RetainDays"
+          :min="0"
+          :max="365"
+          :step="1"
+          controls-position="right"
+        />
+        <span class="hint">价值等级=2 超过该自然日数后，清理任务会改为 3（移出）。</span>
+      </div>
     </section>
 
     <section class="panel panel-workflow">
@@ -64,6 +75,28 @@
         </div>
       </div>
       <el-input v-model="schedule.traderCron" placeholder="0 35 15 * * MON-FRI" class="cron-input" />
+      <div class="sched-row">
+        <div class="sched-meta">
+          <strong>票仓分析员</strong>
+          <p>默认每天 18:00；对 valueTier=2 深搜后调等级</p>
+        </div>
+        <div class="sched-ops">
+          <el-button size="small" :loading="analystRunning" @click="onRunAnalyst">执行一次</el-button>
+          <el-switch v-model="schedule.analystEnabled" />
+        </div>
+      </div>
+      <el-input v-model="schedule.analystCron" placeholder="0 0 18 * * *" class="cron-input" />
+      <div class="sched-row">
+        <div class="sched-meta">
+          <strong>票仓清理</strong>
+          <p>默认每天 23:00；1→2，滞留 2→3，删除 3；无 AI</p>
+        </div>
+        <div class="sched-ops">
+          <el-button size="small" :loading="cleanupRunning" @click="onRunCleanup">执行一次</el-button>
+          <el-switch v-model="schedule.cleanupEnabled" />
+        </div>
+      </div>
+      <el-input v-model="schedule.cleanupCron" placeholder="0 0 23 * * *" class="cron-input" />
     </section>
 
     <section class="panel panel-strategy">
@@ -128,19 +161,71 @@ const savingStrategy = ref(false)
 const savingSchedule = ref(false)
 const researchRunning = ref(false)
 const traderRunning = ref(false)
+const analystRunning = ref(false)
+const cleanupRunning = ref(false)
 const resetting = ref(false)
 const wiping = ref(false)
 let researchTimer: ReturnType<typeof setInterval> | null = null
 let traderTimer: ReturnType<typeof setInterval> | null = null
+let analystTimer: ReturnType<typeof setInterval> | null = null
+let cleanupTimer: ReturnType<typeof setInterval> | null = null
 
 const schedule = reactive({
   researchEnabled: false,
   researchCron: '0 0 9 * * *',
   traderEnabled: false,
   traderCron: '0 35 15 * * MON-FRI',
+  analystEnabled: true,
+  analystCron: '0 0 18 * * *',
+  cleanupEnabled: true,
+  cleanupCron: '0 0 23 * * *',
+  warehouseTier2RetainDays: 2,
   zoneId: 'Asia/Shanghai',
   includeWatchlist: true,
 })
+
+function applySchedule(sch: {
+  researchEnabled?: boolean
+  researchCron?: string
+  traderEnabled?: boolean
+  traderCron?: string
+  analystEnabled?: boolean
+  analystCron?: string
+  cleanupEnabled?: boolean
+  cleanupCron?: string
+  warehouseTier2RetainDays?: number
+  zoneId?: string
+  includeWatchlist?: boolean
+}) {
+  schedule.researchEnabled = !!sch.researchEnabled
+  schedule.researchCron = sch.researchCron || '0 0 9 * * *'
+  schedule.traderEnabled = !!sch.traderEnabled
+  schedule.traderCron = sch.traderCron || '0 35 15 * * MON-FRI'
+  schedule.analystEnabled = sch.analystEnabled !== false
+  schedule.analystCron = sch.analystCron || '0 0 18 * * *'
+  schedule.cleanupEnabled = sch.cleanupEnabled !== false
+  schedule.cleanupCron = sch.cleanupCron || '0 0 23 * * *'
+  schedule.warehouseTier2RetainDays =
+    sch.warehouseTier2RetainDays == null ? 2 : Number(sch.warehouseTier2RetainDays)
+  schedule.zoneId = sch.zoneId || 'Asia/Shanghai'
+  schedule.includeWatchlist = sch.includeWatchlist !== false
+}
+
+function schedulePayload() {
+  return {
+    researchEnabled: schedule.researchEnabled,
+    researchCron: schedule.researchCron.trim(),
+    traderEnabled: schedule.traderEnabled,
+    traderCron: schedule.traderCron.trim(),
+    analystEnabled: schedule.analystEnabled,
+    analystCron: schedule.analystCron.trim(),
+    cleanupEnabled: schedule.cleanupEnabled,
+    cleanupCron: schedule.cleanupCron.trim(),
+    warehouseTier2RetainDays: schedule.warehouseTier2RetainDays,
+    zoneId: schedule.zoneId,
+    includeWatchlist: schedule.includeWatchlist,
+  }
+}
 
 async function load() {
   const [a, s, sch] = await Promise.all([
@@ -151,35 +236,23 @@ async function load() {
   account.value = a
   initialCash.value = Number(a?.initialCash ?? 20000)
   strategyText.value = s?.content ?? ''
-  schedule.researchEnabled = !!sch.researchEnabled
-  schedule.researchCron = sch.researchCron || '0 0 9 * * *'
-  schedule.traderEnabled = !!sch.traderEnabled
-  schedule.traderCron = sch.traderCron || '0 35 15 * * MON-FRI'
-  schedule.zoneId = sch.zoneId || 'Asia/Shanghai'
-  schedule.includeWatchlist = sch.includeWatchlist !== false
+  applySchedule(sch)
 }
 
 async function onSaveSchedule() {
-  if (!schedule.researchCron?.trim() || !schedule.traderCron?.trim()) {
+  if (
+    !schedule.researchCron?.trim() ||
+    !schedule.traderCron?.trim() ||
+    !schedule.analystCron?.trim() ||
+    !schedule.cleanupCron?.trim()
+  ) {
     ElMessage.warning('cron 不能为空')
     return
   }
   savingSchedule.value = true
   try {
-    const saved = await paperTradeApi.saveSchedule({
-      researchEnabled: schedule.researchEnabled,
-      researchCron: schedule.researchCron.trim(),
-      traderEnabled: schedule.traderEnabled,
-      traderCron: schedule.traderCron.trim(),
-      zoneId: schedule.zoneId,
-      includeWatchlist: schedule.includeWatchlist,
-    })
-    schedule.researchEnabled = !!saved.researchEnabled
-    schedule.researchCron = saved.researchCron
-    schedule.traderEnabled = !!saved.traderEnabled
-    schedule.traderCron = saved.traderCron
-    schedule.zoneId = saved.zoneId
-    schedule.includeWatchlist = saved.includeWatchlist !== false
+    const saved = await paperTradeApi.saveSchedule(schedulePayload())
+    applySchedule(saved)
     ElMessage.success('定时工作流已保存并重挂')
   } catch {
     /* toast */
@@ -188,13 +261,18 @@ async function onSaveSchedule() {
   }
 }
 
-/** 保存常规：初始资金 + 是否纳入自选。 */
+/** 保存常规：初始资金 + 自选 + 滞留天数。 */
 async function onSaveGeneral() {
   if (!initialCash.value || initialCash.value <= 0) {
     ElMessage.warning('初始资金必须大于 0')
     return
   }
-  if (!schedule.researchCron?.trim() || !schedule.traderCron?.trim()) {
+  if (
+    !schedule.researchCron?.trim() ||
+    !schedule.traderCron?.trim() ||
+    !schedule.analystCron?.trim() ||
+    !schedule.cleanupCron?.trim()
+  ) {
     ElMessage.warning('cron 不能为空')
     return
   }
@@ -202,15 +280,8 @@ async function onSaveGeneral() {
   try {
     account.value = await paperTradeApi.updateInitialCash(initialCash.value)
     initialCash.value = Number(account.value.initialCash)
-    const saved = await paperTradeApi.saveSchedule({
-      researchEnabled: schedule.researchEnabled,
-      researchCron: schedule.researchCron.trim(),
-      traderEnabled: schedule.traderEnabled,
-      traderCron: schedule.traderCron.trim(),
-      zoneId: schedule.zoneId,
-      includeWatchlist: schedule.includeWatchlist,
-    })
-    schedule.includeWatchlist = saved.includeWatchlist !== false
+    const saved = await paperTradeApi.saveSchedule(schedulePayload())
+    applySchedule(saved)
     ElMessage.success('常规设置已保存')
   } catch {
     /* toast */
@@ -227,6 +298,16 @@ function stopResearchPoll() {
 function stopTraderPoll() {
   if (traderTimer) clearInterval(traderTimer)
   traderTimer = null
+}
+
+function stopAnalystPoll() {
+  if (analystTimer) clearInterval(analystTimer)
+  analystTimer = null
+}
+
+function stopCleanupPoll() {
+  if (cleanupTimer) clearInterval(cleanupTimer)
+  cleanupTimer = null
 }
 
 /** 搜集员执行一次：提交后短轮询，结束时提示。 */
@@ -288,6 +369,66 @@ async function onRunTrader() {
     }, 2000)
   } catch {
     traderRunning.value = false
+  }
+}
+
+async function onRunAnalyst() {
+  analystRunning.value = true
+  try {
+    const sub = await paperTradeApi.warehouseAnalystRun()
+    stopAnalystPoll()
+    let tries = 0
+    analystTimer = setInterval(async () => {
+      tries += 1
+      try {
+        const run = await paperTradeApi.warehouseAnalystRunDetail(sub.runId)
+        if (run.status === 'SUCCEEDED' || run.status === 'FAILED') {
+          stopAnalystPoll()
+          analystRunning.value = false
+          if (run.status === 'FAILED') ElMessage.error(run.errorMessage || '分析员失败')
+          else ElMessage.success('票仓分析完成')
+        }
+      } catch {
+        /* ignore */
+      }
+      if (tries > 60) {
+        stopAnalystPoll()
+        analystRunning.value = false
+        ElMessage.warning('分析员仍在运行')
+      }
+    }, 2000)
+  } catch {
+    analystRunning.value = false
+  }
+}
+
+async function onRunCleanup() {
+  cleanupRunning.value = true
+  try {
+    const sub = await paperTradeApi.warehouseCleanupRun()
+    stopCleanupPoll()
+    let tries = 0
+    cleanupTimer = setInterval(async () => {
+      tries += 1
+      try {
+        const run = await paperTradeApi.warehouseCleanupRunDetail(sub.runId)
+        if (run.status === 'SUCCEEDED' || run.status === 'FAILED') {
+          stopCleanupPoll()
+          cleanupRunning.value = false
+          if (run.status === 'FAILED') ElMessage.error(run.errorMessage || '清理失败')
+          else ElMessage.success('票仓清理完成')
+        }
+      } catch {
+        /* ignore */
+      }
+      if (tries > 30) {
+        stopCleanupPoll()
+        cleanupRunning.value = false
+        ElMessage.warning('清理仍在运行')
+      }
+    }, 1500)
+  } catch {
+    cleanupRunning.value = false
   }
 }
 
@@ -361,6 +502,8 @@ onMounted(() => {
 onUnmounted(() => {
   stopResearchPoll()
   stopTraderPoll()
+  stopAnalystPoll()
+  stopCleanupPoll()
 })
 </script>
 

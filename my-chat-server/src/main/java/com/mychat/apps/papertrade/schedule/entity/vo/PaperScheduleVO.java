@@ -12,5 +12,10 @@ public class PaperScheduleVO {
     private String zoneId;
     private Boolean includeWatchlist;
     private Boolean researchToolSearchEnabled;
+    private Boolean cleanupEnabled;
+    private String cleanupCron;
+    private Boolean analystEnabled;
+    private String analystCron;
+    private Integer warehouseTier2RetainDays;
     private String updatedAt;
 }

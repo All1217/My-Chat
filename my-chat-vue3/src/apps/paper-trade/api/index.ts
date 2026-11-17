@@ -16,6 +16,7 @@ import type {
   PaperSqlExport,
   PaperStageSummary,
   PaperStrategy,
+  PaperWarehouseRun,
   PaperWorkflowOverview,
 } from '@/apps/paper-trade/types'
 
@@ -82,6 +83,18 @@ export const paperTradeApi = {
 
   researchRunDetail: (id: string) =>
     ragClient.get<PaperResearchRun>(`/ai/apps/paper-trade/research/runs/${id}`),
+
+  warehouseCleanupRun: () =>
+    ragClient.post<PaperAiSubmit>('/ai/apps/paper-trade/warehouse/cleanup/run'),
+
+  warehouseCleanupRunDetail: (id: string) =>
+    ragClient.get<PaperWarehouseRun>(`/ai/apps/paper-trade/warehouse/cleanup/runs/${id}`),
+
+  warehouseAnalystRun: () =>
+    ragClient.post<PaperAiSubmit>('/ai/apps/paper-trade/warehouse/analyst/run'),
+
+  warehouseAnalystRunDetail: (id: string) =>
+    ragClient.get<PaperWarehouseRun>(`/ai/apps/paper-trade/warehouse/analyst/runs/${id}`),
 
   // —— 管理端历史 ——
 

@@ -240,6 +240,7 @@ public class PaperResearchService {
             vo.setEvidenceScore(row.getEvidenceScore());
             vo.setSignalTags(row.getSignalTags());
             vo.setSourceTier(row.getSourceTier());
+            vo.setValueTier(row.getValueTier());
             if (row.getUpdatedAt() != null) {
                 vo.setUpdatedAt(row.getUpdatedAt().format(TS));
             }
@@ -476,10 +477,13 @@ public class PaperResearchService {
                 可按需再调 paper-strategy、paper-market、paper-research-feed、mcp-crawler；
                 web-search 是否可用取决于全局 Exa 开关。禁止编造未给出的 URL。
                 最终只输出紧凑 ResearchCardBatch JSON 对象（字段 cards[]），不要 Markdown。
-                每项含 symbol,name,kept,story,risks,rejectReason,fitScore,evidenceScore,signalTags,evidenceRefs。
+                每项含 symbol,name,kept,story,risks,rejectReason,fitScore,evidenceScore,signalTags,evidenceRefs,valueTier。
                 story≤80字；fitScore/evidenceScore 为 0~1；
+                valueTier 只能是 1（应该买入）、2（继续观察）、3（移出票仓），禁止输出 0（已持仓由成交回写）。
+                标 1：kept=true，契合当前账户策略，fit/evidence 建议≥0.7，入场条件与风险可写清。
+                标 2：主题沾边但时机/证据未齐；标 3：论点失效或 kept=false。
                 evidenceRefs 必须是字符串数组（标题或 URL），禁止对象；不可凭空生成。
-                只能使用候选列表中的代码；证据不足则 kept=false。
+                只能使用候选列表中的代码；证据不足则 kept=false 且 valueTier=3。
                 候选：
                 %s
                 """.formatted(objectMapper.writeValueAsString(arr));
@@ -519,6 +523,7 @@ public class PaperResearchService {
                 card.fitScore = item.fitScore();
                 card.evidenceScore = item.evidenceScore();
                 card.signalTags = item.signalTags();
+                card.valueTier = item.valueTier();
                 cards.add(card);
             }
             return cards;
@@ -608,6 +613,13 @@ public class PaperResearchService {
             note.setSignalTags(clip(tagsJson(card.signalTags), 500));
             note.setSourceTier(material.sourceTier());
             note.setRunId(runId);
+            // 已持仓(0)不覆盖；未留下强制 3；缺省 2
+            Integer priorTier = existing == null ? null : existing.getValueTier();
+            if (priorTier != null && priorTier == 0) {
+                note.setValueTier(0);
+            } else {
+                note.setValueTier(resolveResearchValueTier(card, keep));
+            }
             // AI 新建非自选；更新保留原 watchlist
             if (existing == null) {
                 note.setWatchlist(false);
@@ -617,6 +629,53 @@ public class PaperResearchService {
             }
         }
         return newlyKept;
+    }
+
+    /** 搜集员输出 → 落库等级（1/2/3）。 */
+    static int resolveResearchValueTier(Card card, boolean keep) {
+        if (!keep) {
+            return 3;
+        }
+        Integer raw = card == null ? null : card.valueTier;
+        if (raw == null) {
+            return 2;
+        }
+        if (raw == 1 || raw == 2 || raw == 3) {
+            return raw;
+        }
+        return 2;
+    }
+
+    /** BUY/SELL 成交后回写价值等级；无卡片则跳过。 */
+    public void applyFillValueTier(String symbol, String side) {
+        if (!StringUtils.hasText(symbol) || !StringUtils.hasText(side)) {
+            return;
+        }
+        PaperResearchNote note = noteMapper.selectById(symbol.trim().toUpperCase(Locale.ROOT));
+        if (note == null) {
+            return;
+        }
+        String action = side.trim().toUpperCase(Locale.ROOT);
+        if ("BUY".equals(action)) {
+            note.setValueTier(0);
+        } else if ("SELL".equals(action)) {
+            note.setValueTier(2);
+        } else {
+            return;
+        }
+        noteMapper.updateById(note);
+    }
+
+    /** 非持仓买入是否允许：卡片 kept 且 valueTier=1。无卡片则不允许。 */
+    public boolean isBuyEligibleNote(String symbol) {
+        if (!StringUtils.hasText(symbol)) {
+            return false;
+        }
+        PaperResearchNote note = noteMapper.selectById(symbol.trim().toUpperCase(Locale.ROOT));
+        return note != null
+                && Boolean.TRUE.equals(note.getKept())
+                && note.getValueTier() != null
+                && note.getValueTier() == 1;
     }
 
     private String tagsJson(Object signalTags) throws Exception {
@@ -708,5 +767,7 @@ public class PaperResearchService {
         public Double evidenceScore;
         @JsonAlias({"signal_tags"})
         public Object signalTags;
+        @JsonAlias({"value_tier"})
+        public Integer valueTier;
     }
 }

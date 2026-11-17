@@ -21,4 +21,6 @@ public class PaperResearchNoteRequest {
     private BigDecimal evidenceScore;
     private String signalTags;
     private String sourceTier;
+    /** 0已持仓 1应该买入 2继续观察 3移出票仓。 */
+    private Integer valueTier;
 }

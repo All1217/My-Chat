@@ -2,17 +2,18 @@
   <div class="settings">
     <div class="settings-head">
       <h1>账户设置</h1>
-      <p>初始资金、定时工作流、偏好设置、投资策略与危险操作</p>
+      <p>常规设置、定时工作流、投资策略与危险操作</p>
     </div>
 
-    <section class="panel panel-cash">
+    <section class="panel panel-general">
       <div class="panel-head">
-        <h2>初始资金</h2>
-        <el-button size="small" type="primary" plain :loading="savingCash" @click="onSaveCash">
-          保存
+        <h2>常规设置</h2>
+        <el-button size="small" type="primary" plain :loading="savingGeneral" @click="onSaveGeneral">
+          保存常规
         </el-button>
       </div>
       <div class="cash-row">
+        <span class="field-label">初始资金</span>
         <el-input-number
           v-model="initialCash"
           :min="1"
@@ -21,6 +22,13 @@
           controls-position="right"
         />
         <span class="hint">当前可用现金 {{ formatMoney(account?.cash) }}；无持仓时会同步现金。</span>
+      </div>
+      <div class="sched-row">
+        <div class="sched-meta">
+          <strong>是否纳入自选</strong>
+          <p>开：自选股优先进入交易员候选；关：交易员列表不包含自选股</p>
+        </div>
+        <el-switch v-model="schedule.includeWatchlist" />
       </div>
     </section>
 
@@ -56,22 +64,6 @@
         </div>
       </div>
       <el-input v-model="schedule.traderCron" placeholder="0 35 15 * * MON-FRI" class="cron-input" />
-    </section>
-
-    <section class="panel panel-prefs">
-      <div class="panel-head">
-        <h2>偏好设置</h2>
-        <el-button size="small" type="primary" plain :loading="savingPrefs" @click="onSavePrefs">
-          保存偏好
-        </el-button>
-      </div>
-      <div class="sched-row">
-        <div class="sched-meta">
-          <strong>是否纳入自选</strong>
-          <p>开：自选股优先进入交易员候选；关：交易员列表不包含自选股</p>
-        </div>
-        <el-switch v-model="schedule.includeWatchlist" />
-      </div>
     </section>
 
     <section class="panel panel-strategy">
@@ -131,10 +123,9 @@ import { formatMoney } from '@/apps/paper-trade/utils/format'
 const account = ref<PaperAccount | null>(null)
 const initialCash = ref<number>(20000)
 const strategyText = ref('')
-const savingCash = ref(false)
+const savingGeneral = ref(false)
 const savingStrategy = ref(false)
 const savingSchedule = ref(false)
-const savingPrefs = ref(false)
 const researchRunning = ref(false)
 const traderRunning = ref(false)
 const resetting = ref(false)
@@ -197,13 +188,20 @@ async function onSaveSchedule() {
   }
 }
 
-async function onSavePrefs() {
+/** 保存常规：初始资金 + 是否纳入自选。 */
+async function onSaveGeneral() {
+  if (!initialCash.value || initialCash.value <= 0) {
+    ElMessage.warning('初始资金必须大于 0')
+    return
+  }
   if (!schedule.researchCron?.trim() || !schedule.traderCron?.trim()) {
     ElMessage.warning('cron 不能为空')
     return
   }
-  savingPrefs.value = true
+  savingGeneral.value = true
   try {
+    account.value = await paperTradeApi.updateInitialCash(initialCash.value)
+    initialCash.value = Number(account.value.initialCash)
     const saved = await paperTradeApi.saveSchedule({
       researchEnabled: schedule.researchEnabled,
       researchCron: schedule.researchCron.trim(),
@@ -213,11 +211,11 @@ async function onSavePrefs() {
       includeWatchlist: schedule.includeWatchlist,
     })
     schedule.includeWatchlist = saved.includeWatchlist !== false
-    ElMessage.success('偏好已保存')
+    ElMessage.success('常规设置已保存')
   } catch {
     /* toast */
   } finally {
-    savingPrefs.value = false
+    savingGeneral.value = false
   }
 }
 
@@ -290,23 +288,6 @@ async function onRunTrader() {
     }, 2000)
   } catch {
     traderRunning.value = false
-  }
-}
-
-async function onSaveCash() {
-  if (!initialCash.value || initialCash.value <= 0) {
-    ElMessage.warning('初始资金必须大于 0')
-    return
-  }
-  savingCash.value = true
-  try {
-    account.value = await paperTradeApi.updateInitialCash(initialCash.value)
-    initialCash.value = Number(account.value.initialCash)
-    ElMessage.success('初始资金已更新')
-  } catch {
-    /* toast */
-  } finally {
-    savingCash.value = false
   }
 }
 
@@ -440,6 +421,13 @@ onUnmounted(() => {
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
+  margin-bottom: 10px;
+
+  .field-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #14532d;
+  }
 
   .hint {
     font-size: 12px;

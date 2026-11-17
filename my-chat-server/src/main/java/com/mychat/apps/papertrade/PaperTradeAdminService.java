@@ -266,6 +266,9 @@ public class PaperTradeAdminService {
         if (row.getKept() == null) {
             row.setKept(false);
         }
+        if (row.getValueTier() == null) {
+            row.setValueTier(Boolean.FALSE.equals(row.getKept()) ? 3 : 2);
+        }
         // 人工新建：未显式指定时默认自选
         if (row.getWatchlist() == null) {
             row.setWatchlist(true);
@@ -382,6 +385,15 @@ public class PaperTradeAdminService {
         if (req.getSourceTier() != null) {
             row.setSourceTier(blankToNull(req.getSourceTier()));
         }
+        if (req.getValueTier() != null) {
+            int tier = req.getValueTier();
+            if (tier < 0 || tier > 3) {
+                throw new IllegalArgumentException("valueTier 须为 0~3");
+            }
+            row.setValueTier(tier);
+        } else if (creating) {
+            row.setValueTier(Boolean.FALSE.equals(row.getKept()) ? 3 : 2);
+        }
     }
 
     private int nextStageNo() {
@@ -457,6 +469,7 @@ public class PaperTradeAdminService {
         vo.setEvidenceScore(row.getEvidenceScore());
         vo.setSignalTags(row.getSignalTags());
         vo.setSourceTier(row.getSourceTier());
+        vo.setValueTier(row.getValueTier());
         vo.setRunId(row.getRunId());
         if (row.getCreatedAt() != null) {
             vo.setCreatedAt(row.getCreatedAt().format(TS));

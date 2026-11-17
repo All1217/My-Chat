@@ -77,6 +77,7 @@ public class PaperAiTraderService {
     private final PaperAgentRuntimeAdapter agentRuntime;
     private final PaperRunLifecycle lifecycle;
     private final AgentRunRepository agentRunRepository;
+    private final PaperResearchService researchService;
     private final ObjectMapper objectMapper = new ObjectMapper()
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
@@ -92,7 +93,8 @@ public class PaperAiTraderService {
                                 AsyncJobService asyncJobService,
                                 PaperAgentRuntimeAdapter agentRuntime,
                                 PaperRunLifecycle lifecycle,
-                                AgentRunRepository agentRunRepository) {
+                                AgentRunRepository agentRunRepository,
+                                PaperResearchService researchService) {
         this.runMapper = runMapper;
         this.decisionMapper = decisionMapper;
         this.strategyService = strategyService;
@@ -106,6 +108,7 @@ public class PaperAiTraderService {
         this.agentRuntime = agentRuntime;
         this.lifecycle = lifecycle;
         this.agentRunRepository = agentRunRepository;
+        this.researchService = researchService;
     }
 
     /** 提交一轮：立刻返回 runId + jobId；拒绝重叠活动轮次。 */
@@ -340,6 +343,7 @@ public class PaperAiTraderService {
                 5. 买入必须给出 stop_loss 和 take_profit（小数，如 0.03）。ETF 溢价拿不到或过高时不要建议买入。
                 6. 已持有的标的不要再买。连续止损暂停、回撤收紧时遵守上下文里的限制。
                 7. 只能买卖 candidates 与 positions 里出现的代码。不要搜索新标的，不要使用知识库。
+                8. 买入仅考虑 valueTier=1（应该买入）的候选；valueTier=0 为已持仓只可卖出。
                 """;
         String user = """
                 当前账户与行情上下文（JSON）：
@@ -530,6 +534,14 @@ public class PaperAiTraderService {
 
     private String applyGate(PaperAiDecision d, PaperGateContext gate) {
         if (PaperAiDecision.ACTION_BUY.equals(d.getAction())) {
+            // 硬门槛：非持仓买入必须来自价值等级 1
+            boolean alreadyHeld = gate != null && gate.getPositions() != null
+                    && gate.getPositions().stream()
+                    .anyMatch(p -> p.getSymbol() != null
+                            && p.getSymbol().equalsIgnoreCase(d.getSymbol()));
+            if (!alreadyHeld && !researchService.isBuyEligibleNote(d.getSymbol())) {
+                return "VALUE_TIER_NOT_BUY";
+            }
             return riskGuard.assessBuy(d, gate);
         }
         if (PaperAiDecision.ACTION_SELL.equals(d.getAction())) {
@@ -560,6 +572,17 @@ public class PaperAiTraderService {
             d.setExecStatus(PaperAiDecision.EXEC_EXECUTED);
             d.setOrderId(order.getId());
             d.setSkipReason(null);
+            // BUY→0；整仓 SELL→2（部分卖出仍持仓则保持 0）
+            if (PaperAiDecision.ACTION_BUY.equals(d.getAction())) {
+                researchService.applyFillValueTier(d.getSymbol(), "BUY");
+            } else if (PaperAiDecision.ACTION_SELL.equals(d.getAction())) {
+                boolean stillHeld = tradeService.listPositionEntities().stream()
+                        .anyMatch(p -> p.getSymbol() != null
+                                && p.getSymbol().equalsIgnoreCase(d.getSymbol()));
+                if (!stillHeld) {
+                    researchService.applyFillValueTier(d.getSymbol(), "SELL");
+                }
+            }
         } else {
             d.setExecStatus(PaperAiDecision.EXEC_REJECTED);
             d.setOrderId(order.getId());

@@ -51,6 +51,10 @@ public class PaperResearchNote {
     @TableField("source_tier")
     private String sourceTier;
 
+    /** 0已持仓 1应该买入 2继续观察 3移出票仓。 */
+    @TableField("value_tier")
+    private Integer valueTier;
+
     @TableField("run_id")
     private String runId;
 

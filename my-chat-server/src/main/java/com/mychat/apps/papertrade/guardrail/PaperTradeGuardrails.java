@@ -38,6 +38,12 @@ public class PaperTradeGuardrails {
                     }
                 }
             }
+            // 搜集员只能标 1/2/3；非法或 kept=false → 纠正
+            if (!Boolean.TRUE.equals(card.kept)) {
+                card.valueTier = 3;
+            } else if (card.valueTier == null || card.valueTier < 1 || card.valueTier > 3) {
+                card.valueTier = 2;
+            }
             out.add(card);
         }
         return out;

@@ -86,8 +86,10 @@ public class PaperAiContextBuilder {
         PaperScheduleSettings schedule = scheduleService.requireSettings();
         boolean includeWatchlist = schedule.getIncludeWatchlist() == null
                 || Boolean.TRUE.equals(schedule.getIncludeWatchlist());
+        // 买入池：仅 kept 且价值等级=1；持仓符号始终已在 candidates
         LambdaQueryWrapper<PaperResearchNote> noteQw = new LambdaQueryWrapper<PaperResearchNote>()
-                .eq(PaperResearchNote::getKept, true);
+                .eq(PaperResearchNote::getKept, true)
+                .eq(PaperResearchNote::getValueTier, 1);
         if (!includeWatchlist) {
             noteQw.eq(PaperResearchNote::getWatchlist, false);
         } else {
@@ -103,6 +105,20 @@ public class PaperAiContextBuilder {
             String symbol = note.getSymbol().trim().toUpperCase(Locale.ROOT);
             noteBySymbol.put(symbol, note);
             candidates.add(symbol);
+        }
+        // 持仓卡片（多为 value_tier=0）补进 note 映射，便于上下文展示故事
+        for (PaperPosition p : positions) {
+            if (!StringUtils.hasText(p.getSymbol())) {
+                continue;
+            }
+            String symbol = p.getSymbol().trim().toUpperCase(Locale.ROOT);
+            if (noteBySymbol.containsKey(symbol)) {
+                continue;
+            }
+            PaperResearchNote heldNote = noteMapper.selectById(symbol);
+            if (heldNote != null) {
+                noteBySymbol.put(symbol, heldNote);
+            }
         }
 
         EtfPremiumClient.Session premiumSession = premiumClient.newSession();
@@ -177,6 +193,11 @@ public class PaperAiContextBuilder {
                     }
                     row.put("signalTags", note.getSignalTags() == null ? "" : note.getSignalTags());
                     row.put("sourceTier", note.getSourceTier() == null ? "" : note.getSourceTier());
+                    if (note.getValueTier() != null) {
+                        row.put("valueTier", note.getValueTier());
+                    } else {
+                        row.putNull("valueTier");
+                    }
                     row.put("watchlist", Boolean.TRUE.equals(note.getWatchlist()));
                     if (note.getUpdatedAt() != null) {
                         row.put("noteUpdatedAt", note.getUpdatedAt().toString());

@@ -183,6 +183,8 @@ export interface PaperResearchNote {
   evidenceScore?: number | null
   signalTags?: string | null
   sourceTier?: string | null
+  /** 0已持仓 1应该买入 2继续观察 3移出票仓。 */
+  valueTier?: number | null
   updatedAt?: string | null
 }
 
@@ -202,6 +204,8 @@ export interface PaperResearchNoteAdmin {
   evidenceScore?: number | null
   signalTags?: string | null
   sourceTier?: string | null
+  /** 0已持仓 1应该买入 2继续观察 3移出票仓。 */
+  valueTier?: number | null
   runId?: string | null
   createdAt?: string | null
   updatedAt?: string | null

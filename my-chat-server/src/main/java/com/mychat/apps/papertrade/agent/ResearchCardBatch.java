@@ -24,7 +24,9 @@ public record ResearchCardBatch(List<ResearchCardDecision> cards) {
             double evidenceScore,
             List<String> signalTags,
             @JsonDeserialize(using = FlexibleStringListDeserializer.class)
-            List<String> evidenceRefs) {
+            List<String> evidenceRefs,
+            /** 价值等级 1应该买入 / 2继续观察 / 3移出票仓；0 非法。 */
+            Integer valueTier) {
 
         /** 固化列表字段。 */
         public ResearchCardDecision {

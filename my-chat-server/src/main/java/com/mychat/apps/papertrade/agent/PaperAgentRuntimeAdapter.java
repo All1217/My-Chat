@@ -165,8 +165,8 @@ public class PaperAgentRuntimeAdapter {
                         repairService.parseOrRepair(
                                 raw, ResearchCardBatch.class,
                                 "ResearchCardBatch.cards[] 含 symbol/name/kept/story/risks/"
-                                        + "rejectReason/fitScore/evidenceScore/signalTags/evidenceRefs；"
-                                        + "evidenceRefs 必须是字符串数组"));
+                                        + "rejectReason/fitScore/evidenceScore/signalTags/evidenceRefs/valueTier；"
+                                        + "valueTier 为 1|2|3；evidenceRefs 必须是字符串数组"));
                 case PAPER_TRADER -> objectMapper.writeValueAsString(
                         repairService.parseOrRepair(
                                 raw, TradeDecisionBatch.class,

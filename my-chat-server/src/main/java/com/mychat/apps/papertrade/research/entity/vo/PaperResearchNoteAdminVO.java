@@ -20,6 +20,7 @@ public class PaperResearchNoteAdminVO {
     private BigDecimal evidenceScore;
     private String signalTags;
     private String sourceTier;
+    private Integer valueTier;
     private String runId;
     private String createdAt;
     private String updatedAt;

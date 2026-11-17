@@ -16,5 +16,6 @@ public class PaperResearchNoteVO {
     private BigDecimal evidenceScore;
     private String signalTags;
     private String sourceTier;
+    private Integer valueTier;
     private String updatedAt;
 }

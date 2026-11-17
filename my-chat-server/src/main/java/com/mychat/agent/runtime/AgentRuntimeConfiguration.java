@@ -151,6 +151,31 @@ public class AgentRuntimeConfiguration {
         return new ObservationAnswerPolicy("paper-warehouse-analyst");
     }
 
+    /** 交易评估员：只读工具 + 阶段评估 JSON。 */
+    @Bean
+    public AgentScenarioProfile paperTradeEvaluatorRuntimeProfile() {
+        return new AgentScenarioProfile(
+                AgentScenarioId.PAPER_TRADE_EVALUATOR,
+                "phase5-v1",
+                Set.of("paper_trade_evaluate", "general"),
+                Set.of("paper-strategy", "paper-decision", "paper-run", "paper-note",
+                        "paper-market", "paper-research-feed", "mcp-crawler", "web-search"),
+                6,
+                10,
+                "stage_eval_batch",
+                "paper-trade-evaluator",
+                "chain",
+                "ephemeral",
+                "paper-trade-evaluator",
+                "none");
+    }
+
+    /** 交易评估员观察回答策略。 */
+    @Bean
+    public AnswerPolicy paperTradeEvaluatorAnswerPolicy() {
+        return new ObservationAnswerPolicy("paper-trade-evaluator");
+    }
+
     /** 市场证据回答策略。 */
     @Bean
     public AnswerPolicy marketEvidenceAnswerPolicy() {

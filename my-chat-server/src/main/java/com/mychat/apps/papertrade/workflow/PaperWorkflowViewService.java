@@ -7,6 +7,8 @@ import com.mychat.apps.papertrade.research.entity.po.PaperResearchRun;
 import com.mychat.apps.papertrade.research.mapper.PaperResearchRunMapper;
 import com.mychat.apps.papertrade.trader.entity.po.PaperAiRun;
 import com.mychat.apps.papertrade.trader.mapper.PaperAiRunMapper;
+import com.mychat.apps.papertrade.evaluator.entity.po.PaperTradeEvaluatorRun;
+import com.mychat.apps.papertrade.evaluator.mapper.PaperTradeEvaluatorRunMapper;
 import com.mychat.apps.papertrade.warehouse.entity.po.PaperWarehouseAnalystRun;
 import com.mychat.apps.papertrade.warehouse.entity.po.PaperWarehouseCleanupRun;
 import com.mychat.apps.papertrade.warehouse.mapper.PaperWarehouseAnalystRunMapper;
@@ -38,9 +40,10 @@ public class PaperWorkflowViewService {
     private final PaperAiRunMapper aiRunMapper;
     private final PaperWarehouseCleanupRunMapper cleanupRunMapper;
     private final PaperWarehouseAnalystRunMapper analystRunMapper;
+    private final PaperTradeEvaluatorRunMapper evaluatorRunMapper;
     private final ObjectMapper objectMapper;
 
-    /** 搜集员 + 交易员 + 票仓分析员 + 票仓清理总览。 */
+    /** 搜集员 + 交易员 + 票仓分析员 + 票仓清理 + 交易评估员总览。 */
     public PaperWorkflowOverviewVO overview() {
         PaperWorkflowOverviewVO out = new PaperWorkflowOverviewVO();
         PaperWorkflowGraphVO researcher = PaperWorkflowBlueprints.researcher();
@@ -51,7 +54,9 @@ public class PaperWorkflowViewService {
         analyst.setLatest(latestAnalyst());
         PaperWorkflowGraphVO cleanup = PaperWorkflowBlueprints.warehouseCleanup();
         cleanup.setLatest(latestCleanup());
-        out.setGraphs(List.of(researcher, trader, analyst, cleanup));
+        PaperWorkflowGraphVO evaluator = PaperWorkflowBlueprints.tradeEvaluator();
+        evaluator.setLatest(latestEvaluator());
+        out.setGraphs(List.of(researcher, trader, analyst, cleanup, evaluator));
         return out;
     }
 
@@ -95,6 +100,18 @@ public class PaperWorkflowViewService {
         PaperWarehouseCleanupRun run = cleanupRunMapper.selectOne(
                 new LambdaQueryWrapper<PaperWarehouseCleanupRun>()
                         .orderByDesc(PaperWarehouseCleanupRun::getCreatedAt)
+                        .last("LIMIT 1"));
+        if (run == null) {
+            return null;
+        }
+        return toLatest(run.getId(), run.getStatus(), run.getCreatedAt(), run.getFinishedAt(),
+                run.getErrorMessage(), run.getFrameworkTrace());
+    }
+
+    private PaperWorkflowLatestRunVO latestEvaluator() {
+        PaperTradeEvaluatorRun run = evaluatorRunMapper.selectOne(
+                new LambdaQueryWrapper<PaperTradeEvaluatorRun>()
+                        .orderByDesc(PaperTradeEvaluatorRun::getCreatedAt)
                         .last("LIMIT 1"));
         if (run == null) {
             return null;

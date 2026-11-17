@@ -9,7 +9,9 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 class PaperAiDecisionParseTest {
 
     private final PaperAiTraderService service = new PaperAiTraderService(
-            null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+            null, null, null, null, null, null, null, null,
+            null, // evaluatorService
+            null, null, null, null, null, null);
 
     @Test
     void readsNewFieldNames() {

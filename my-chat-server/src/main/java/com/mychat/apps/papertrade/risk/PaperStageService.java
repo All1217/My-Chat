@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -24,7 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-/** 现金枯竭时写阶段总结，再把账户重置到初始资金。 */
+/** 阶段总结：指标计算、插入；枯竭重置由评估员在总结后调用。 */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -53,19 +54,40 @@ public class PaperStageService {
     }
 
     /**
-     * 用当前订单写出总结，然后重置账本。重置不删除历史总结。
+     * @deprecated 枯竭路径改由交易评估员总结后重置；保留兼容调用。
      */
+    @Deprecated
     @Transactional
     public void summarizeAndReset(BigDecimal endEquity) {
+        PaperStageSummary row = insertSummary(endEquity, null);
+        tradeService.resetAccount();
+        log.info("兼容路径阶段总结+重置 #{}", row.getStageNo());
+    }
+
+    /**
+     * 计算指标并写入阶段总结。
+     *
+     * @param endEquity 结束权益；null 则用当前现金
+     * @param aiSummary AI 叙述；空则用模板 render
+     */
+    @Transactional
+    public PaperStageSummary insertSummary(BigDecimal endEquity, String aiSummary) {
         PaperAccount account = tradeService.requireAccount();
-        // 1. 取出本阶段订单。重置会删订单，所以必须先算完。
         List<PaperOrder> orders = orderMapper.selectList(new LambdaQueryWrapper<PaperOrder>()
                 .eq(PaperOrder::getAccountId, account.getId())
                 .orderByAsc(PaperOrder::getCreatedAt));
         PaperStageSummary row = build(account, orders, endEquity == null ? account.getCash() : endEquity);
+        if (StringUtils.hasText(aiSummary)) {
+            row.setSummaryText(aiSummary.trim());
+        }
         summaryMapper.insert(row);
         log.info("阶段总结 #{} trades={} equity={}", row.getStageNo(), row.getTradeCount(), row.getEndEquity());
-        // 2. 清空持仓、订单、冷却，现金回到初始资金。
+        return row;
+    }
+
+    /** 仅重置账本（评估员在总结后调用）。 */
+    @Transactional
+    public void resetAccountOnly() {
         tradeService.resetAccount();
     }
 
@@ -79,7 +101,6 @@ public class PaperStageService {
         BigDecimal lossSum = BigDecimal.ZERO;
         int wins = 0;
         int losses = 0;
-        // 1. 按时间把买单和随后的卖单配成一笔，并累计费用与出场原因
         for (PaperOrder order : orders) {
             if (order.getFee() != null) {
                 totalFee = totalFee.add(order.getFee());
@@ -108,7 +129,6 @@ public class PaperStageService {
             }
         }
         int stageNo = nextStageNo();
-        // 2. 胜率、盈亏比、平均持有工作日
         BigDecimal winRate = sells.isEmpty() ? null
                 : BigDecimal.valueOf(wins).divide(BigDecimal.valueOf(sells.size()), 6, RoundingMode.HALF_UP);
         BigDecimal payoff = losses == 0 || wins == 0 ? null
@@ -150,7 +170,7 @@ public class PaperStageService {
         String payoff = row.getPayoffRatio() == null ? "无法计算" : row.getPayoffRatio().toPlainString();
         String hold = row.getAvgHoldDays() == null ? "无" : row.getAvgHoldDays().toPlainString();
         return """
-                阶段%d %s 至 %s。起始资金 %s，结束权益 %s。平仓 %d 笔，胜率 %s，盈亏比 %s，最大回撤 %s，平均持有工作日 %s，费用合计 %s（滑点按 0 计，出场价是最新收盘价，不是跳空后的止损价）。出场原因 %s。下一阶段从初始资金重新开始，不继承持仓。
+                阶段%d %s 至 %s。起始资金 %s，结束权益 %s。平仓 %d 笔，胜率 %s，盈亏比 %s，最大回撤 %s，平均持有工作日 %s，费用合计 %s（滑点按 0 计）。出场原因 %s。
                 """.formatted(
                 row.getStageNo(),
                 started,

@@ -17,6 +17,7 @@ import type {
   PaperStageSummary,
   PaperRiskSettings,
   PaperStrategy,
+  PaperEvaluatorRun,
   PaperWarehouseRun,
   PaperWorkflowOverview,
 } from '@/apps/paper-trade/types'
@@ -96,6 +97,12 @@ export const paperTradeApi = {
 
   warehouseAnalystRunDetail: (id: string) =>
     ragClient.get<PaperWarehouseRun>(`/ai/apps/paper-trade/warehouse/analyst/runs/${id}`),
+
+  evaluatorRun: () =>
+    ragClient.post<PaperAiSubmit>('/ai/apps/paper-trade/evaluator/run'),
+
+  evaluatorRunDetail: (id: string) =>
+    ragClient.get<PaperEvaluatorRun>(`/ai/apps/paper-trade/evaluator/runs/${id}`),
 
   // —— 管理端历史 ——
 

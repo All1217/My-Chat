@@ -17,5 +17,8 @@ public class PaperScheduleVO {
     private Boolean analystEnabled;
     private String analystCron;
     private Integer warehouseTier2RetainDays;
+    private Boolean evaluatorEnabled;
+    private String evaluatorCron;
+    private String evaluatorEmail;
     private String updatedAt;
 }

@@ -97,6 +97,28 @@
         </div>
       </div>
       <el-input v-model="schedule.cleanupCron" placeholder="0 0 23 * * *" class="cron-input" />
+      <div class="sched-row">
+        <div class="sched-meta">
+          <strong>交易评估员</strong>
+          <p>默认周六 10:00；写阶段总结并邮件建议可编辑策略；枯竭时由交易员唤醒</p>
+        </div>
+        <div class="sched-ops">
+          <el-button size="small" :loading="evaluatorRunning" @click="onRunEvaluator">执行一次</el-button>
+          <el-switch v-model="schedule.evaluatorEnabled" />
+        </div>
+      </div>
+      <el-input v-model="schedule.evaluatorCron" placeholder="0 0 10 * * SAT" class="cron-input" />
+      <div class="sched-row">
+        <div class="sched-meta">
+          <strong>评估结果收件人</strong>
+          <p>空则跳过发信；默认 QQ 邮箱</p>
+        </div>
+      </div>
+      <el-input
+        v-model="schedule.evaluatorEmail"
+        placeholder="3116459510@qq.com"
+        class="cron-input"
+      />
     </section>
 
     <section class="panel panel-strategy">
@@ -367,12 +389,14 @@ const researchRunning = ref(false)
 const traderRunning = ref(false)
 const analystRunning = ref(false)
 const cleanupRunning = ref(false)
+const evaluatorRunning = ref(false)
 const resetting = ref(false)
 const wiping = ref(false)
 let researchTimer: ReturnType<typeof setInterval> | null = null
 let traderTimer: ReturnType<typeof setInterval> | null = null
 let analystTimer: ReturnType<typeof setInterval> | null = null
 let cleanupTimer: ReturnType<typeof setInterval> | null = null
+let evaluatorTimer: ReturnType<typeof setInterval> | null = null
 
 const schedule = reactive({
   researchEnabled: false,
@@ -384,6 +408,9 @@ const schedule = reactive({
   cleanupEnabled: true,
   cleanupCron: '0 0 23 * * *',
   warehouseTier2RetainDays: 2,
+  evaluatorEnabled: true,
+  evaluatorCron: '0 0 10 * * SAT',
+  evaluatorEmail: '3116459510@qq.com',
   zoneId: 'Asia/Shanghai',
   includeWatchlist: true,
 })
@@ -398,6 +425,9 @@ function applySchedule(sch: {
   cleanupEnabled?: boolean
   cleanupCron?: string
   warehouseTier2RetainDays?: number
+  evaluatorEnabled?: boolean
+  evaluatorCron?: string
+  evaluatorEmail?: string
   zoneId?: string
   includeWatchlist?: boolean
 }) {
@@ -411,6 +441,9 @@ function applySchedule(sch: {
   schedule.cleanupCron = sch.cleanupCron || '0 0 23 * * *'
   schedule.warehouseTier2RetainDays =
     sch.warehouseTier2RetainDays == null ? 2 : Number(sch.warehouseTier2RetainDays)
+  schedule.evaluatorEnabled = sch.evaluatorEnabled !== false
+  schedule.evaluatorCron = sch.evaluatorCron || '0 0 10 * * SAT'
+  schedule.evaluatorEmail = sch.evaluatorEmail || '3116459510@qq.com'
   schedule.zoneId = sch.zoneId || 'Asia/Shanghai'
   schedule.includeWatchlist = sch.includeWatchlist !== false
 }
@@ -426,6 +459,9 @@ function schedulePayload() {
     cleanupEnabled: schedule.cleanupEnabled,
     cleanupCron: schedule.cleanupCron.trim(),
     warehouseTier2RetainDays: schedule.warehouseTier2RetainDays,
+    evaluatorEnabled: schedule.evaluatorEnabled,
+    evaluatorCron: schedule.evaluatorCron.trim(),
+    evaluatorEmail: schedule.evaluatorEmail.trim(),
     zoneId: schedule.zoneId,
     includeWatchlist: schedule.includeWatchlist,
   }
@@ -450,7 +486,8 @@ async function onSaveSchedule() {
     !schedule.researchCron?.trim() ||
     !schedule.traderCron?.trim() ||
     !schedule.analystCron?.trim() ||
-    !schedule.cleanupCron?.trim()
+    !schedule.cleanupCron?.trim() ||
+    !schedule.evaluatorCron?.trim()
   ) {
     ElMessage.warning('cron 不能为空')
     return
@@ -477,7 +514,8 @@ async function onSaveGeneral() {
     !schedule.researchCron?.trim() ||
     !schedule.traderCron?.trim() ||
     !schedule.analystCron?.trim() ||
-    !schedule.cleanupCron?.trim()
+    !schedule.cleanupCron?.trim() ||
+    !schedule.evaluatorCron?.trim()
   ) {
     ElMessage.warning('cron 不能为空')
     return
@@ -514,6 +552,11 @@ function stopAnalystPoll() {
 function stopCleanupPoll() {
   if (cleanupTimer) clearInterval(cleanupTimer)
   cleanupTimer = null
+}
+
+function stopEvaluatorPoll() {
+  if (evaluatorTimer) clearInterval(evaluatorTimer)
+  evaluatorTimer = null
 }
 
 /** 搜集员执行一次：提交后短轮询，结束时提示。 */
@@ -638,6 +681,41 @@ async function onRunCleanup() {
   }
 }
 
+async function onRunEvaluator() {
+  evaluatorRunning.value = true
+  try {
+    const sub = await paperTradeApi.evaluatorRun()
+    if (!sub?.runId) {
+      evaluatorRunning.value = false
+      ElMessage.warning(sub?.status === 'SKIPPED_ACTIVE' ? '评估员已有活动轮' : '未提交成功')
+      return
+    }
+    stopEvaluatorPoll()
+    let tries = 0
+    evaluatorTimer = setInterval(async () => {
+      tries += 1
+      try {
+        const run = await paperTradeApi.evaluatorRunDetail(sub.runId)
+        if (run.status === 'SUCCEEDED' || run.status === 'FAILED') {
+          stopEvaluatorPoll()
+          evaluatorRunning.value = false
+          if (run.status === 'FAILED') ElMessage.error(run.errorMessage || '评估员失败')
+          else ElMessage.success('交易评估完成')
+        }
+      } catch {
+        /* ignore */
+      }
+      if (tries > 60) {
+        stopEvaluatorPoll()
+        evaluatorRunning.value = false
+        ElMessage.warning('评估员仍在运行')
+      }
+    }, 2000)
+  } catch {
+    evaluatorRunning.value = false
+  }
+}
+
 async function onSaveStrategy() {
   if (!customContent.value.trim()) {
     ElMessage.warning('可编辑风格不能为空')
@@ -715,6 +793,7 @@ onUnmounted(() => {
   stopTraderPoll()
   stopAnalystPoll()
   stopCleanupPoll()
+  stopEvaluatorPoll()
 })
 </script>
 

@@ -22,6 +22,8 @@ import com.mychat.apps.papertrade.ledger.entity.vo.PaperPositionVO;
 import com.mychat.apps.papertrade.research.entity.po.PaperResearchRun;
 import com.mychat.apps.papertrade.research.entity.vo.PaperResearchNoteVO;
 import com.mychat.apps.papertrade.trader.entity.vo.PaperStrategyVO;
+import com.mychat.apps.papertrade.evaluator.PaperTradeEvaluatorService;
+import com.mychat.apps.papertrade.evaluator.entity.po.PaperTradeEvaluatorRun;
 import com.mychat.apps.papertrade.warehouse.PaperWarehouseAnalystService;
 import com.mychat.apps.papertrade.warehouse.PaperWarehouseCleanupService;
 import com.mychat.apps.papertrade.warehouse.entity.po.PaperWarehouseAnalystRun;
@@ -58,6 +60,7 @@ public class PaperTradeController {
     private final PaperWorkflowViewService workflowViewService;
     private final PaperWarehouseCleanupService cleanupService;
     private final PaperWarehouseAnalystService analystService;
+    private final PaperTradeEvaluatorService evaluatorService;
 
     /** 看板行情（折线 + 基础指标）；默认 range=1M。 */
     @GetMapping("/quote")
@@ -243,6 +246,21 @@ public class PaperTradeController {
     public Result<PaperWarehouseAnalystRun> warehouseAnalystRunDetail(@PathVariable String id) {
         try {
             return Result.ok(analystService.getRun(id));
+        } catch (IllegalArgumentException e) {
+            return Result.fail(404, e.getMessage());
+        }
+    }
+
+    /** 提交交易评估员一轮（异步，周更）。 */
+    @PostMapping("/evaluator/run")
+    public Result<PaperAiSubmitVO> evaluatorRun() {
+        return Result.ok(evaluatorService.submitWeekly());
+    }
+
+    @GetMapping("/evaluator/runs/{id}")
+    public Result<PaperTradeEvaluatorRun> evaluatorRunDetail(@PathVariable String id) {
+        try {
+            return Result.ok(evaluatorService.getRun(id));
         } catch (IllegalArgumentException e) {
             return Result.fail(404, e.getMessage());
         }

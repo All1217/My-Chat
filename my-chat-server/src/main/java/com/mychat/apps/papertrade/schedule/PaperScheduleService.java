@@ -21,6 +21,8 @@ import java.time.format.DateTimeFormatter;
 public class PaperScheduleService {
 
     private static final DateTimeFormatter TS = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    public static final String DEFAULT_EVALUATOR_EMAIL = "3116459510@qq.com";
+    public static final String DEFAULT_EVALUATOR_CRON = "0 0 10 * * SAT";
 
     private final PaperScheduleSettingsMapper mapper;
     private final PaperTradeProperties properties;
@@ -56,11 +58,15 @@ public class PaperScheduleService {
         seed.setAnalystEnabled(true);
         seed.setAnalystCron("0 0 18 * * *");
         seed.setWarehouseTier2RetainDays(2);
+        seed.setEvaluatorEnabled(true);
+        seed.setEvaluatorCron(DEFAULT_EVALUATOR_CRON);
+        seed.setEvaluatorEmail(DEFAULT_EVALUATOR_EMAIL);
         seed.setUpdatedAt(LocalDateTime.now());
         validateCron(seed.getResearchCron());
         validateCron(seed.getTraderCron());
         validateCron(seed.getCleanupCron());
         validateCron(seed.getAnalystCron());
+        validateCron(seed.getEvaluatorCron());
         validateZone(seed.getZoneId());
         mapper.insert(seed);
         return seed;
@@ -128,6 +134,17 @@ public class PaperScheduleService {
             }
             row.setWarehouseTier2RetainDays(days);
         }
+        if (req.getEvaluatorEnabled() != null) {
+            row.setEvaluatorEnabled(req.getEvaluatorEnabled());
+        }
+        if (req.getEvaluatorCron() != null) {
+            String cron = req.getEvaluatorCron().trim();
+            validateCron(cron);
+            row.setEvaluatorCron(cron);
+        }
+        if (req.getEvaluatorEmail() != null) {
+            row.setEvaluatorEmail(req.getEvaluatorEmail().trim());
+        }
         row.setUpdatedAt(LocalDateTime.now());
         mapper.updateById(row);
         return row;
@@ -172,6 +189,9 @@ public class PaperScheduleService {
         vo.setAnalystCron(blankTo(row.getAnalystCron(), "0 0 18 * * *"));
         vo.setWarehouseTier2RetainDays(row.getWarehouseTier2RetainDays() == null
                 ? 2 : row.getWarehouseTier2RetainDays());
+        vo.setEvaluatorEnabled(row.getEvaluatorEnabled() == null || Boolean.TRUE.equals(row.getEvaluatorEnabled()));
+        vo.setEvaluatorCron(blankTo(row.getEvaluatorCron(), DEFAULT_EVALUATOR_CRON));
+        vo.setEvaluatorEmail(blankTo(row.getEvaluatorEmail(), DEFAULT_EVALUATOR_EMAIL));
         if (row.getUpdatedAt() != null) {
             vo.setUpdatedAt(row.getUpdatedAt().format(TS));
         }

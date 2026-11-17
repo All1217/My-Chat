@@ -36,6 +36,18 @@ spring:
       request-timeout: 24h
   application:
     name: my-chat
+  # 交易评估员邮件（密码建议环境变量 PAPER_MAIL_PASS）；未配齐则发信 SKIPPED
+  mail:
+    host: ${PAPER_MAIL_HOST:smtp.qq.com}
+    port: ${PAPER_MAIL_PORT:587}
+    username: ${PAPER_MAIL_USER:}
+    password: ${PAPER_MAIL_PASS:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
   # 缓存由 CacheConfiguration（Caffeine）提供；不上 Redis
   cache:
     type: caffeine

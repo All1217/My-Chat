@@ -156,6 +156,10 @@ export interface PaperScheduleSettings {
   analystCron: string
   /** 价值等级=2 滞留自然日阈值。 */
   warehouseTier2RetainDays: number
+  evaluatorEnabled: boolean
+  evaluatorCron: string
+  /** 评估结果收件人。 */
+  evaluatorEmail: string
   zoneId: string
   /** 是否纳入自选：是则自选优先，否则交易员看不到自选。 */
   includeWatchlist: boolean
@@ -171,6 +175,21 @@ export interface PaperWarehouseRun {
   status: string
   screenedCount?: number | null
   adjustedCount?: number | null
+  statsJson?: string | null
+  frameworkTrace?: string | null
+  errorMessage?: string | null
+  createdAt?: string | null
+  finishedAt?: string | null
+}
+
+/** 交易评估员轮次。 */
+export interface PaperEvaluatorRun {
+  id: string
+  jobId?: string | null
+  status: string
+  triggerType?: string | null
+  stageSummaryId?: string | null
+  emailStatus?: string | null
   statsJson?: string | null
   frameworkTrace?: string | null
   errorMessage?: string | null

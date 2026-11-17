@@ -22,4 +22,8 @@ public class PaperScheduleRequest {
     private String analystCron;
     /** 价值等级=2 滞留天数。 */
     private Integer warehouseTier2RetainDays;
+
+    private Boolean evaluatorEnabled;
+    private String evaluatorCron;
+    private String evaluatorEmail;
 }

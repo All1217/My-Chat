@@ -23,7 +23,8 @@ import com.mychat.apps.papertrade.risk.PaperGateContext;
 import com.mychat.apps.papertrade.risk.PaperPositionExitService;
 import com.mychat.apps.papertrade.risk.PaperRiskGuard;
 import com.mychat.apps.papertrade.risk.PaperRiskSettingsService;
-import com.mychat.apps.papertrade.risk.PaperStageService;
+import com.mychat.apps.papertrade.evaluator.PaperTradeEvaluatorService;
+import com.mychat.apps.papertrade.evaluator.entity.po.PaperTradeEvaluatorRun;
 import com.mychat.apps.papertrade.risk.PaperSymbolFacts;
 import com.mychat.apps.papertrade.trader.entity.po.PaperAiDecision;
 import com.mychat.apps.papertrade.trader.entity.po.PaperAiRun;
@@ -74,7 +75,7 @@ public class PaperAiTraderService {
     private final PaperTradeService tradeService;
     private final PaperTradeProperties properties;
     private final PaperPositionExitService exitService;
-    private final PaperStageService stageService;
+    private final PaperTradeEvaluatorService evaluatorService;
     private final AsyncJobService asyncJobService;
     private final PaperAgentRuntimeAdapter agentRuntime;
     private final PaperRunLifecycle lifecycle;
@@ -94,7 +95,7 @@ public class PaperAiTraderService {
                                 PaperTradeService tradeService,
                                 PaperTradeProperties properties,
                                 PaperPositionExitService exitService,
-                                PaperStageService stageService,
+                                PaperTradeEvaluatorService evaluatorService,
                                 AsyncJobService asyncJobService,
                                 PaperAgentRuntimeAdapter agentRuntime,
                                 PaperRunLifecycle lifecycle,
@@ -109,7 +110,7 @@ public class PaperAiTraderService {
         this.tradeService = tradeService;
         this.properties = properties;
         this.exitService = exitService;
-        this.stageService = stageService;
+        this.evaluatorService = evaluatorService;
         this.asyncJobService = asyncJobService;
         this.agentRuntime = agentRuntime;
         this.lifecycle = lifecycle;
@@ -169,11 +170,14 @@ public class PaperAiTraderService {
             tradeService.refreshPeak(mark);
             trace.ok(PaperWorkflowStep.PROCESS_RULE_EXITS, "exits flushed");
 
-            // 2. 组上下文；现金买不起任何一手且已空仓时，先写总结再重置
+            // 2. 组上下文；枯竭时仅唤醒评估员（总结+重置由评估员完成），本轮继续
             PaperAiContextBuilder.BuiltContext ctx = contextBuilder.build();
             if (shouldReset(ctx)) {
-                stageService.summarizeAndReset(mark.equity());
-                ctx = contextBuilder.build();
+                try {
+                    evaluatorService.submitRun(PaperTradeEvaluatorRun.TRIGGER_LIQUIDITY_RESET);
+                } catch (Exception e) {
+                    log.warn("枯竭唤醒评估员失败: {}", e.getMessage());
+                }
             }
             run.setContextJson(ctx.contextJson());
             runMapper.updateById(run);

@@ -59,6 +59,16 @@ public class PaperScheduleSettings {
     @TableField("warehouse_tier2_retain_days")
     private Integer warehouseTier2RetainDays;
 
+    @TableField("evaluator_enabled")
+    private Boolean evaluatorEnabled;
+
+    @TableField("evaluator_cron")
+    private String evaluatorCron;
+
+    /** 评估结果收件人。 */
+    @TableField("evaluator_email")
+    private String evaluatorEmail;
+
     @TableField(value = "updated_at", fill = FieldFill.INSERT_UPDATE)
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
     private LocalDateTime updatedAt;

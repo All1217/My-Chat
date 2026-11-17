@@ -1,5 +1,6 @@
 package com.mychat.apps.papertrade.schedule;
 
+import com.mychat.apps.papertrade.evaluator.PaperTradeEvaluatorService;
 import com.mychat.apps.papertrade.research.PaperResearchService;
 import com.mychat.apps.papertrade.schedule.entity.po.PaperScheduleSettings;
 import com.mychat.apps.papertrade.trader.PaperAiTraderService;
@@ -23,7 +24,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * 按 DB 配置动态挂载搜集员 / 交易员 / 票仓分析员 / 票仓清理 cron。
+ * 按 DB 配置动态挂载搜集员 / 交易员 / 票仓分析员 / 票仓清理 / 交易评估员 cron。
  */
 @Slf4j
 @Component
@@ -36,12 +37,14 @@ public class PaperScheduleManager implements ApplicationRunner {
     private final PaperAiTraderService traderService;
     private final PaperWarehouseCleanupService cleanupService;
     private final PaperWarehouseAnalystService analystService;
+    private final PaperTradeEvaluatorService evaluatorService;
     private final ThreadPoolTaskScheduler paperTradeTaskScheduler;
 
     private final AtomicReference<ScheduledFuture<?>> researchFuture = new AtomicReference<>();
     private final AtomicReference<ScheduledFuture<?>> traderFuture = new AtomicReference<>();
     private final AtomicReference<ScheduledFuture<?>> cleanupFuture = new AtomicReference<>();
     private final AtomicReference<ScheduledFuture<?>> analystFuture = new AtomicReference<>();
+    private final AtomicReference<ScheduledFuture<?>> evaluatorFuture = new AtomicReference<>();
 
     @Override
     public void run(ApplicationArguments args) {
@@ -61,6 +64,7 @@ public class PaperScheduleManager implements ApplicationRunner {
         cancel(traderFuture);
         cancel(cleanupFuture);
         cancel(analystFuture);
+        cancel(evaluatorFuture);
         if (Boolean.TRUE.equals(cfg.getResearchEnabled())) {
             ScheduledFuture<?> f = paperTradeTaskScheduler.schedule(
                     this::runResearch,
@@ -101,6 +105,17 @@ public class PaperScheduleManager implements ApplicationRunner {
         } else {
             log.info("票仓清理定时已关闭");
         }
+        if (cfg.getEvaluatorEnabled() == null || Boolean.TRUE.equals(cfg.getEvaluatorEnabled())) {
+            String cron = cfg.getEvaluatorCron() == null || cfg.getEvaluatorCron().isBlank()
+                    ? PaperScheduleService.DEFAULT_EVALUATOR_CRON : cfg.getEvaluatorCron();
+            ScheduledFuture<?> f = paperTradeTaskScheduler.schedule(
+                    this::runEvaluator,
+                    new CronTrigger(cron, zone));
+            evaluatorFuture.set(f);
+            log.info("交易评估员定时已挂载 cron={} zone={}", cron, cfg.getZoneId());
+        } else {
+            log.info("交易评估员定时已关闭");
+        }
     }
 
     void runResearch() {
@@ -140,6 +155,15 @@ public class PaperScheduleManager implements ApplicationRunner {
         }
     }
 
+    void runEvaluator() {
+        try {
+            log.info("定时触发 paper_trade_evaluator");
+            evaluatorService.submitWeekly();
+        } catch (Exception e) {
+            log.warn("交易评估员提交失败: {}", e.getMessage());
+        }
+    }
+
     private void warnIfIntraday() {
         try {
             PaperScheduleSettings cfg = scheduleService.requireSettings();
@@ -170,5 +194,6 @@ public class PaperScheduleManager implements ApplicationRunner {
         cancel(traderFuture);
         cancel(cleanupFuture);
         cancel(analystFuture);
+        cancel(evaluatorFuture);
     }
 }

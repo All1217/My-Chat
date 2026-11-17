@@ -109,6 +109,30 @@ public final class PaperWorkflowBlueprints {
         return g;
     }
 
+    /** 交易评估员流水线。 */
+    public static PaperWorkflowGraphVO tradeEvaluator() {
+        PaperWorkflowGraphVO g = new PaperWorkflowGraphVO();
+        g.setId("trade-evaluator");
+        g.setTitle("交易评估员");
+        g.setNodes(List.of(
+                node(PaperWorkflowStep.START_RUN, "启动评估", "start", 0, 80),
+                node(PaperWorkflowStep.GATHER_EVIDENCE, "汇总证据", "process", 240, 80),
+                node(PaperWorkflowStep.AI_EVALUATE, "AI 评估", "ai", 480, 80),
+                node(PaperWorkflowStep.WRITE_STAGE_SUMMARY, "写阶段总结", "process", 720, 80),
+                node(PaperWorkflowStep.SEND_EMAIL, "发送邮件", "process", 960, 80),
+                node(PaperWorkflowStep.FINISH_RUN, "结束", "end", 1200, 80)
+        ));
+        g.setEdges(chain(
+                PaperWorkflowStep.START_RUN,
+                PaperWorkflowStep.GATHER_EVIDENCE,
+                PaperWorkflowStep.AI_EVALUATE,
+                PaperWorkflowStep.WRITE_STAGE_SUMMARY,
+                PaperWorkflowStep.SEND_EMAIL,
+                PaperWorkflowStep.FINISH_RUN
+        ));
+        return g;
+    }
+
     private static PaperWorkflowNodeVO node(PaperWorkflowStep step, String label, String type,
                                             double x, double y) {
         PaperWorkflowNodeVO n = new PaperWorkflowNodeVO();

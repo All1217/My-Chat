@@ -43,6 +43,11 @@ public class PaperAgentRuntimeAdapter {
         return call(AgentScenarioId.PAPER_TRADER, input, businessRef, asyncJobId);
     }
 
+    /** 交易评估员：产出 StageEvalBatch。 */
+    public Outcome evaluate(String input, String businessRef, String asyncJobId) {
+        return call(AgentScenarioId.PAPER_TRADE_EVALUATOR, input, businessRef, asyncJobId);
+    }
+
     /** 票仓分析员：深搜后调等级；不强制批次 Schema。 */
     public Outcome warehouseAnalyze(String input, String businessRef, String asyncJobId) {
         long started = System.nanoTime();
@@ -141,6 +146,11 @@ public class PaperAgentRuntimeAdapter {
                     if (batch != null && !batch.decisions().isEmpty()) {
                         return new Typed(objectMapper.writeValueAsString(batch), true);
                     }
+                } else if (scenarioId == AgentScenarioId.PAPER_TRADE_EVALUATOR) {
+                    StageEvalBatch batch = objectMapper.readValue(candidate, StageEvalBatch.class);
+                    if (batch != null && StringUtils.hasText(batch.summaryText())) {
+                        return new Typed(objectMapper.writeValueAsString(batch), true);
+                    }
                 }
             } catch (Exception ignored) {
                 // 尝试下一候选
@@ -151,8 +161,11 @@ public class PaperAgentRuntimeAdapter {
 
     /** 组装抢救候选文本：优先动作 → 任意成功观察 → 运行输出。 */
     private List<String> salvageCandidates(AgentScenarioId scenarioId, AgentRunResult result) {
-        String preferred = scenarioId == AgentScenarioId.PAPER_RESEARCH
-                ? "paper_research" : "paper_trade_review";
+        String preferred = switch (scenarioId) {
+            case PAPER_RESEARCH -> "paper_research";
+            case PAPER_TRADE_EVALUATOR -> "paper_trade_evaluate";
+            default -> "paper_trade_review";
+        };
         List<String> out = new ArrayList<>();
         for (int i = result.steps().size() - 1; i >= 0; i--) {
             AgentStepResult step = result.steps().get(i);
@@ -183,6 +196,8 @@ public class PaperAgentRuntimeAdapter {
         String text = raw.trim();
         return text.contains("\"cards\"")
                 || text.contains("\"decisions\"")
+                || text.contains("\"summaryText\"")
+                || text.contains("\"strategyAdvice\"")
                 || text.startsWith("[")
                 || text.startsWith("{");
     }
@@ -203,6 +218,11 @@ public class PaperAgentRuntimeAdapter {
                                 "TradeDecisionBatch.decisions[] 含 action/symbol/quantity/"
                                         + "confidence/reasoning/riskFlags/manualReview/evidenceRefs；"
                                         + "evidenceRefs 必须是字符串数组"));
+                case PAPER_TRADE_EVALUATOR -> objectMapper.writeValueAsString(
+                        repairService.parseOrRepair(
+                                raw, StageEvalBatch.class,
+                                "StageEvalBatch 含 summaryText/strategyAdvice/emailBody；"
+                                        + "evidenceRefs 为字符串数组；建议仅针对可编辑策略"));
                 default -> raw;
             };
         } catch (Exception exception) {

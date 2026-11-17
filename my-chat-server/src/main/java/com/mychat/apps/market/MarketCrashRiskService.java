@@ -2,9 +2,9 @@ package com.mychat.apps.market;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mychat.agent.capability.MarketAnalysisCapability;
 import com.mychat.apps.market.entity.vo.MarketCrashRiskVO;
 import com.mychat.job.AsyncJobService;
-import com.mychat.service.agent.worker.SearchWorker;
 import com.mychat.vo.AsyncJobVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -34,16 +34,16 @@ public class MarketCrashRiskService {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final MarketStrategyProperties properties;
-    private final SearchWorker searchWorker;
+    private final MarketAnalysisCapability marketAnalysis;
     private final AsyncJobService asyncJobService;
 
-    /** 注入落盘路径、联网搜索 Worker 与任务窗口。 */
+    /** 注入落盘路径、市场分析能力与任务窗口。 */
     public MarketCrashRiskService(
             MarketStrategyProperties properties,
-            SearchWorker searchWorker,
+            MarketAnalysisCapability marketAnalysis,
             AsyncJobService asyncJobService) {
         this.properties = properties;
-        this.searchWorker = searchWorker;
+        this.marketAnalysis = marketAnalysis;
         this.asyncJobService = asyncJobService;
     }
 
@@ -90,7 +90,7 @@ public class MarketCrashRiskService {
             return;
         }
         try {
-            String text = searchWorker.run(buildUserPrompt(), null);
+            String text = marketAnalysis.analyze(buildUserPrompt(), weekKey);
             CrashFields fields = parseFields(text);
             file.weekKey = weekKey;
             file.window = fields.window;

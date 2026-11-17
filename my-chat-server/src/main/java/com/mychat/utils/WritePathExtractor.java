@@ -1,7 +1,6 @@
 package com.mychat.utils;
 
 import com.mychat.common.ChatStreamEvent;
-import com.mychat.vo.OrchestrateStepVO;
 import org.springframework.util.StringUtils;
 
 import java.util.List;
@@ -10,7 +9,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * 从工具事件或编排步骤中猜测本轮 write 目标相对路径（供主聊天 qualityLoop 门控）。
+ * 从工具事件或用户文本中提取本轮 write 目标相对路径。
  */
 public final class WritePathExtractor {
 
@@ -54,30 +53,7 @@ public final class WritePathExtractor {
         return StringUtils.hasText(lastOkWrite) ? lastOkWrite : lastWrite;
     }
 
-    /**
-     * 从 Orchestrator file 步 instruction / observation 中启发式提取路径。
-     */
-    public static String fromOrchestrateSteps(List<OrchestrateStepVO> steps) {
-        if (steps == null || steps.isEmpty()) {
-            return null;
-        }
-        for (int i = steps.size() - 1; i >= 0; i--) {
-            OrchestrateStepVO s = steps.get(i);
-            if (s == null || !"file".equals(s.getAction())) {
-                continue;
-            }
-            String fromInstr = hintFromText(s.getInstruction());
-            if (StringUtils.hasText(fromInstr)) {
-                return fromInstr;
-            }
-            String fromObs = hintFromText(s.getObservation());
-            if (StringUtils.hasText(fromObs)) {
-                return fromObs;
-            }
-        }
-        return null;
-    }
-
+    /** 从自由文本启发式提取文件路径。 */
     public static String hintFromText(String text) {
         if (!StringUtils.hasText(text)) {
             return null;

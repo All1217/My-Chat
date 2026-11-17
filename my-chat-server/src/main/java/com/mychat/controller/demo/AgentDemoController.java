@@ -1,41 +1,27 @@
 package com.mychat.controller.demo;
 
-import com.mychat.agent.api.AgentRunContext;
-import com.mychat.agent.api.AgentRunRequest;
 import com.mychat.agent.api.AgentRunResult;
 import com.mychat.agent.api.AgentScenarioId;
-import com.mychat.agent.runtime.AgentRuntime;
+import com.mychat.agent.runtime.ScenarioAgentService;
 import com.mychat.entity.dto.AgentRuntimeDemoRequest;
 import com.mychat.entity.dto.EvaluateOptimizeRequest;
-import com.mychat.entity.dto.OrchestrateRequest;
-import com.mychat.entity.dto.RouteRequest;
 import com.mychat.vo.EvaluateOptimizeResultVO;
-import com.mychat.vo.OrchestrateResultVO;
 import com.mychat.common.result.Result;
-import com.mychat.service.agent.AgentOrchestratorService;
-import com.mychat.service.agent.demo.AgentRouteDemoStreamService;
 import com.mychat.service.agent.quality.AgentEvaluatorOptimizerService;
-import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
-import reactor.core.publisher.Flux;
 
-import java.nio.charset.StandardCharsets;
 import java.util.Map;
-import java.util.UUID;
 
 /**
  * Agent 调试 API，不进入主聊天产品路径。
  * <p>
- * {@code POST /ai/agent/route} — 单次 Routing，NDJSON（route / tool_* / text_delta / thinking_delta / done）；
- * {@code POST /ai/agent/orchestrate} — 同步 JSON 多步编排（与主路共用 {@link AgentOrchestratorService}）；
+ * {@code POST /ai/agent/runtime} — 运行通用 Runtime；
  * {@code POST /ai/agent/evaluate-optimize} — 同步 JSON 质量环。
  */
 @Slf4j
@@ -44,26 +30,26 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AgentDemoController {
 
-    private final AgentRouteDemoStreamService agentRouteDemoStreamService;
-    private final AgentOrchestratorService agentOrchestratorService;
     private final AgentEvaluatorOptimizerService agentEvaluatorOptimizerService;
-    private final AgentRuntime agentRuntime;
+    private final ScenarioAgentService scenarioAgentService;
 
-    /** 运行 Phase 2 Runtime；写动作不会在该入口获得批准。 */
+    /** 运行多场景 Runtime；默认 MAIN_CHAT，可通过 metadata.scenarioId 切换。 */
     @PostMapping(value = "/runtime", produces = MediaType.APPLICATION_JSON_VALUE)
     public Result<AgentRunResult> runtime(@RequestBody AgentRuntimeDemoRequest request) {
         try {
-            AgentRunContext context = new AgentRunContext(
-                    UUID.randomUUID().toString(),
-                    AgentScenarioId.MAIN_CHAT,
-                    request.conversationId(),
-                    null,
-                    request.kbId(),
-                    request.workDir(),
-                    null,
-                    request.metadata());
-            AgentRunResult result = agentRuntime.run(new AgentRunRequest(
-                    request.input(), context, Map.of("maxDurationMs", 120_000L)));
+            AgentScenarioId scenarioId = resolveScenario(request);
+            AgentRunResult result = scenarioAgentService.run(
+                    new ScenarioAgentService.ScenarioRunCommand(
+                            scenarioId,
+                            request.input(),
+                            request.conversationId(),
+                            null,
+                            null,
+                            request.workDir(),
+                            null,
+                            request.metadata() == null
+                                    ? Map.of()
+                                    : Map.<String, Object>copyOf(request.metadata())));
             return Result.ok(result);
         } catch (IllegalArgumentException exception) {
             log.warn("Runtime Demo 参数错误: {}", exception.getMessage());
@@ -74,43 +60,13 @@ public class AgentDemoController {
         }
     }
 
-    /**
-     * 路由调试（覆盖原同步 {@code Result&lt;RouteResultVO&gt;}）：分类后流式分发到
-     * file / kb / search / general。
-     * <p>
-     * 请求示例：{@code { "input": "列出工作区文件", "workDir": "..." }}；
-     * kb 路由需额外 {@code kbId}。响应 {@code application/x-ndjson}。
-     */
-    @PostMapping(value = "/route", produces = "application/x-ndjson;charset=UTF-8")
-    public Flux<String> route(@RequestBody RouteRequest request, HttpServletResponse response) {
-        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
-        response.setContentType("application/x-ndjson;charset=UTF-8");
-        try {
-            return agentRouteDemoStreamService.stream(request);
-        } catch (IllegalArgumentException e) {
-            log.warn("Routing Demo 参数错误: {}", e.getMessage());
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+    /** 从请求解析场景，缺省为主聊天。 */
+    private AgentScenarioId resolveScenario(AgentRuntimeDemoRequest request) {
+        Object raw = request.metadata() == null ? null : request.metadata().get("scenarioId");
+        if (raw == null || String.valueOf(raw).isBlank()) {
+            return AgentScenarioId.MAIN_CHAT;
         }
-    }
-
-    /**
-     * Orchestrator-Workers 调试：多步 next_action → 专用 Worker，返回 steps + finalAnswer。
-     * <p>
-     * 请求示例：
-     * {@code { "input": "根据知识库总结 X，并搜索补充近况", "kbId": "...", "maxSteps": 6 }}
-     */
-    @PostMapping(value = "/orchestrate", produces = MediaType.APPLICATION_JSON_VALUE)
-    public Result<OrchestrateResultVO> orchestrate(@RequestBody OrchestrateRequest request) {
-        try {
-            OrchestrateResultVO vo = agentOrchestratorService.orchestrate(request);
-            return Result.ok(vo);
-        } catch (IllegalArgumentException e) {
-            log.warn("Orchestrate 参数错误: {}", e.getMessage());
-            return Result.fail(400, e.getMessage());
-        } catch (Exception e) {
-            log.error("Orchestrate 执行失败", e);
-            return Result.fail("Orchestrate 执行失败: " + e.getMessage());
-        }
+        return AgentScenarioId.valueOf(String.valueOf(raw).trim().toUpperCase());
     }
 
     /**

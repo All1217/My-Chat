@@ -2,39 +2,40 @@ package com.mychat.agent.action;
 
 import com.mychat.agent.api.AgentAction;
 import com.mychat.agent.api.AgentRunRequest;
+import com.mychat.agent.api.AgentScenarioId;
 import com.mychat.agent.api.AgentStepResult;
+import com.mychat.agent.capability.ProfileToolCapability;
 import com.mychat.agent.runtime.AgentActionHandler;
 import com.mychat.agent.runtime.AgentDecision;
-import com.mychat.service.agent.worker.FileWorker;
-import com.mychat.service.agent.worker.WorkerPromptSupport;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
+import java.util.Set;
 
-/** 将现有 FileWorker 适配为需批准的文件 Action。 */
+/** MAIN_CHAT 的显式工作区文件 Action。 */
 @Component
 public class FileActionHandler implements AgentActionHandler {
 
-    private final FileWorker worker;
+    private final ProfileToolCapability capability;
 
-    /** 注入现有 Worker。 */
-    public FileActionHandler(FileWorker worker) {
-        this.worker = worker;
+    /** 注入受限 Profile 工具能力。 */
+    public FileActionHandler(ProfileToolCapability capability) {
+        this.capability = capability;
     }
 
     /** 返回动作描述。 */
     @Override
     public AgentAction action() {
         return new AgentAction("file", "读取或修改工作区文件", "{\"instruction\":\"string\"}",
-                "text", AgentAction.SideEffectLevel.HIGH_RISK_WRITE);
+                "text", AgentAction.SideEffectLevel.REVERSIBLE_WRITE);
     }
 
     /** 在显式工作目录执行文件任务。 */
     @Override
     public AgentStepResult handle(AgentRunRequest request, AgentDecision decision, int stepIndex) {
-        String message = WorkerPromptSupport.buildWorkerUserMessage(
-                request.context().metadata().get("dialogueHistory"), decision.instruction());
-        String observation = worker.run(message, request.context().workDir());
+        String message = ActionPromptSupport.message(request, decision);
+        String observation = capability.execute(
+                AgentScenarioId.MAIN_CHAT, request, message, Set.of("file"));
         return new AgentStepResult(stepIndex, action().id(), AgentStepResult.Status.SUCCEEDED,
                 observation, null, Map.of("toolCalls", 1, "toolName", "file"));
     }

@@ -1,27 +1,23 @@
 package com.mychat.service.agent.pipeline.stage;
 
-import com.mychat.entity.dto.OrchestrateRequest;
-import com.mychat.service.agent.AgentOrchestratorService;
+import com.mychat.service.agent.MainChatRuntimeService;
 import com.mychat.service.agent.pipeline.ChatTurnContext;
-import com.mychat.service.agent.pipeline.ChatTurnEmitter;
 import com.mychat.service.agent.pipeline.ChatTurnStage;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 /**
- * 调用编排循环，逐步把 Worker/finish 推成 NDJSON step。
- * <p>
- * 怎么读：本阶段只组 {@link OrchestrateRequest} 并回调 {@link ChatTurnEmitter#emitOrchestrateStep}；
- * 决策与 Worker 仍在 {@link AgentOrchestratorService}。
+ * 调用正式 MAIN_CHAT Runtime，并把结果写入回合上下文。
  */
 @Component
 public class OrchestrateStage implements ChatTurnStage {
 
-    private final AgentOrchestratorService agentOrchestratorService;
+    private final MainChatRuntimeService mainChatRuntimeService;
 
-    public OrchestrateStage(AgentOrchestratorService agentOrchestratorService) {
-        this.agentOrchestratorService = agentOrchestratorService;
+    /** 注入正式主聊天 Runtime。 */
+    public OrchestrateStage(MainChatRuntimeService mainChatRuntimeService) {
+        this.mainChatRuntimeService = mainChatRuntimeService;
     }
 
     /**
@@ -37,17 +33,16 @@ public class OrchestrateStage implements ChatTurnStage {
      */
     @Override
     public Mono<Void> execute(ChatTurnContext ctx) {
-        return Mono.fromCallable(() -> {
-                    OrchestrateRequest request = new OrchestrateRequest();
-                    request.setInput(ctx.getAgentInput());
-                    request.setKbId(ctx.getKbId());
-                    request.setWorkDir(ctx.getWorkDir());
-                    request.setDialogueHistory(ctx.getDialogueHistory());
-                    return agentOrchestratorService.orchestrate(
-                            request, step -> ChatTurnEmitter.emitOrchestrateStep(ctx, step));
-                })
+        return Mono.fromCallable(() -> mainChatRuntimeService.run(ctx))
                 .subscribeOn(Schedulers.boundedElastic())
-                .doOnNext(ctx::setOrchestrateResult)
+                .doOnNext(result -> {
+                    ctx.setAgentRunResult(result);
+                    if (result.status() != com.mychat.agent.api.AgentRunResult.Status.SUCCEEDED) {
+                        throw new IllegalStateException(
+                                "MAIN_CHAT Runtime 结束状态: " + result.status()
+                                        + " " + result.errorMessage());
+                    }
+                })
                 .then();
     }
 }

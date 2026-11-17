@@ -15,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class DefaultContextAssemblerTest {
 
     private final DefaultContextAssembler assembler = new DefaultContextAssembler();
-    private final AgentRunContext run = AgentRunContext.mainChatShadow(
+    private final AgentRunContext run = AgentRunContext.mainChat(
             "run-1", "chat-1", "kb-1", "E:/workspace");
 
     /** 高优先级块先拿预算，低优先级块可被完全丢弃。 */

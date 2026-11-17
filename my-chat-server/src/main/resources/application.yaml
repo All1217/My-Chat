@@ -102,6 +102,11 @@ logging:
     org.springframework.ai: debug
     com.mychat: debug
     org.springframework.web.reactive.function.client.ExchangeFunctions: trace
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
 app:
   market:
     strategy-file: ./data/market-strategy.json

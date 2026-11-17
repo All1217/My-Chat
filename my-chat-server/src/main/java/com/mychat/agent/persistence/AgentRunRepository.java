@@ -56,6 +56,7 @@ public class AgentRunRepository {
         run.setBusinessRef(request.context().businessRef());
         run.setConversationId(request.context().conversationId());
         run.setUserId(request.context().userId());
+        run.setAsyncJobId(text(request.parameters().get("asyncJobId")));
         run.setIdempotencyKey(text(request.parameters().get("idempotencyKey")));
         run.setStatus(AgentRunResult.Status.PAUSED.name());
         run.setCurrentStep(0);

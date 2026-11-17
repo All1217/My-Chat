@@ -18,8 +18,8 @@ public record AgentRunContext(
         metadata = metadata == null ? Map.of() : Map.copyOf(metadata);
     }
 
-    /** 建立主聊天 shadow 上下文；Phase 1 不启动真实 Agent Run。 */
-    public static AgentRunContext mainChatShadow(
+    /** 建立主聊天正式运行上下文。 */
+    public static AgentRunContext mainChat(
             String runId, String conversationId, String kbId, String workDir) {
         return new AgentRunContext(
                 runId,
@@ -29,6 +29,6 @@ public record AgentRunContext(
                 kbId,
                 workDir,
                 null,
-                Map.of("mode", "shadow"));
+                Map.of("mode", "main-chat"));
     }
 }

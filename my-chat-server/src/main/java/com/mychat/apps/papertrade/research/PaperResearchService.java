@@ -13,7 +13,8 @@ import com.mychat.apps.market.MarketDipIndicators;
 import com.mychat.apps.market.MarketQuoteClient;
 import com.mychat.apps.market.entity.vo.MarketQuoteVO;
 import com.mychat.apps.papertrade.PaperTradeProperties;
-import com.mychat.apps.papertrade.agent.PaperFrameworkCall;
+import com.mychat.apps.papertrade.agent.PaperAgentRuntimeAdapter;
+import com.mychat.apps.papertrade.agent.ResearchCardBatch;
 import com.mychat.apps.papertrade.ledger.PaperTradeService;
 import com.mychat.apps.papertrade.risk.PaperSymbolFacts;
 import com.mychat.apps.papertrade.risk.PaperSymbolGate;
@@ -71,7 +72,7 @@ public class PaperResearchService {
     private final PaperSymbolGate symbolGate;
     private final PaperTradeService tradeService;
     private final PaperTradeProperties properties;
-    private final PaperFrameworkCall frameworkCall;
+    private final PaperAgentRuntimeAdapter agentRuntime;
     private final AsyncJobService asyncJobService;
     private final PaperScheduleService scheduleService;
     private final PaperStrategyService strategyService;
@@ -88,7 +89,7 @@ public class PaperResearchService {
                                 PaperSymbolGate symbolGate,
                                 PaperTradeService tradeService,
                                 PaperTradeProperties properties,
-                                PaperFrameworkCall frameworkCall,
+                                PaperAgentRuntimeAdapter agentRuntime,
                                 AsyncJobService asyncJobService,
                                 PaperScheduleService scheduleService,
                                 PaperStrategyService strategyService) {
@@ -102,7 +103,7 @@ public class PaperResearchService {
         this.symbolGate = symbolGate;
         this.tradeService = tradeService;
         this.properties = properties;
-        this.frameworkCall = frameworkCall;
+        this.agentRuntime = agentRuntime;
         this.asyncJobService = asyncJobService;
         this.scheduleService = scheduleService;
         this.strategyService = strategyService;
@@ -146,13 +147,13 @@ public class PaperResearchService {
                 return;
             }
             // 2. 编排器整理，解析后按代码更新
-            PaperFrameworkCall.Outcome outcome = frameworkCall.call(prompt(batch, toolSearch), 4);
+            PaperAgentRuntimeAdapter.Outcome outcome =
+                    agentRuntime.research(prompt(batch, toolSearch), run.getId(), run.getJobId());
             run.setFrameworkTrace(outcome.traceJson());
-            String text = firstJson(outcome.answer(), outcome.observations());
-            if (!hasArray(text)) {
-                throw new IllegalStateException("搜集员没有返回 JSON 数组");
+            List<Card> cards = parseTypedCards(outcome.answer());
+            if (cards.isEmpty()) {
+                throw new IllegalStateException("搜集员没有返回有效卡片");
             }
-            List<Card> cards = parseCards(text);
             int kept = upsert(run.getId(), batch, cards);
             finish(run, kept, outcome.answer(), null);
         } catch (Exception e) {
@@ -403,6 +404,36 @@ public class PaperResearchService {
             return observations;
         }
         return answer == null ? "" : answer;
+    }
+
+    /** 解析类型化 ResearchCardBatch，并兼容历史裸数组。 */
+    static List<Card> parseTypedCards(String text) throws Exception {
+        if (!StringUtils.hasText(text)) {
+            return List.of();
+        }
+        ObjectMapper mapper = new ObjectMapper()
+                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        String json = text.trim();
+        if (json.startsWith("{")) {
+            ResearchCardBatch batch = mapper.readValue(json, ResearchCardBatch.class);
+            List<Card> cards = new ArrayList<>();
+            for (ResearchCardBatch.ResearchCardDecision item : batch.cards()) {
+                Card card = new Card();
+                card.symbol = item.symbol();
+                card.name = item.name();
+                card.kept = item.kept();
+                card.story = item.story();
+                card.risks = item.risks() == null || item.risks().isEmpty()
+                        ? null : String.join("；", item.risks());
+                card.rejectReason = item.rejectReason();
+                card.fitScore = item.fitScore();
+                card.evidenceScore = item.evidenceScore();
+                card.signalTags = item.signalTags();
+                cards.add(card);
+            }
+            return cards;
+        }
+        return parseCards(json);
     }
 
     /** 解析搜集员输出。失败返回空列表，由调用方决定是否记失败。 */

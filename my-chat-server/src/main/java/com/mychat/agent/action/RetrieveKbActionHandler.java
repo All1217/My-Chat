@@ -5,24 +5,30 @@ import com.mychat.agent.api.AgentRunRequest;
 import com.mychat.agent.api.AgentStepResult;
 import com.mychat.agent.runtime.AgentActionHandler;
 import com.mychat.agent.runtime.AgentDecision;
-import com.mychat.service.agent.worker.KbWorker;
-import com.mychat.service.agent.worker.WorkerOutcome;
-import com.mychat.service.agent.worker.WorkerPromptSupport;
+import com.mychat.service.knowledge.KbScope;
+import com.mychat.service.knowledge.KnowledgeRetrievalService;
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.memory.ChatMemory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/** 将现有 KbWorker 适配为知识库检索 Action，保留 scope 与 citations。 */
+/** 统一知识库检索 Action，保留 scope 与 citations。 */
 @Component
 public class RetrieveKbActionHandler implements AgentActionHandler {
 
-    private final KbWorker worker;
+    private final ChatClient ragChatClient;
+    private final KnowledgeRetrievalService retrievalService;
 
-    /** 注入现有 Worker。 */
-    public RetrieveKbActionHandler(KbWorker worker) {
-        this.worker = worker;
+    /** 注入 RAG 客户端和统一检索服务。 */
+    public RetrieveKbActionHandler(
+            @Qualifier("ragChatClient") ChatClient ragChatClient,
+            KnowledgeRetrievalService retrievalService) {
+        this.ragChatClient = ragChatClient;
+        this.retrievalService = retrievalService;
     }
 
     /** 返回动作描述。 */
@@ -40,16 +46,22 @@ public class RetrieveKbActionHandler implements AgentActionHandler {
             throw new IllegalArgumentException("retrieve_kb 需要 kbId");
         }
         String scope = String.valueOf(decision.parameters().getOrDefault("kbScope", "vector"));
-        String message = WorkerPromptSupport.buildWorkerUserMessage(
-                request.context().metadata().get("dialogueHistory"), decision.instruction());
-        WorkerOutcome outcome = worker.run(message, request.context().kbId(), request.input(),
-                decision.instruction(), scope);
+        String message = ActionPromptSupport.message(request, decision);
+        KnowledgeRetrievalService.RagContext rag = retrievalService.buildRagContext(
+                request.context().kbId(), request.input(), KbScope.from(scope));
+        String content = ragChatClient.prompt()
+                .user(message + "\n\n【知识库材料】\n" + rag.promptBlock())
+                .advisors(advisor -> advisor.param(
+                        ChatMemory.CONVERSATION_ID,
+                        "agent:" + request.context().runId() + ":" + stepIndex))
+                .call()
+                .content();
         Map<String, Object> metadata = new LinkedHashMap<>();
         metadata.put("kbScope", scope);
-        metadata.put("citations", outcome.citations() == null ? java.util.List.of() : outcome.citations());
+        metadata.put("citations", rag.citations() == null ? java.util.List.of() : rag.citations());
         metadata.put("toolCalls", 1);
         metadata.put("toolName", "knowledge-retrieval");
         return new AgentStepResult(stepIndex, action().id(), AgentStepResult.Status.SUCCEEDED,
-                outcome.observation(), null, metadata);
+                content == null ? "" : content, null, metadata);
     }
 }

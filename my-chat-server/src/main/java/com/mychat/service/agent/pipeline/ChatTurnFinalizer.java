@@ -37,7 +37,7 @@ public class ChatTurnFinalizer {
      * @param signal 管道终止信号
      */
     public void finalizeTurn(ChatTurnContext ctx, SignalType signal) {
-        // 读路径：dialogueHistory 注入决策/Worker/最终流式；Worker 用 orch-*，不写 chatId。
+        // 读路径：dialogueHistory 注入 ContextBundle；动作 Memory 为 ephemeral，不写 chatId。
         // 写路径：回合结束显式落库短 USER+ASSISTANT（不含附件正文）。
         if (signal == SignalType.ON_COMPLETE) {
             persistence.persist(ctx);

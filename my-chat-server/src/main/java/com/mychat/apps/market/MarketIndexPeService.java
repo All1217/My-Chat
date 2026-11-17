@@ -2,9 +2,9 @@ package com.mychat.apps.market;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mychat.agent.capability.MarketAnalysisCapability;
 import com.mychat.apps.market.entity.vo.MarketIndexPeItemVO;
 import com.mychat.apps.market.entity.vo.MarketIndexPeVO;
-import com.mychat.service.agent.worker.SearchWorker;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -36,12 +36,14 @@ public class MarketIndexPeService {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final MarketStrategyProperties properties;
-    private final SearchWorker searchWorker;
+    private final MarketAnalysisCapability marketAnalysis;
 
-    /** 注入落盘路径与联网搜索 Worker。 */
-    public MarketIndexPeService(MarketStrategyProperties properties, SearchWorker searchWorker) {
+    /** 注入落盘路径与市场分析能力。 */
+    public MarketIndexPeService(
+            MarketStrategyProperties properties,
+            MarketAnalysisCapability marketAnalysis) {
         this.properties = properties;
-        this.searchWorker = searchWorker;
+        this.marketAnalysis = marketAnalysis;
     }
 
     /** 当天已成功且至少有一条 PE/分位则读文件，否则同步刷新。 */
@@ -75,7 +77,7 @@ public class MarketIndexPeService {
 
     /** 一次 searchWeb，解析三指数后覆盖缓存。 */
     private IndexPeFile refresh(LocalDate today, IndexPeFile previous) {
-        String text = searchWorker.run(buildUserPrompt(), null);
+        String text = marketAnalysis.analyze(buildUserPrompt(), today.toString());
         List<MarketIndexPeItemVO> items = parseItems(text);
         boolean anyData = items.stream().anyMatch(i -> i.getPe() != null || i.getPercentile() != null);
         if (!anyData) {

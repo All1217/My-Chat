@@ -2,7 +2,7 @@ package com.mychat.apps.market;
 
 import com.mychat.apps.market.entity.vo.MarketIndexPeItemVO;
 import com.mychat.apps.market.entity.vo.MarketIndexPeVO;
-import com.mychat.service.agent.worker.SearchWorker;
+import com.mychat.agent.capability.MarketAnalysisCapability;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -14,7 +14,6 @@ import java.time.LocalDate;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -26,19 +25,19 @@ class MarketIndexPeServiceTest {
     @TempDir
     Path tempDir;
 
-    private SearchWorker searchWorker;
+    private MarketAnalysisCapability marketAnalysis;
     private MarketIndexPeService service;
     private final LocalDate day = LocalDate.of(2026, 9, 10);
 
     @BeforeEach
     void setUp() {
-        searchWorker = mock(SearchWorker.class);
+        marketAnalysis = mock(MarketAnalysisCapability.class);
         MarketStrategyProperties properties = new MarketStrategyProperties();
         properties.setIndexPeFile(tempDir.resolve("market-index-pe.json").toString());
-        service = new MarketIndexPeService(properties, searchWorker);
+        service = new MarketIndexPeService(properties, marketAnalysis);
     }
 
-    /** 同日 SUCCEEDED 不调 SearchWorker。 */
+    /** 同日 SUCCEEDED 不调市场分析能力。 */
     @Test
     void sameDaySucceededDoesNotSearch() throws Exception {
         Files.writeString(
@@ -61,7 +60,7 @@ class MarketIndexPeServiceTest {
         assertEquals(MarketIndexPeService.STATUS_SUCCEEDED, vo.getStatus());
         assertEquals(1, vo.getIndices().size());
         assertEquals("标普500", vo.getIndices().get(0).getName());
-        verify(searchWorker, never()).run(anyString(), nullable(String.class));
+        verify(marketAnalysis, never()).analyze(anyString(), anyString());
     }
 
     /** 同日 SUCCEEDED 但 PE/分位全空（旧东财空缓存）仍会搜索。 */
@@ -83,7 +82,7 @@ class MarketIndexPeServiceTest {
                         }
                         """,
                 StandardCharsets.UTF_8);
-        when(searchWorker.run(anyString(), nullable(String.class)))
+        when(marketAnalysis.analyze(anyString(), anyString()))
                 .thenReturn("""
                         [{"code":"SPX","name":"标普500","pe":28.1,"percentile":82,"comment":"估值偏高"},
                          {"code":"DJIA","name":"道琼斯","pe":22.0,"percentile":60,"comment":"大致中性"},
@@ -94,13 +93,13 @@ class MarketIndexPeServiceTest {
 
         assertEquals(MarketIndexPeService.STATUS_SUCCEEDED, vo.getStatus());
         assertEquals(28.1, vo.getIndices().get(0).getPe());
-        verify(searchWorker).run(anyString(), nullable(String.class));
+        verify(marketAnalysis).analyze(anyString(), anyString());
     }
 
     /** 跨自然日会搜索，并能从夹杂说明的 JSON 数组写出三条。 */
     @Test
     void newDayParsesJsonArrayFromProse() {
-        when(searchWorker.run(anyString(), nullable(String.class)))
+        when(marketAnalysis.analyze(anyString(), anyString()))
                 .thenReturn("""
                         以下为整理结果，仅供参考。
                         [
@@ -122,7 +121,7 @@ class MarketIndexPeServiceTest {
         assertEquals("估值偏高", spx.getComment());
         assertEquals(22.0, vo.getIndices().get(1).getPe());
         assertEquals(35.0, vo.getIndices().get(2).getPe());
-        verify(searchWorker).run(anyString(), nullable(String.class));
+        verify(marketAnalysis).analyze(anyString(), anyString());
     }
 
     /** 解析失败则 status=FAILED，昨日三条仍在。 */
@@ -144,7 +143,7 @@ class MarketIndexPeServiceTest {
                         }
                         """,
                 StandardCharsets.UTF_8);
-        when(searchWorker.run(anyString(), nullable(String.class)))
+        when(marketAnalysis.analyze(anyString(), anyString()))
                 .thenReturn("这次检索没有可用数字");
 
         MarketIndexPeVO vo = service.ensureTodayOn(day);
@@ -156,6 +155,6 @@ class MarketIndexPeServiceTest {
         assertEquals("昨日标普", vo.getIndices().get(0).getComment());
         assertEquals(21.0, vo.getIndices().get(1).getPe());
         assertEquals(34.0, vo.getIndices().get(2).getPe());
-        verify(searchWorker).run(anyString(), nullable(String.class));
+        verify(marketAnalysis).analyze(anyString(), anyString());
     }
 }

@@ -2,28 +2,27 @@ package com.mychat.service.agent.pipeline;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mychat.agent.api.AgentRunResult;
 import com.mychat.agent.context.DefaultContextAssembler;
-import com.mychat.service.agent.AgentOrchestratorService;
+import com.mychat.agent.quality.MainChatQualityPolicy;
+import com.mychat.service.agent.MainChatRuntimeService;
 import com.mychat.service.agent.OrchestrateDialogueContextService;
-import com.mychat.service.agent.OrchestrateListener;
-import com.mychat.service.agent.context.MainChatShadowContextAssembler;
+import com.mychat.service.agent.context.MainChatContextAssembler;
+import com.mychat.service.agent.pipeline.stage.AssembleContextStage;
 import com.mychat.service.agent.pipeline.stage.EmitRouteStage;
 import com.mychat.service.agent.pipeline.stage.LoadDialogueContextStage;
 import com.mychat.service.agent.pipeline.stage.OrchestrateStage;
 import com.mychat.service.agent.pipeline.stage.QualityLoopStage;
-import com.mychat.service.agent.pipeline.stage.ShadowAssembleContextStage;
 import com.mychat.service.agent.pipeline.stage.StreamFinalAnswerStage;
 import com.mychat.service.agent.quality.AgentEvaluatorOptimizerService;
 import com.mychat.service.chat.ChatAssistantTurnService;
 import com.mychat.utils.ChatStreamEventWriter;
 import com.mychat.utils.WorkspaceUtil;
-import com.mychat.vo.OrchestrateResultVO;
-import com.mychat.vo.OrchestrateStepVO;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.memory.ChatMemory;
-import reactor.core.publisher.Flux;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -47,29 +46,27 @@ class ChatTurnPipelineFlowTest {
     @Test
     void qualityLoopOffEmitsRouteStepTextDoneAndPersists() throws Exception {
         OrchestrateDialogueContextService dialogue = mock(OrchestrateDialogueContextService.class);
-        AgentOrchestratorService orchestrator = mock(AgentOrchestratorService.class);
+        MainChatRuntimeService runtime = mock(MainChatRuntimeService.class);
         ChatMemory chatMemory = mock(ChatMemory.class);
         ChatAssistantTurnService turns = mock(ChatAssistantTurnService.class);
 
         when(dialogue.buildForOrchestrate("chat-1")).thenReturn(null);
-        when(orchestrator.orchestrate(any(), any())).thenAnswer(inv -> {
-            OrchestrateListener listener = inv.getArgument(1);
-            OrchestrateStepVO finish = new OrchestrateStepVO(1, "finish", "enough", "", "你好");
-            if (listener != null) {
-                listener.onStep(finish);
-            }
-            return new OrchestrateResultVO("你好", "finish", List.of(finish));
-        });
-        when(orchestrator.streamFinalAnswer(any(), any(), any())).thenReturn(Flux.just("你", "好"));
+        when(runtime.run(any())).thenReturn(new AgentRunResult(
+                AgentRunResult.Status.SUCCEEDED, "你好", List.of(), null, Map.of()));
 
         ChatTurnPipeline pipeline = new ChatTurnPipeline(
                 new EmitRouteStage(),
                 new LoadDialogueContextStage(dialogue),
-                new OrchestrateStage(orchestrator),
-                new ShadowAssembleContextStage(
-                        new MainChatShadowContextAssembler(new DefaultContextAssembler())),
-                new StreamFinalAnswerStage(orchestrator),
-                new QualityLoopStage(mock(AgentEvaluatorOptimizerService.class), mock(WorkspaceUtil.class)),
+                new AssembleContextStage(
+                        new MainChatContextAssembler(new DefaultContextAssembler())),
+                new OrchestrateStage(runtime),
+                new StreamFinalAnswerStage(),
+                new QualityLoopStage(
+                        mock(AgentEvaluatorOptimizerService.class),
+                        mock(WorkspaceUtil.class),
+                        new MainChatQualityPolicy(),
+                        mock(com.mychat.agent.tool.ChatClientProfileFactory.class),
+                        mock(com.mychat.agent.runtime.ScenarioProfileRegistry.class)),
                 new ChatTurnFinalizer(new OrchestrateTurnPersistence(chatMemory), turns),
                 new ChatStreamEventWriter());
 
@@ -79,7 +76,7 @@ class ChatTurnPipelineFlowTest {
                 .block();
 
         List<String> types = lines.stream().map(this::eventType).toList();
-        assertEquals(List.of("route", "step", "text_delta", "text_delta", "done"), types);
+        assertEquals(List.of("route", "text_delta", "done"), types);
         assertFalse(lines.stream().anyMatch(l -> l.contains("evaluate_optimize")));
 
         verify(chatMemory).add(eq("chat-1"), anyList());

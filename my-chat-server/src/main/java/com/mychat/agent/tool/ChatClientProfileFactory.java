@@ -27,9 +27,14 @@ public class ChatClientProfileFactory {
 
     /** 创建只挂载实际可见工具的客户端。 */
     public ChatClient create(AgentScenarioProfile profile) {
+        return create(profile, profile.allowedTools());
+    }
+
+    /** 创建只挂载 Profile 与动作共同允许工具的客户端。 */
+    public ChatClient create(AgentScenarioProfile profile, Set<String> actionTools) {
         ChatClient.Builder builder = registry.workflow().mutate()
                 .defaultSystem("只可调用当前挂载的白名单工具；不可声称拥有未挂载工具。");
-        Set<ToolDescriptor> visible = toolPolicy.visibleTools(profile, profile.allowedTools());
+        Set<ToolDescriptor> visible = toolPolicy.visibleTools(profile, actionTools);
         for (ToolDescriptor descriptor : visible) {
             if ("mcp".equals(descriptor.id())) {
                 McpToolBridge bridge = mcpBridge.getIfAvailable();

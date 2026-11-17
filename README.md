@@ -116,8 +116,9 @@ My-Chat 是个人学习与交流用的大模型应用开发实验平台：在 **
 my-chat-server/
 └── src/main/java/com/mychat/
     ├── controller/           # 主聊天、历史、知识库、工作区、任务、模型
-    ├── controller/demo/      # Agent 调试：/ai/agent/route|orchestrate|evaluate-optimize
-    ├── service/agent/        # 编排循环、Worker、质量环
+    ├── controller/demo/      # Agent Runtime 与质量环调试
+    ├── agent/                # 通用 Runtime、Profile、Action、Tool Policy、Trace
+    ├── service/agent/        # 主聊天适配、Context 与质量环
     ├── service/agent/pipeline/  # 回合流水线 ChatTurnStage
     ├── service/knowledge/    # RAG 入库 / 检索 / 分段
     ├── service/chat/         # 会话、Memory、时间线回合
@@ -294,7 +295,8 @@ REST 多数返回 `Result<T> { code, message, data }`（`code === 200` 成功）
 | `/ai/jobs/active`、`GET /ai/jobs/events` | 异步任务查询与 SSE 通知 |
 | `/ai/model/*` | 对话模型管理 |
 | `/ai/apps/market/*` | 股市应用 |
-| `POST /ai/agent/route` 等 | 编排调试（非主路） |
+| `POST /ai/agent/runtime` | 通用 Agent Runtime 调试（非主路） |
+| `POST /ai/agent/evaluate-optimize` | 文件质量环调试（非主路） |
 
 ---
 

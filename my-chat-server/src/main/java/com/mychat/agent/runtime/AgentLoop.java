@@ -139,7 +139,7 @@ public class AgentLoop {
     /** 判断写动作是否获得显式批准。 */
     private boolean requiresApproval(AgentAction action, AgentRunRequest request,
                                      AgentDecision decision, int stepIndex) {
-        return action.sideEffectLevel() != AgentAction.SideEffectLevel.READ_ONLY
+        return action.sideEffectLevel() == AgentAction.SideEffectLevel.HIGH_RISK_WRITE
                 && !executionJournal.isApproved(request, stepIndex, decision.actionId());
     }
 

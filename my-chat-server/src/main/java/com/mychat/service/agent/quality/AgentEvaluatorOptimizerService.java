@@ -56,6 +56,18 @@ public class AgentEvaluatorOptimizerService {
      * @throws IllegalArgumentException 必填参数缺失
      */
     public EvaluateOptimizeResultVO evaluateOptimize(EvaluateOptimizeRequest request) {
+        return evaluateOptimize(request, toolChatClient, false);
+    }
+
+    /** 使用显式工作区与 Profile 客户端执行质量环，不依赖 WorkspaceContext。 */
+    public EvaluateOptimizeResultVO evaluateOptimizeExplicit(
+            EvaluateOptimizeRequest request, ChatClient profileClient) {
+        return evaluateOptimize(request, profileClient, true);
+    }
+
+    /** 执行共享质量环；新 Runtime 通过 explicitWorkspace 隔离旧 ThreadLocal 路径。 */
+    private EvaluateOptimizeResultVO evaluateOptimize(
+            EvaluateOptimizeRequest request, ChatClient generatorClient, boolean explicitWorkspace) {
         // —— 1. 校验入参 ——
         if (request == null || !StringUtils.hasText(request.getGoal())) {
             throw new IllegalArgumentException("goal 不能为空");
@@ -76,7 +88,7 @@ public class AgentEvaluatorOptimizerService {
                 : List.of();
         String workDir = StringUtils.hasText(request.getWorkDir())
                 ? request.getWorkDir().trim()
-                : workspaceUtil.getWorkspaceRoot().toString();
+                : workspaceUtil.getWorkspaceRoot("").toString();
         int maxIterations = clampMaxIterations(request.getMaxIterations());
 
         // —— 3. 准备本轮状态（各轮记录、上一轮反馈、最后读到的正文） ——
@@ -86,20 +98,26 @@ public class AgentEvaluatorOptimizerService {
         boolean passed = false;
 
         // —— 4. 绑定工作区，进入「写→读→评→改」循环 ——
-        WorkspaceContext.set(workDir);
+        if (!explicitWorkspace) {
+            WorkspaceContext.set(workDir);
+        }
         try {
             for (int iter = 1; iter <= maxIterations; iter++) {
                 log.info("Evaluator-Optimizer iteration={}/{} path={}", iter, maxIterations, path);
 
                 // 4a. 生成器：按目标/标准（及上轮意见）调用工具写盘覆盖 path
                 // 执行修改意见也在此
-                String generatorSummary = runGenerator(goal, path, criteria, lastFeedback, workDir, iter);
+                String generatorSummary = runGenerator(
+                        goal, path, criteria, lastFeedback, workDir, iter,
+                        generatorClient, explicitWorkspace);
 
                 // 4b. 读回：以磁盘文件为事实源；读失败则记一轮并带反馈重试
                 String fileContent;
                 String fileSnapshot;
                 try {
-                    fileContent = workspaceUtil.readFileContent(path);
+                    fileContent = explicitWorkspace
+                            ? workspaceUtil.readFileContent(path, workDir)
+                            : workspaceUtil.readFileContent(path);
                     fileSnapshot = truncate(fileContent);
                     lastContent = truncate(fileContent);
                 } catch (Exception e) {
@@ -152,7 +170,9 @@ public class AgentEvaluatorOptimizerService {
             }
         } finally {
             // —— 5. 无论成败都清掉工作区 ThreadLocal ——
-            WorkspaceContext.clear();
+            if (!explicitWorkspace) {
+                WorkspaceContext.clear();
+            }
         }
 
         // —— 6. 汇总返回：是否达标、结束原因、正文快照、各轮明细 ——
@@ -166,7 +186,9 @@ public class AgentEvaluatorOptimizerService {
             String criteria,
             String previousFeedback,
             String workDir,
-            int iteration) {
+            int iteration,
+            ChatClient generatorClient,
+            boolean explicitWorkspace) {
         String conversationId = "eval-opt-" + UUID.randomUUID() + "-" + iteration;
 
         // 路径规则 + 浅层摘要 + 质量环写盘指令
@@ -186,10 +208,14 @@ public class AgentEvaluatorOptimizerService {
         }
 
         try {
-            String content = toolChatClient.prompt()
+            ChatClient.ChatClientRequestSpec prompt = generatorClient.prompt()
                     .system(system)
                     .user(user.toString())
-                    .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationId))
+                    .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationId));
+            if (explicitWorkspace) {
+                prompt.toolContext(java.util.Map.of("workDir", workDir));
+            }
+            String content = prompt
                     .call()
                     .content();
             return truncate(content != null ? content : "(generator empty)");

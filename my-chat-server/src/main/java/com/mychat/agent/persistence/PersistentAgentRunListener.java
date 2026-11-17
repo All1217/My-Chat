@@ -7,6 +7,7 @@ import com.mychat.agent.api.AgentStepResult;
 import com.mychat.agent.runtime.AgentDecision;
 import com.mychat.agent.runtime.AgentRunListener;
 import com.mychat.agent.trace.AgentTraceEvent;
+import com.mychat.agent.trace.AgentTracePublisher;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -19,12 +20,15 @@ import java.util.concurrent.ConcurrentHashMap;
 public class PersistentAgentRunListener implements AgentRunListener {
 
     private final AgentRunRepository repository;
+    private final AgentTracePublisher tracePublisher;
     private final Map<String, List<AgentStepResult>> completedByRun = new ConcurrentHashMap<>();
     private final Map<String, Long> stepStartedAt = new ConcurrentHashMap<>();
 
     /** 注入运行仓库。 */
-    public PersistentAgentRunListener(AgentRunRepository repository) {
+    public PersistentAgentRunListener(AgentRunRepository repository,
+                                      AgentTracePublisher tracePublisher) {
         this.repository = repository;
+        this.tracePublisher = tracePublisher;
     }
 
     /** 创建或恢复 Run，并标记为运行中。 */
@@ -84,7 +88,7 @@ public class PersistentAgentRunListener implements AgentRunListener {
             return;
         }
         String parentId = AgentRunRepository.stepId(request.context().runId(), result.index());
-        repository.saveTrace(new AgentTraceEvent(
+        tracePublisher.publish(new AgentTraceEvent(
                 request.context().runId(),
                 parentId + "-tool",
                 parentId,

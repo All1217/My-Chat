@@ -2,24 +2,25 @@ package com.mychat.agent.action;
 
 import com.mychat.agent.api.AgentAction;
 import com.mychat.agent.api.AgentRunRequest;
+import com.mychat.agent.api.AgentScenarioId;
 import com.mychat.agent.api.AgentStepResult;
+import com.mychat.agent.capability.ProfileToolCapability;
 import com.mychat.agent.runtime.AgentActionHandler;
 import com.mychat.agent.runtime.AgentDecision;
-import com.mychat.service.agent.worker.SearchWorker;
-import com.mychat.service.agent.worker.WorkerPromptSupport;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
+import java.util.Set;
 
-/** 将现有 SearchWorker 适配为联网查询 Action。 */
+/** MAIN_CHAT 的受限联网查询 Action。 */
 @Component
 public class SearchActionHandler implements AgentActionHandler {
 
-    private final SearchWorker worker;
+    private final ProfileToolCapability capability;
 
-    /** 注入现有 Worker。 */
-    public SearchActionHandler(SearchWorker worker) {
-        this.worker = worker;
+    /** 注入受限 Profile 工具能力。 */
+    public SearchActionHandler(ProfileToolCapability capability) {
+        this.capability = capability;
     }
 
     /** 返回动作描述。 */
@@ -32,9 +33,12 @@ public class SearchActionHandler implements AgentActionHandler {
     /** 执行联网查询。 */
     @Override
     public AgentStepResult handle(AgentRunRequest request, AgentDecision decision, int stepIndex) {
-        String message = WorkerPromptSupport.buildWorkerUserMessage(
-                request.context().metadata().get("dialogueHistory"), decision.instruction());
-        String observation = worker.run(message, request.context().workDir());
+        String message = ActionPromptSupport.message(request, decision);
+        String observation = capability.execute(
+                AgentScenarioId.MAIN_CHAT,
+                request,
+                message,
+                Set.of("web-search", "mcp"));
         return new AgentStepResult(stepIndex, action().id(), AgentStepResult.Status.SUCCEEDED,
                 observation, null, Map.of("toolCalls", 1, "toolName", "web-search"));
     }

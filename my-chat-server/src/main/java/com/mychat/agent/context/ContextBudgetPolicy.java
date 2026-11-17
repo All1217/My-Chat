@@ -23,8 +23,8 @@ public record ContextBudgetPolicy(
         return Math.min(block.maxChars(), slotLimits.getOrDefault(block.slot(), block.maxChars()));
     }
 
-    /** 主聊天 shadow 默认预算，不影响现有真实 Prompt。 */
-    public static ContextBudgetPolicy mainChatShadow() {
+    /** 主聊天正式上下文预算。 */
+    public static ContextBudgetPolicy mainChat() {
         return new ContextBudgetPolicy(32_000, Map.of(
                 "user.goal", 8_000,
                 "upload.turn", 16_000,

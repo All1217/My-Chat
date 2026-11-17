@@ -2,7 +2,6 @@ package com.mychat.service.agent.pipeline;
 
 import com.mychat.common.ChatStreamEvent;
 import com.mychat.utils.NdjsonStreamSupport;
-import com.mychat.vo.OrchestrateStepVO;
 
 /**
  * 回合内 NDJSON 推送助手：统一走 accumulated + sink。
@@ -30,25 +29,6 @@ public final class ChatTurnEmitter {
                 ctx.getSeq(),
                 ChatTurnContext.AGENT_MODE_ORCHESTRATE,
                 "主聊天默认多步编排（Orchestrator-Workers），跨能力 Worker 接力"));
-    }
-
-    /**
-     * 把编排步推成 NDJSON step；retrieve_kb 的 citations / kbScope 写入 args。
-     */
-    public static void emitOrchestrateStep(ChatTurnContext ctx, OrchestrateStepVO step) {
-        if (step == null) {
-            return;
-        }
-        emit(ctx, ChatStreamEvent.step(
-                ctx.getTurnId(),
-                ctx.getSeq(),
-                step.getIndex(),
-                step.getAction(),
-                step.getReasoning(),
-                step.getInstruction(),
-                step.getObservation(),
-                step.getCitations(),
-                step.getKbScope()));
     }
 
     /**

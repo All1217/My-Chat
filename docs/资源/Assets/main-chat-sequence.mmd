@@ -6,9 +6,10 @@ sequenceDiagram
     participant Pipe as ChatTurnPipeline
     participant Stages as ChatTurnStages
     participant Mem as ChatMemory
-    participant Orch as AgentOrchestratorService
-    participant WF as OrchestratorWorkflow
-    participant Worker as Worker_ChatClients
+    participant Context as MainChatContextAssembler
+    participant Runtime as AgentRuntime
+    participant Planner as StructuredDecisionEngine
+    participant Action as AgentActionHandler
     participant EO as AgentEvaluatorOptimizerService
     participant Fin as ChatTurnFinalizer
     participant Turns as ChatAssistantTurnService
@@ -27,34 +28,26 @@ sequenceDiagram
     Stages-->>FE: NDJSON route=orchestrate
     Pipe->>Stages: load_dialogue
     Stages->>Mem: buildForOrchestrate
+    Pipe->>Stages: assemble_context
+    Stages->>Context: assemble
+    Context-->>Stages: ContextBundle
     Pipe->>Stages: orchestrate
-    Stages->>Orch: orchestrate(request, onStep)
+    Stages->>Runtime: run(MAIN_CHAT)
 
-    loop until finish / single-shot / maxSteps
-        Orch->>WF: decideNext
-        WF-->>Orch: NextAction
+    loop until finish / budget / approval
+        Runtime->>Planner: decide(ContextBundle + completedSteps)
+        Planner-->>Runtime: AgentDecision
         alt action is finish
-            Orch->>Stages: onStep finish
-            Stages-->>FE: NDJSON step
-        else Worker action
-            Orch->>Worker: runWorker
-            Worker-->>Orch: observation
-            Orch->>Stages: onStep worker
-            Stages-->>FE: NDJSON step
-            opt complexity=single and ok
-                Orch->>Stages: onStep autoFinish
-                Stages-->>FE: NDJSON step
-            end
+            Runtime-->>Stages: AgentRunResult
+        else registered action
+            Runtime->>Action: handle
+            Action-->>Runtime: AgentStepResult
+            Runtime-->>FE: NDJSON public progress
         end
     end
-    Orch-->>Stages: OrchestrateResultVO
 
     Pipe->>Stages: stream_final
-    Stages->>Orch: streamFinalAnswer
-    loop token deltas
-        Orch-->>Stages: text delta
-        Stages-->>FE: NDJSON text_delta
-    end
+    Stages-->>FE: NDJSON text_delta
 
     opt qualityLoop and write path found
         Pipe->>Stages: quality_loop

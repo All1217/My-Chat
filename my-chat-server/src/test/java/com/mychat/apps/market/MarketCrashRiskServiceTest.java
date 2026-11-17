@@ -1,8 +1,8 @@
 package com.mychat.apps.market;
 
 import com.mychat.apps.market.entity.vo.MarketCrashRiskVO;
+import com.mychat.agent.capability.MarketAnalysisCapability;
 import com.mychat.job.AsyncJobService;
-import com.mychat.service.agent.worker.SearchWorker;
 import com.mychat.vo.AsyncJobVO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -18,7 +18,6 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -30,7 +29,7 @@ class MarketCrashRiskServiceTest {
     @TempDir
     Path tempDir;
 
-    private SearchWorker searchWorker;
+    private MarketAnalysisCapability marketAnalysis;
     private AsyncJobService asyncJobService;
     private MarketCrashRiskService service;
     private final LocalDate week37 = LocalDate.of(2026, 9, 9);
@@ -38,11 +37,11 @@ class MarketCrashRiskServiceTest {
 
     @BeforeEach
     void setUp() {
-        searchWorker = mock(SearchWorker.class);
+        marketAnalysis = mock(MarketAnalysisCapability.class);
         asyncJobService = mock(AsyncJobService.class);
         MarketStrategyProperties properties = new MarketStrategyProperties();
         properties.setCrashRiskFile(tempDir.resolve("market-crash-risk.json").toString());
-        service = new MarketCrashRiskService(properties, searchWorker, asyncJobService);
+        service = new MarketCrashRiskService(properties, marketAnalysis, asyncJobService);
         AsyncJobVO job = new AsyncJobVO();
         job.setId("job-1");
         when(asyncJobService.submit(anyString(), anyString(), anyString(), any(), anyBoolean()))
@@ -52,7 +51,7 @@ class MarketCrashRiskServiceTest {
     /** runRefresh 从模型 JSON 写出 window/trigger/impact。 */
     @Test
     void runRefreshParsesThreeFields() {
-        when(searchWorker.run(anyString(), nullable(String.class)))
+        when(marketAnalysis.analyze(anyString(), anyString()))
                 .thenReturn("说明\n{\"window\":\"未来1到3个月\",\"trigger\":\"利率意外上修\",\"impact\":\"风险资产回撤\"}");
         service.runRefresh("2026-W37");
         MarketCrashRiskVO vo = service.load();
@@ -66,7 +65,7 @@ class MarketCrashRiskServiceTest {
     /** 本周已成功则不再搜索、不再提交任务。 */
     @Test
     void sameWeekSucceededDoesNotSearchAgain() {
-        when(searchWorker.run(anyString(), nullable(String.class)))
+        when(marketAnalysis.analyze(anyString(), anyString()))
                 .thenReturn("{\"window\":\"数月内\",\"trigger\":\"信贷紧缩\",\"impact\":\"波动上升\"}");
         service.runRefresh(MarketCrashRiskService.weekKey(week37));
 
@@ -74,13 +73,13 @@ class MarketCrashRiskServiceTest {
         assertEquals(MarketCrashRiskService.STATUS_SUCCEEDED, vo.getStatus());
         verify(asyncJobService, never())
                 .submit(anyString(), anyString(), anyString(), any(), anyBoolean());
-        verify(searchWorker).run(anyString(), nullable(String.class));
+        verify(marketAnalysis).analyze(anyString(), anyString());
     }
 
     /** 跨自然周会提交新的后台任务。 */
     @Test
     void newWeekSubmitsJob() {
-        when(searchWorker.run(anyString(), nullable(String.class)))
+        when(marketAnalysis.analyze(anyString(), anyString()))
                 .thenReturn("{\"window\":\"数月内\",\"trigger\":\"信贷紧缩\",\"impact\":\"波动上升\"}");
         service.runRefresh(MarketCrashRiskService.weekKey(week37));
 

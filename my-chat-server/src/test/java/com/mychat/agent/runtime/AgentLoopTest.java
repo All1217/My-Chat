@@ -80,6 +80,38 @@ class AgentLoopTest {
         assertThat(approval.status()).isEqualTo(AgentRunResult.Status.WAITING_APPROVAL);
     }
 
+    /** 可逆写动作无需审批，可继续执行并正常完成。 */
+    @Test
+    void shouldRunReversibleWriteWithoutApproval() {
+        AgentActionHandler reversible = new AgentActionHandler() {
+            /** 返回可逆写动作。 */
+            @Override
+            public AgentAction action() {
+                return new AgentAction("file", "file", "{}", "text",
+                        AgentAction.SideEffectLevel.REVERSIBLE_WRITE);
+            }
+
+            /** 返回成功文件步骤。 */
+            @Override
+            public AgentStepResult handle(
+                    AgentRunRequest request, AgentDecision decision, int stepIndex) {
+                return new AgentStepResult(
+                        stepIndex, "file", AgentStepResult.Status.SUCCEEDED,
+                        "written", null, Map.of());
+            }
+        };
+        AgentLoop loop = loop(List.of(reversible));
+
+        AgentRunResult result = loop.run(
+                request(Map.of()),
+                profile(Set.of("file"), 2, 1),
+                context -> context.completedSteps().isEmpty()
+                        ? AgentDecision.action("file", "write", Map.of())
+                        : AgentDecision.finish("done"));
+
+        assertThat(result.status()).isEqualTo(AgentRunResult.Status.SUCCEEDED);
+    }
+
     /** 验证恢复只从已完成 checkpoint 的下一步继续。 */
     @Test
     void shouldResumeAfterCompletedCheckpoint() {
@@ -158,13 +190,13 @@ class AgentLoopTest {
     }
 
     /** 创建 Fake Action。 */
-    private AgentActionHandler handler(String id, boolean write, boolean fail) {
+    private AgentActionHandler handler(String id, boolean highRiskWrite, boolean fail) {
         return new AgentActionHandler() {
             /** 返回 Fake Action 描述。 */
             @Override
             public AgentAction action() {
-                return new AgentAction(id, id, "{}", "text", write
-                        ? AgentAction.SideEffectLevel.REVERSIBLE_WRITE
+                return new AgentAction(id, id, "{}", "text", highRiskWrite
+                        ? AgentAction.SideEffectLevel.HIGH_RISK_WRITE
                         : AgentAction.SideEffectLevel.READ_ONLY);
             }
 

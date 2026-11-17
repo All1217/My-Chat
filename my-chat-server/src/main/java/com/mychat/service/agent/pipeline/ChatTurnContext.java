@@ -1,10 +1,10 @@
 package com.mychat.service.agent.pipeline;
 
 import com.mychat.agent.api.AgentRunContext;
+import com.mychat.agent.api.AgentRunResult;
 import com.mychat.agent.context.ContextBundle;
 import com.mychat.common.ChatStreamEvent;
 import com.mychat.config.WorkspaceContext;
-import com.mychat.vo.OrchestrateResultVO;
 import lombok.Getter;
 import lombok.Setter;
 import reactor.core.publisher.Sinks;
@@ -99,23 +99,22 @@ public class ChatTurnContext {
      */
     @Setter
     private volatile String dialogueHistory;
-    /**
-     * -- GETTER --
-     * 编排循环结果；未跑完时为 null。
-     * -- SETTER --
-     * 由编排阶段写入。
 
-     */
+    /** 正式 Runtime 显式上下文。 */
     @Setter
-    private volatile OrchestrateResultVO orchestrateResult;
+    private volatile AgentRunContext runContext;
 
-    /** Phase 1 shadow 显式运行上下文；不参与生产编排。 */
+    /** 正式模型上下文快照。 */
     @Setter
-    private volatile AgentRunContext shadowRunContext;
+    private volatile ContextBundle contextBundle;
 
-    /** Phase 1 shadow 上下文快照；不参与生产 Prompt 或 NDJSON。 */
+    /** ContextBundle 的稳定模型输入文本。 */
     @Setter
-    private volatile ContextBundle shadowContextBundle;
+    private volatile String renderedContext;
+
+    /** 本回合 Runtime 结果。 */
+    @Setter
+    private volatile AgentRunResult agentRunResult;
 
     private ChatTurnContext(
             String agentInput,

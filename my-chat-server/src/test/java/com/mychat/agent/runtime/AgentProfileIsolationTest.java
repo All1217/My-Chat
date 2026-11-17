@@ -26,6 +26,44 @@ class AgentProfileIsolationTest {
         AgentScenarioProfile profile = configuration.roleplayRuntimeProfile();
 
         assertThat(profile.allowedTools()).isEmpty();
-        assertThat(profile.allowedActions()).containsExactly("general");
+        assertThat(profile.allowedActions()).containsExactly("roleplay");
+        assertThat(profile.memoryPolicy()).isEqualTo("isolated-conversation");
+        assertThat(profile.qualityPolicy()).isEqualTo("none");
+    }
+
+    /** MARKET_ANALYSIS 只看到网页研究，不依赖主聊天 search 动作。 */
+    @Test
+    void marketAnalysisShouldUseDedicatedResearchCapability() {
+        AgentScenarioProfile profile = configuration.marketAnalysisRuntimeProfile();
+
+        assertThat(profile.allowedActions()).contains("market_research", "general")
+                .doesNotContain("search", "file");
+        assertThat(profile.allowedTools()).containsExactly("web-search");
+        assertThat(profile.qualityPolicy()).isEqualTo("explicit-rubric");
+    }
+
+    /** 模拟交易两个 Profile 均不可看到写工具、文件和通用 MCP。 */
+    @Test
+    void paperProfilesShouldExposeOnlyReadOnlyDomainTools() {
+        AgentScenarioProfile research = configuration.paperResearchRuntimeProfile();
+        AgentScenarioProfile trader = configuration.paperTraderRuntimeProfile();
+
+        assertThat(research.allowedTools())
+                .containsExactlyInAnyOrder("paper-run", "web-search")
+                .doesNotContain("paper-note", "file", "mcp");
+        assertThat(trader.allowedTools())
+                .containsExactlyInAnyOrder("paper-decision", "paper-run")
+                .doesNotContain("paper-stage", "paper-note", "file", "mcp", "web-search");
+    }
+
+    /** 面试官使用独立上下文、Memory、质量和回答策略。 */
+    @Test
+    void interviewerShouldDeclareIndependentPolicies() {
+        AgentScenarioProfile profile = configuration.interviewerRuntimeProfile();
+
+        assertThat(profile.contextPolicy()).isEqualTo("interviewer");
+        assertThat(profile.memoryPolicy()).isEqualTo("isolated-conversation");
+        assertThat(profile.qualityPolicy()).isEqualTo("score-review");
+        assertThat(profile.answerPolicy()).isEqualTo("interview-score");
     }
 }

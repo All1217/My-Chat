@@ -1,6 +1,7 @@
 package com.mychat.tools;
 
 import com.mychat.utils.WorkspaceUtil;
+import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Component;
@@ -32,18 +33,27 @@ public class FileTools {
         this.workspaceUtil = workspaceUtil;
     }
 
-    private Path resolvePath(String path) {
-        return workspaceUtil.resolveSafe(path != null ? path : ".");
+    private Path resolvePath(String path, ToolContext context) {
+        return workspaceUtil.resolveSafe(path != null ? path : ".", workDir(context));
+    }
+
+    /** 从 ToolContext 读取 Runtime 显式工作区。 */
+    private String workDir(ToolContext context) {
+        if (context == null || context.getContext().get("workDir") == null) {
+            return null;
+        }
+        return String.valueOf(context.getContext().get("workDir"));
     }
 
     @Tool(description = "列出指定目录的内容，包含文件名和大小。不传路径则列出当前目录")
     public String ls(
-            @ToolParam(description = "目录路径，如 \"src/main/java\"。不传则列出当前目录", required = false) String path) {
-        Path dir = resolvePath(path);
+            @ToolParam(description = "目录路径，如 \"src/main/java\"。不传则列出当前目录", required = false) String path,
+            ToolContext context) {
+        Path dir = resolvePath(path, context);
         if (!Files.isDirectory(dir)) {
             return "错误: 路径不是目录";
         }
-        Path root = workspaceUtil.getWorkspaceRoot();
+        Path root = workspaceUtil.getWorkspaceRoot(workDir(context));
         boolean isRoot = root.equals(dir);
         StringBuilder sb = new StringBuilder();
         if (isRoot) {
@@ -72,8 +82,9 @@ public class FileTools {
 
     @Tool(description = "读取文件内容并返回文本。适用于查看配置、代码、日志等文本文件")
     public String cat(
-            @ToolParam(description = "文件路径") String path) {
-        Path file = resolvePath(path);
+            @ToolParam(description = "文件路径") String path,
+            ToolContext context) {
+        Path file = resolvePath(path, context);
         if (!Files.isRegularFile(file)) {
             return "错误: 目标不是文件";
         }
@@ -95,10 +106,11 @@ public class FileTools {
     @Tool(description = "创建新文件或覆盖写入已有文件。内容支持多行文本，会覆盖原文件内容")
     public String write(
             @ToolParam(description = "文件路径") String path,
-            @ToolParam(description = "写入的文本内容") String content) {
+            @ToolParam(description = "写入的文本内容") String content,
+            ToolContext context) {
         try {
-            String rel = workspaceUtil.writeFile(path, content);
-            Path fullPath = workspaceUtil.resolveSafe(path);
+            String rel = workspaceUtil.writeFile(path, content, workDir(context));
+            Path fullPath = workspaceUtil.resolveSafe(path, workDir(context));
             return "文件写入成功: " + rel + " (绝对路径: " + fullPath.toAbsolutePath() + ") [" + content.length() + " 字符]";
         } catch (Exception e) {
             return "错误: " + e.getMessage();
@@ -107,14 +119,15 @@ public class FileTools {
 
     @Tool(description = "删除文件或目录（目录会递归删除所有内容）")
     public String rm(
-            @ToolParam(description = "要删除的文件或目录路径") String path) {
+            @ToolParam(description = "要删除的文件或目录路径") String path,
+            ToolContext context) {
         try {
-            Path target = resolvePath(path);
+            Path target = resolvePath(path, context);
             if (!Files.exists(target)) {
                 return "错误: 路径不存在";
             }
             String type = Files.isDirectory(target) ? "目录" : "文件";
-            workspaceUtil.deleteFileOrDirectory(path);
+            workspaceUtil.deleteFileOrDirectory(path, workDir(context));
             return type + "已删除";
         } catch (Exception e) {
             return "错误: " + e.getMessage();
@@ -124,15 +137,16 @@ public class FileTools {
     @Tool(description = "移动或重命名文件/目录")
     public String mv(
             @ToolParam(description = "源路径") String source,
-            @ToolParam(description = "目标路径") String target) {
+            @ToolParam(description = "目标路径") String target,
+            ToolContext context) {
         try {
-            workspaceUtil.renameFileOrDirectory(source, target);
+            workspaceUtil.renameFileOrDirectory(source, target, workDir(context));
             return "移动/重命名成功";
         } catch (Exception e) {
             // rename 失败时尝试跨目录 Files.move
             try {
-                Path srcPath = resolvePath(source);
-                Path dstPath = resolvePath(target);
+                Path srcPath = resolvePath(source, context);
+                Path dstPath = resolvePath(target, context);
                 Files.createDirectories(dstPath.getParent());
                 Files.move(srcPath, dstPath, StandardCopyOption.REPLACE_EXISTING);
                 return "移动成功";
@@ -145,9 +159,10 @@ public class FileTools {
     @Tool(description = "复制文件或目录到目标位置")
     public String cp(
             @ToolParam(description = "源路径") String source,
-            @ToolParam(description = "目标路径") String target) {
+            @ToolParam(description = "目标路径") String target,
+            ToolContext context) {
         try {
-            workspaceUtil.copyFileOrDirectory(source, target);
+            workspaceUtil.copyFileOrDirectory(source, target, workDir(context));
             return "复制成功";
         } catch (Exception e) {
             return "错误: " + e.getMessage();
@@ -156,9 +171,10 @@ public class FileTools {
 
     @Tool(description = "创建新目录（会自动创建所有父目录）")
     public String mkdir(
-            @ToolParam(description = "要创建的目录路径") String path) {
+            @ToolParam(description = "要创建的目录路径") String path,
+            ToolContext context) {
         try {
-            Path dir = resolvePath(path);
+            Path dir = resolvePath(path, context);
             Files.createDirectories(dir);
             return "目录创建成功";
         } catch (Exception e) {
@@ -168,11 +184,12 @@ public class FileTools {
 
     @Tool(description = "查看文件或目录的详细信息：类型、大小、创建时间、修改时间、读写权限")
     public String stat(
-            @ToolParam(description = "文件或目录路径，不传则查看当前目录", required = false) String path) {
+            @ToolParam(description = "文件或目录路径，不传则查看当前目录", required = false) String path,
+            ToolContext context) {
         try {
-            Path target = resolvePath(path);
+            Path target = resolvePath(path, context);
             BasicFileAttributes attrs = Files.readAttributes(target, BasicFileAttributes.class);
-            Path root = workspaceUtil.getWorkspaceRoot();
+            Path root = workspaceUtil.getWorkspaceRoot(workDir(context));
             String rel;
             if (target.equals(root)) {
                 rel = "（当前工作区根目录）";
@@ -194,9 +211,10 @@ public class FileTools {
     @Tool(description = "在文件中搜索文本内容，返回匹配的文件名和行内容。支持搜索 .txt/.java/.ts/.vue 等文本文件")
     public String grep(
             @ToolParam(description = "搜索的关键词") String pattern,
-            @ToolParam(description = "搜索的目录路径，不传则搜索当前目录", required = false) String path) {
+            @ToolParam(description = "搜索的目录路径，不传则搜索当前目录", required = false) String path,
+            ToolContext context) {
         try {
-            Path start = resolvePath(path);
+            Path start = resolvePath(path, context);
             if (!Files.isDirectory(start)) {
                 start = start.getParent();
                 if (start == null || !Files.isDirectory(start)) {
@@ -222,7 +240,8 @@ public class FileTools {
                                 List<String> matches = lines.filter(l -> l.toLowerCase().contains(pattern.toLowerCase()))
                                         .limit(10).collect(Collectors.toList());
                                 if (!matches.isEmpty()) {
-                                    String rel = workspaceUtil.getWorkspaceRoot().relativize(p).toString().replace("\\", "/");
+                                    String rel = workspaceUtil.getWorkspaceRoot(workDir(context))
+                                            .relativize(p).toString().replace("\\", "/");
                                     sb.append(rel).append(":\n");
                                     matches.forEach(l -> sb.append("  ").append(l.trim()).append("\n"));
                                     matchCount[0] += matches.size();
@@ -240,13 +259,14 @@ public class FileTools {
 
     @Tool(description = "以树形结构查看目录内容，展示完整的目录层级关系")
     public String tree(
-            @ToolParam(description = "目录路径，不传则列出当前目录树", required = false) String path) {
+            @ToolParam(description = "目录路径，不传则列出当前目录树", required = false) String path,
+            ToolContext context) {
         try {
-            Path dir = resolvePath(path);
+            Path dir = resolvePath(path, context);
             if (!Files.isDirectory(dir)) {
                 return "错误: 路径不是目录";
             }
-            Path root = workspaceUtil.getWorkspaceRoot();
+            Path root = workspaceUtil.getWorkspaceRoot(workDir(context));
             boolean isRoot = root.equals(dir);
             String rootLabel = isRoot ? "（当前工作区根目录）" : root.relativize(dir).toString().replace("\\", "/");
             StringBuilder sb = new StringBuilder();

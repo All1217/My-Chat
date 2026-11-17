@@ -63,4 +63,29 @@ class ChatStreamEventPhase3Test {
         assertThat(event.parentStepId()).isEqualTo("step-1");
         assertThat(event.text()).isNull();
     }
+
+    /** Runtime 动作开始和完成使用同一 stepId，供前端原位更新。 */
+    @Test
+    void runtimeActionShouldKeepStableStepId() {
+        AtomicInteger sequence = new AtomicInteger();
+        PublicProgressEvent started = new PublicProgressEvent(
+                "run-1", "run-1-step-1", null,
+                PublicProgressEvent.Type.STEP,
+                AgentStepResult.Status.RUNNING,
+                "文件处理", "", 0,
+                java.util.Map.of("actionId", "file"));
+        PublicProgressEvent completed = new PublicProgressEvent(
+                "run-1", "run-1-step-1", null,
+                PublicProgressEvent.Type.STEP,
+                AgentStepResult.Status.SUCCEEDED,
+                "文件处理", "written", 12,
+                java.util.Map.of("actionId", "file"));
+
+        ChatStreamEvent first = ChatStreamEvent.publicProgress("turn-1", sequence, started);
+        ChatStreamEvent last = ChatStreamEvent.publicProgress("turn-1", sequence, completed);
+
+        assertThat(first.stepId()).isEqualTo(last.stepId()).isEqualTo("run-1-step-1");
+        assertThat(first.status()).isEqualTo("RUNNING");
+        assertThat(last.status()).isEqualTo("SUCCEEDED");
+    }
 }

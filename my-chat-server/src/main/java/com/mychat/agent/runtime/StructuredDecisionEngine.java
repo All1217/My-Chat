@@ -62,8 +62,10 @@ public class StructuredDecisionEngine implements DecisionEngine {
         String prompt = """
                 你是通用 Agent Planner。只决定下一步，不要自行调用工具。
                 可用动作：{actions}
+                唯一上下文输入：
+                {context}
                 已完成步骤：{steps}
-                当前第 {stepIndex} 步，用户目标：{input}
+                当前第 {stepIndex} 步
                 上次校验错误：{validationError}
 
                 完成时设置 finish=true，并把完整答复放入 finalOutput；
@@ -73,9 +75,9 @@ public class StructuredDecisionEngine implements DecisionEngine {
         return chatClient.prompt()
                 .user(user -> user.text(prompt)
                         .param("actions", context.profile().allowedActions().toString())
+                        .param("context", modelContext(context))
                         .param("steps", formatSteps(context.completedSteps()))
                         .param("stepIndex", String.valueOf(context.nextStepIndex()))
-                        .param("input", context.request().input())
                         .param("validationError", validationError.isBlank() ? "无" : validationError))
                 .call()
                 .entity(DecisionPayload.class);
@@ -114,6 +116,14 @@ public class StructuredDecisionEngine implements DecisionEngine {
                         + "] " + step.observation() + " " + step.errorMessage())
                 .toList()
                 .toString();
+    }
+
+    /** 优先使用 ContextBundle 渲染文本，Demo 请求回退原始 input。 */
+    private String modelContext(AgentDecisionContext context) {
+        Object rendered = context.request().parameters().get("contextText");
+        return rendered != null && !String.valueOf(rendered).isBlank()
+                ? String.valueOf(rendered)
+                : context.request().input();
     }
 
     /** 发布不含模型 reasoning 和系统提示的模型 Span。 */

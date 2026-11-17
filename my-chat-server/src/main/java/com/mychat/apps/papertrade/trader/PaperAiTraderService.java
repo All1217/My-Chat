@@ -8,7 +8,8 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mychat.apps.papertrade.PaperTradeProperties;
-import com.mychat.apps.papertrade.agent.PaperFrameworkCall;
+import com.mychat.apps.papertrade.agent.PaperAgentRuntimeAdapter;
+import com.mychat.apps.papertrade.agent.TradeDecisionBatch;
 import com.mychat.apps.papertrade.ledger.PaperTradeService;
 import com.mychat.apps.papertrade.ledger.entity.dto.PaperOrderRequest;
 import com.mychat.apps.papertrade.research.PaperResearchService;
@@ -67,7 +68,7 @@ public class PaperAiTraderService {
     private final PaperPositionExitService exitService;
     private final PaperStageService stageService;
     private final AsyncJobService asyncJobService;
-    private final PaperFrameworkCall frameworkCall;
+    private final PaperAgentRuntimeAdapter agentRuntime;
     private final ObjectMapper objectMapper = new ObjectMapper()
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
@@ -81,7 +82,7 @@ public class PaperAiTraderService {
                                 PaperPositionExitService exitService,
                                 PaperStageService stageService,
                                 AsyncJobService asyncJobService,
-                                PaperFrameworkCall frameworkCall) {
+                                PaperAgentRuntimeAdapter agentRuntime) {
         this.runMapper = runMapper;
         this.decisionMapper = decisionMapper;
         this.strategyService = strategyService;
@@ -92,7 +93,7 @@ public class PaperAiTraderService {
         this.exitService = exitService;
         this.stageService = stageService;
         this.asyncJobService = asyncJobService;
-        this.frameworkCall = frameworkCall;
+        this.agentRuntime = agentRuntime;
     }
 
     /** 提交一轮：立刻返回 runId + jobId。 */
@@ -150,12 +151,13 @@ public class PaperAiTraderService {
 
             // 3. 调模型并逐条过闸门
             PaperStrategy strategy = strategyService.requireDefault();
-            PaperFrameworkCall.Outcome outcome = callAgent(strategy.getContent(), ctx.contextJson());
-            String raw = PaperResearchService.firstJson(outcome.answer(), outcome.observations());
+            PaperAgentRuntimeAdapter.Outcome outcome =
+                    callAgent(strategy.getContent(), ctx.contextJson(), run.getId(), run.getJobId());
+            String raw = outcome.answer();
             run.setRawResponse(raw);
             run.setFrameworkTrace(outcome.traceJson());
 
-            List<RawDecision> parsed = parseDecisions(raw);
+            List<RawDecision> parsed = parseTypedDecisions(raw);
             for (RawDecision rd : parsed) {
                 PaperAiDecision d = toDecision(run.getId(), rd);
                 decisionMapper.insert(d);
@@ -279,7 +281,8 @@ public class PaperAiTraderService {
         return d;
     }
 
-    private PaperFrameworkCall.Outcome callAgent(String strategy, String contextJson) {
+    private PaperAgentRuntimeAdapter.Outcome callAgent(
+            String strategy, String contextJson, String runId, String asyncJobId) {
         String system = strategy + """
 
 
@@ -300,8 +303,7 @@ public class PaperAiTraderService {
                 action,symbol,name,asset_type,planned_time,quantity,capital_ratio,reference_price,
                 take_profit,stop_loss,max_hold_days,cooldown_until,confidence,reasoning,risk_flags,manual_review
                 """.formatted(contextJson);
-        PaperFrameworkCall.Outcome outcome = frameworkCall.call(system + "\n" + user, 3);
-        return outcome;
+        return agentRuntime.trader(system + "\n" + user, runId, asyncJobId);
     }
 
     /** 买入或卖出的代码必须来自本轮候选（持仓和已留卡片）。 */
@@ -311,6 +313,42 @@ public class PaperAiTraderService {
         }
         String symbol = d.getSymbol() == null ? "" : d.getSymbol().trim().toUpperCase(Locale.ROOT);
         return !StringUtils.hasText(symbol) || symbols == null || !symbols.contains(symbol);
+    }
+
+    /** 解析类型化 TradeDecisionBatch，并兼容历史裸数组。 */
+    List<RawDecision> parseTypedDecisions(String text) {
+        if (!StringUtils.hasText(text)) {
+            return List.of();
+        }
+        String json = text.trim();
+        try {
+            if (json.startsWith("{") && json.contains("\"decisions\"")) {
+                TradeDecisionBatch batch = objectMapper.readValue(json, TradeDecisionBatch.class);
+                List<RawDecision> out = new ArrayList<>();
+                for (TradeDecisionBatch.TradeDecisionProposal item : batch.decisions()) {
+                    RawDecision rd = new RawDecision();
+                    rd.action = item.action();
+                    rd.symbol = item.symbol();
+                    rd.name = item.name();
+                    rd.quantity = item.quantity();
+                    rd.capitalRatio = item.capitalRatio() == null ? null : item.capitalRatio().doubleValue();
+                    rd.referencePrice = item.referencePrice() == null ? null : item.referencePrice().doubleValue();
+                    rd.takeProfit = item.takeProfit() == null ? null : item.takeProfit().doubleValue();
+                    rd.stopLoss = item.stopLoss() == null ? null : item.stopLoss().doubleValue();
+                    rd.maxHoldDays = item.maxHoldDays();
+                    rd.cooldownDays = item.cooldownDays();
+                    rd.confidence = item.confidence();
+                    rd.reasoning = item.reasoning();
+                    rd.riskFlags = item.riskFlags();
+                    rd.manualReview = item.manualReview();
+                    out.add(rd);
+                }
+                return out;
+            }
+        } catch (Exception exception) {
+            throw new IllegalStateException("无法解析类型化交易决策: " + exception.getMessage());
+        }
+        return parseDecisions(json);
     }
 
     List<RawDecision> parseDecisions(String text) {

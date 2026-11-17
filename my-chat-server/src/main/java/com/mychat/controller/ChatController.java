@@ -24,8 +24,7 @@ import java.util.List;
  * <p>
  * 怎么读：本类 → {@link ChatUploadEnrichment}（附件）→ {@link ChatOrchestrateStreamService}（门面）
  * → {@link com.mychat.service.agent.pipeline.ChatTurnPipeline}（Stage 管道）
- * → {@link com.mychat.service.agent.AgentOrchestratorService}（编排循环与 Worker）。
- * 主路固定 Orchestrator，不走 Routing；Routing 仅 {@code POST /ai/agent/route}（Demo）。
+ * → {@link com.mychat.agent.runtime.AgentRuntime}（Profile 驱动的通用循环）。
  * 附件仅 txt/md/pdf，图片双拒。
  */
 @Slf4j

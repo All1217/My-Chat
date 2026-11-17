@@ -8,7 +8,7 @@ import reactor.core.publisher.Flux;
  * 主聊天 NDJSON 管道门面：对外签名不变，内部委托 {@link ChatTurnPipeline}。
  * <p>
  * 怎么读：上接 {@code ChatController}，下接 {@link ChatTurnPipeline}（Stage 有序列表）。
- * 读上下文 / 编排 / 质量环 / 落库分别在各 Stage 与 Finalizer；Worker 仍用 {@code orch-*}。
+ * 读上下文 / 编排 / 质量环 / 落库分别在各 Stage 与 Finalizer；动作执行使用 ephemeral Memory。
  * 附件拼装在入口由 {@link ChatUploadEnrichment} 完成，本类只收已经分好的 agentInput / memoryUserText。
  */
 @Service

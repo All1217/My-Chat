@@ -22,6 +22,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * 工作区文件管理工具类
@@ -83,6 +84,11 @@ public class WorkspaceUtil {
     /** 获取当前工作区根目录 */
     public Path getWorkspaceRoot() {
         return getEffectiveRoot();
+    }
+
+    /** 获取显式工作区根目录；为空时使用应用默认根目录。 */
+    public Path getWorkspaceRoot(String explicitRoot) {
+        return explicitRoot(explicitRoot);
     }
 
     /** 判断路径是否被列入系统禁止目录黑名单 */
@@ -154,28 +160,53 @@ public class WorkspaceUtil {
 
     /** 删除文件或目录（目录递归删除） */
     public void deleteFileOrDirectory(String relativePath) {
-        Path path = resolveSafe(relativePath);
+        deleteFileOrDirectory(relativePath, null);
+    }
+
+    /** 在显式工作区删除文件或目录，不依赖 WorkspaceContext。 */
+    public void deleteFileOrDirectory(String relativePath, String explicitRoot) {
+        Path path = resolveSafe(relativePath, explicitRoot);
         if (!Files.exists(path)) {
             throw new IllegalArgumentException("路径不存在: " + relativePath);
         }
-        if (Files.isDirectory(path)) {
-            deleteDirectoryForce(relativePath);
-        } else {
-            deleteFile(relativePath);
+        try {
+            if (Files.isDirectory(path)) {
+                try (Stream<Path> paths = Files.walk(path)) {
+                    for (Path item : paths.sorted(Comparator.reverseOrder()).toList()) {
+                        Files.deleteIfExists(item);
+                    }
+                }
+            } else {
+                Files.delete(path);
+            }
+        } catch (IOException exception) {
+            throw new RuntimeException("删除失败: " + relativePath, exception);
         }
     }
 
     /** 重命名文件或目录 */
     public String renameFileOrDirectory(String relativePath, String newName) {
+        return renameFileOrDirectory(relativePath, newName, null);
+    }
+
+    /** 在显式工作区移动或重命名，不依赖 WorkspaceContext。 */
+    public String renameFileOrDirectory(String relativePath, String newName, String explicitRoot) {
         validateName(newName);
-        Path path = resolveSafe(relativePath);
+        Path path = resolveSafe(relativePath, explicitRoot);
         if (!Files.exists(path)) {
             throw new IllegalArgumentException("路径不存在: " + relativePath);
         }
-        if (Files.isDirectory(path)) {
-            return moveAndGetRelative(path, newName);
-        } else {
-            return moveAndGetRelative(path, newName);
+        Path root = explicitRoot(explicitRoot);
+        Path target = path.resolveSibling(newName).normalize();
+        if (!target.startsWith(root)) {
+            throw new SecurityException("非法的目标路径: " + newName);
+        }
+        try {
+            Files.createDirectories(target.getParent());
+            Files.move(path, target, StandardCopyOption.REPLACE_EXISTING);
+            return root.relativize(target).toString().replace("\\", "/");
+        } catch (IOException exception) {
+            throw new RuntimeException("移动/重命名失败", exception);
         }
     }
 
@@ -203,12 +234,17 @@ public class WorkspaceUtil {
 
     /** 创建或覆盖写入文本文件（自动创建父目录） */
     public String writeFile(String relativePath, String content) {
-        Path file = resolveSafe(relativePath);
+        return writeFile(relativePath, content, null);
+    }
+
+    /** 在显式工作区写入文件，不依赖 WorkspaceContext。 */
+    public String writeFile(String relativePath, String content, String explicitRoot) {
+        Path file = resolveSafe(relativePath, explicitRoot);
         try {
             Files.createDirectories(file.getParent());
             Files.writeString(file, content, StandardCharsets.UTF_8);
             log.info("文件写入成功: {} ({} bytes)", file, content.length());
-            return getEffectiveRoot().relativize(file).toString().replace("\\", "/");
+            return explicitRoot(explicitRoot).relativize(file).toString().replace("\\", "/");
         } catch (IOException e) {
             log.error("文件写入失败: {}", file, e);
             throw new RuntimeException("文件写入失败", e);
@@ -217,8 +253,13 @@ public class WorkspaceUtil {
 
     /** 复制文件或目录 */
     public String copyFileOrDirectory(String sourcePath, String targetPath) {
-        Path source = resolveSafe(sourcePath);
-        Path target = resolveSafe(targetPath);
+        return copyFileOrDirectory(sourcePath, targetPath, null);
+    }
+
+    /** 在显式工作区复制文件或目录，不依赖 WorkspaceContext。 */
+    public String copyFileOrDirectory(String sourcePath, String targetPath, String explicitRoot) {
+        Path source = resolveSafe(sourcePath, explicitRoot);
+        Path target = resolveSafe(targetPath, explicitRoot);
         if (!Files.exists(source)) {
             throw new IllegalArgumentException("源路径不存在: " + sourcePath);
         }
@@ -230,7 +271,7 @@ public class WorkspaceUtil {
                 Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
             }
             log.info("复制成功: {} -> {}", source, target);
-            return getEffectiveRoot().relativize(target).toString().replace("\\", "/");
+            return explicitRoot(explicitRoot).relativize(target).toString().replace("\\", "/");
         } catch (IOException e) {
             log.error("复制失败: {} -> {}", source, target, e);
             throw new RuntimeException("复制失败", e);
@@ -317,7 +358,12 @@ public class WorkspaceUtil {
 
     /** 读取文本文件内容（超 10MB 截断并提示） */
     public String readFileContent(String relativePath) {
-        Path file = resolveSafe(relativePath);
+        return readFileContent(relativePath, null);
+    }
+
+    /** 从显式工作区读取文本文件，不依赖 WorkspaceContext。 */
+    public String readFileContent(String relativePath, String explicitRoot) {
+        Path file = resolveSafe(relativePath, explicitRoot);
         if (!Files.isRegularFile(file)) {
             throw new IllegalArgumentException("目标不是文件: " + relativePath);
         }
@@ -563,7 +609,12 @@ public class WorkspaceUtil {
      * 解析相对路径为绝对路径，限制在当前有效 workspaceRoot 内。
      */
     public Path resolveSafe(String relativePath) {
-        Path root = getEffectiveRoot();
+        return resolveSafe(relativePath, null);
+    }
+
+    /** 在显式根目录解析安全相对路径，不依赖 WorkspaceContext。 */
+    public Path resolveSafe(String relativePath, String explicitRoot) {
+        Path root = explicitRoot(explicitRoot);
         if (relativePath == null || relativePath.isEmpty()) {
             return root;
         }
@@ -573,6 +624,21 @@ public class WorkspaceUtil {
             throw new SecurityException("非法的路径访问: " + relativePath);
         }
         return resolved;
+    }
+
+    /** 校验并解析显式根目录。 */
+    private Path explicitRoot(String value) {
+        if (value == null) {
+            return getEffectiveRoot();
+        }
+        if (value.isBlank()) {
+            return workspaceRoot;
+        }
+        Path root = Paths.get(value).toAbsolutePath().normalize();
+        if (!Files.isDirectory(root) || isBlockedPath(root)) {
+            throw new IllegalArgumentException("工作区目录不可用: " + value);
+        }
+        return root;
     }
 
     private void validateName(String name) {

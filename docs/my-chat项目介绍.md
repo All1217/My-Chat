@@ -1280,7 +1280,6 @@ McpClientCustomizer<HttpClientStreamableHttpTransport.Builder> smitheryAuthCusto
 | 未做                     | 说明                                      |
 | ------------------------ | ----------------------------------------- |
 | RAG `retrieval` 事件     | `RagChatController` 仍 plain + 旧标签痕迹 |
-| Agent route 步骤进时间线 | `/ai/agent/route` 未接 ChatBox            |
 | 思考与工具交错展示       | 见下文待实现                              |
 | Spring AI Session / OTEL | 刻意不做，Memory 旁路表已够 UI 回放       |
 
@@ -1703,7 +1702,7 @@ asyncJobService.submit("kb_ingest", "向量化：" + filename, documentId, paylo
 | API | `/ai/apps/paper-trade`（`PaperTradeController` + `PaperTradeAdminController`） |
 | 配置 | `app.paper-trade.*`（`PaperTradeProperties`） |
 | 行情依赖 | `com.mychat.apps.market`（`MarketQuoteClient` / `EtfPremiumClient` 等，HTTP 拉行情，不写本模块账本） |
-| 编排复用 | `PaperFrameworkCall` → 主干 `AgentOrchestratorService`（不走聊天 HTTP） |
+| 编排复用 | `PaperAgentRuntimeAdapter` → 通用 `AgentRuntime`，按 `PAPER_RESEARCH` / `PAPER_TRADER` Profile 隔离 |
 | 异步任务 | `async_job`，`job_type`：`paper_trade_ai_round` / `paper_trade_research` |
 
 前端三页：`PositionsView`（持仓/下单/决策/快捷 AI）、`HistoryView`（可扩展资源注册表管理四表）、`AccountSettingsView`（初始资金/策略/重置/注销训练）。

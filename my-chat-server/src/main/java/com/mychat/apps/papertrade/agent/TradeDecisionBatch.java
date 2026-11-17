@@ -1,5 +1,7 @@
 package com.mychat.apps.papertrade.agent;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+
 import java.math.BigDecimal;
 import java.util.List;
 
@@ -27,6 +29,7 @@ public record TradeDecisionBatch(List<TradeDecisionProposal> decisions) {
             String reasoning,
             List<String> riskFlags,
             boolean manualReview,
+            @JsonDeserialize(using = FlexibleStringListDeserializer.class)
             List<String> evidenceRefs) {
 
         /** 固化列表字段。 */
@@ -36,3 +39,4 @@ public record TradeDecisionBatch(List<TradeDecisionProposal> decisions) {
         }
     }
 }
+

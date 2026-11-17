@@ -9,6 +9,12 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mychat.apps.papertrade.PaperTradeProperties;
 import com.mychat.apps.papertrade.agent.PaperAgentRuntimeAdapter;
+import com.mychat.entity.po.AgentRun;
+import com.mychat.agent.persistence.AgentRunRepository;
+import com.mychat.apps.papertrade.workflow.PaperWorkflowTrace;
+import com.mychat.apps.papertrade.workflow.PaperWorkflowStep;
+import com.mychat.apps.papertrade.workflow.PaperRunLifecycle;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.mychat.apps.papertrade.agent.TradeDecisionBatch;
 import com.mychat.apps.papertrade.ledger.PaperTradeService;
 import com.mychat.apps.papertrade.ledger.entity.dto.PaperOrderRequest;
@@ -69,6 +75,8 @@ public class PaperAiTraderService {
     private final PaperStageService stageService;
     private final AsyncJobService asyncJobService;
     private final PaperAgentRuntimeAdapter agentRuntime;
+    private final PaperRunLifecycle lifecycle;
+    private final AgentRunRepository agentRunRepository;
     private final ObjectMapper objectMapper = new ObjectMapper()
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
@@ -82,7 +90,9 @@ public class PaperAiTraderService {
                                 PaperPositionExitService exitService,
                                 PaperStageService stageService,
                                 AsyncJobService asyncJobService,
-                                PaperAgentRuntimeAdapter agentRuntime) {
+                                PaperAgentRuntimeAdapter agentRuntime,
+                                PaperRunLifecycle lifecycle,
+                                AgentRunRepository agentRunRepository) {
         this.runMapper = runMapper;
         this.decisionMapper = decisionMapper;
         this.strategyService = strategyService;
@@ -94,11 +104,17 @@ public class PaperAiTraderService {
         this.stageService = stageService;
         this.asyncJobService = asyncJobService;
         this.agentRuntime = agentRuntime;
+        this.lifecycle = lifecycle;
+        this.agentRunRepository = agentRunRepository;
     }
 
-    /** 提交一轮：立刻返回 runId + jobId。 */
+    /** 提交一轮：立刻返回 runId + jobId；拒绝重叠活动轮次。 */
     @Transactional
     public PaperAiSubmitVO submitRun() {
+        lifecycle.requireNoActive(runMapper, q -> q.in(
+                PaperAiRun::getStatus,
+                PaperRunLifecycle.activeStatuses(
+                        PaperAiRun.STATUS_PENDING, PaperAiRun.STATUS_RUNNING)));
         PaperAiRun run = new PaperAiRun();
         run.setId(UUID.randomUUID().toString().replace("-", ""));
         run.setStatus(PaperAiRun.STATUS_PENDING);
@@ -124,14 +140,24 @@ public class PaperAiTraderService {
         if (run == null) {
             throw new IllegalArgumentException("AI 轮次不存在");
         }
+        boolean marked = lifecycle.tryMarkRunning(runMapper, u -> u
+                .eq(PaperAiRun::getId, runId.trim())
+                .eq(PaperAiRun::getStatus, PaperAiRun.STATUS_PENDING)
+                .set(PaperAiRun::getStatus, PaperAiRun.STATUS_RUNNING));
+        if (!marked) {
+            log.info("交易轮次已非 PENDING，跳过重复执行 runId={} status={}", runId, run.getStatus());
+            return;
+        }
         run.setStatus(PaperAiRun.STATUS_RUNNING);
-        runMapper.updateById(run);
+        PaperWorkflowTrace trace = new PaperWorkflowTrace();
         try {
+            trace.ok(PaperWorkflowStep.START_RUN, "jobId=" + run.getJobId());
             // 1. 出场先于模型，跌停的持仓本轮不卖
             exitService.scanAndEnqueue(run.getId());
             flushPendingExits(run.getId(), baseGate());
             PaperTradeService.EquityMark mark = tradeService.markEquity();
             tradeService.refreshPeak(mark);
+            trace.ok(PaperWorkflowStep.PROCESS_RULE_EXITS, "exits flushed");
 
             // 2. 组上下文；现金买不起任何一手且已空仓时，先写总结再重置
             PaperAiContextBuilder.BuiltContext ctx = contextBuilder.build();
@@ -141,6 +167,7 @@ public class PaperAiTraderService {
             }
             run.setContextJson(ctx.contextJson());
             runMapper.updateById(run);
+            trace.ok(PaperWorkflowStep.BUILD_CONTEXT, "context ready");
             PaperGateContext gate = baseGate();
             gate.setPositions(ctx.positions());
             gate.setCooldownSymbols(ctx.cooldownSymbols());
@@ -155,9 +182,11 @@ public class PaperAiTraderService {
                     callAgent(strategy.getContent(), ctx.contextJson(), run.getId(), run.getJobId());
             String raw = outcome.answer();
             run.setRawResponse(raw);
-            run.setFrameworkTrace(outcome.traceJson());
+            trace.bindAgentRun(outcome.agentRunId());
+            trace.ok(PaperWorkflowStep.AI_REVIEW_AND_DECIDE, "agentRunId=" + outcome.agentRunId());
 
             List<RawDecision> parsed = parseTypedDecisions(raw);
+            trace.ok(PaperWorkflowStep.VALIDATE_DECISIONS, "decisions=" + parsed.size());
             for (RawDecision rd : parsed) {
                 PaperAiDecision d = toDecision(run.getId(), rd);
                 decisionMapper.insert(d);
@@ -173,10 +202,13 @@ public class PaperAiTraderService {
                 }
             }
 
+            run.setFrameworkTrace(mergeTrace(trace, outcome.traceJson()));
             run.setStatus(PaperAiRun.STATUS_SUCCEEDED);
             run.setFinishedAt(LocalDateTime.now());
             runMapper.updateById(run);
+            trace.ok(PaperWorkflowStep.SETTLE_AND_FINISH, "ok");
         } catch (Exception e) {
+            run.setFrameworkTrace(trace.toJson(objectMapper));
             run.setStatus(PaperAiRun.STATUS_FAILED);
             run.setErrorMessage(truncate(e.getMessage(), 1000));
             run.setFinishedAt(LocalDateTime.now());
@@ -279,6 +311,20 @@ public class PaperAiTraderService {
             throw new IllegalArgumentException("决策不是待确认状态");
         }
         return d;
+    }
+
+    /** 合并领域步骤与 Agent 轨迹。 */
+    private String mergeTrace(PaperWorkflowTrace domain, String agentTraceJson) {
+        try {
+            var root = objectMapper.readTree(domain.toJson(objectMapper));
+            if (agentTraceJson != null && !agentTraceJson.isBlank()) {
+                ((com.fasterxml.jackson.databind.node.ObjectNode) root)
+                        .set("agent", objectMapper.readTree(agentTraceJson));
+            }
+            return objectMapper.writeValueAsString(root);
+        } catch (Exception e) {
+            return domain.toJson(objectMapper);
+        }
     }
 
     private PaperAgentRuntimeAdapter.Outcome callAgent(
@@ -586,6 +632,12 @@ public class PaperAiTraderService {
         return confidence.doubleValue() < properties.getReviewConfidenceThreshold();
     }
 
+    private String resolveAgentRunId(String businessRef) {
+        List<AgentRun> runs = agentRunRepository.search(
+                null, null, businessRef, null, null, 1);
+        return runs.isEmpty() ? null : runs.get(0).getId();
+    }
+
     private PaperAiRunVO toRunVo(PaperAiRun row, boolean withDecisions) {
         PaperAiRunVO vo = new PaperAiRunVO();
         vo.setId(row.getId());
@@ -595,6 +647,7 @@ public class PaperAiTraderService {
         vo.setRawResponse(row.getRawResponse());
         vo.setErrorMessage(row.getErrorMessage());
         vo.setFrameworkTrace(row.getFrameworkTrace());
+        vo.setAgentRunId(resolveAgentRunId(row.getId()));
         if (row.getCreatedAt() != null) {
             vo.setCreatedAt(row.getCreatedAt().format(TS));
         }

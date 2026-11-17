@@ -10,6 +10,8 @@ import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 
 /**
  * 按 app.mcp 子开关过滤连接后，把 Tolerant MCP 工具挂到 ChatClient。
@@ -38,13 +40,38 @@ public final class DefaultMcpToolBridge implements McpToolBridge {
      */
     @Override
     public void attachTo(ChatClient.Builder builder) {
+        attachTo(builder, Set.of());
+    }
+
+    /** 可按连接名再收窄挂载面，例如仅 crawler。 */
+    @Override
+    public void attachTo(ChatClient.Builder builder, Set<String> connectionNames) {
         List<McpSyncClient> allowed = filterClients(clients);
+        if (!CollectionUtils.isEmpty(connectionNames)) {
+            allowed = allowed.stream()
+                    .filter(client -> matchesAny(client, connectionNames))
+                    .toList();
+        }
         if (CollectionUtils.isEmpty(allowed)) {
             log.debug("MCP Bridge：无可用连接，跳过工具挂载");
             return;
         }
         builder.defaultToolCallbacks(new TolerantMcpToolCallbackProvider(allowed, prefixGenerator));
         log.debug("MCP Bridge：已挂载 {} 个连接的工具回调", allowed.size());
+    }
+
+    /** 连接描述是否命中任一过滤名。 */
+    private boolean matchesAny(McpSyncClient client, Set<String> connectionNames) {
+        String describe = TolerantMcpToolCallbackProvider.describe(client);
+        for (String name : connectionNames) {
+            if (matchesConnection(describe, name)
+                    || (name != null && name.toLowerCase(Locale.ROOT).contains("crawler")
+                    && describe != null
+                    && describe.toLowerCase(Locale.ROOT).contains("crawler"))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

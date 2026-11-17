@@ -27,6 +27,7 @@ public class PaperSqlExportService {
     private static final Set<String> ALLOWED = Set.of(
             "paper_stage_summary",
             "paper_ai_decision",
+            "paper_ai_run",
             "paper_research_run",
             "paper_research_note");
 

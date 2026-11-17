@@ -62,7 +62,13 @@ public class ScenarioAgentService {
                         "memoryPolicy", profile.memoryPolicy(),
                         "contextPolicy", profile.contextPolicy(),
                         "qualityPolicy", profile.qualityPolicy()));
-        return runtime.run(new AgentRunRequest(command.input(), context, parameters));
+        AgentRunResult result = runtime.run(new AgentRunRequest(command.input(), context, parameters));
+        Map<String, Object> metrics = new LinkedHashMap<>(result.metrics());
+        metrics.put("runId", runId);
+        metrics.put("businessRef", command.businessRef());
+        return new AgentRunResult(
+                result.status(), result.output(), result.steps(),
+                result.errorMessage(), metrics);
     }
 
     /** 多场景调用参数。 */

@@ -2,9 +2,12 @@ package com.mychat.agent.tool;
 
 import com.mychat.agent.api.AgentAction;
 import com.mychat.apps.papertrade.tools.PaperDecisionTools;
+import com.mychat.apps.papertrade.tools.PaperMarketReadTools;
 import com.mychat.apps.papertrade.tools.PaperResearchNoteTools;
+import com.mychat.apps.papertrade.tools.PaperResearchReadTools;
 import com.mychat.apps.papertrade.tools.PaperResearchRunTools;
 import com.mychat.apps.papertrade.tools.PaperStageSummaryTools;
+import com.mychat.apps.papertrade.tools.PaperStrategyReadTools;
 import com.mychat.tools.FileTools;
 import com.mychat.tools.WebSearchTools;
 import org.springframework.stereotype.Component;
@@ -23,15 +26,22 @@ public class ToolCatalog {
     /** 登记当前系统工具并拒绝重名。 */
     public ToolCatalog(FileTools fileTools, WebSearchTools webSearchTools,
                        PaperStageSummaryTools stageTools, PaperDecisionTools decisionTools,
-                       PaperResearchRunTools runTools, PaperResearchNoteTools noteTools) {
+                       PaperResearchRunTools runTools, PaperResearchNoteTools noteTools,
+                       PaperMarketReadTools marketReadTools,
+                       PaperResearchReadTools researchReadTools,
+                       PaperStrategyReadTools strategyReadTools) {
         List<ToolDescriptor> descriptors = List.of(
                 descriptor("file", "workspace", AgentAction.SideEffectLevel.HIGH_RISK_WRITE, fileTools),
                 descriptor("web-search", "search", AgentAction.SideEffectLevel.READ_ONLY, webSearchTools),
                 descriptor("mcp", "remote", AgentAction.SideEffectLevel.READ_ONLY, null),
+                descriptor("mcp-crawler", "remote", AgentAction.SideEffectLevel.READ_ONLY, null),
                 descriptor("paper-stage", "papertrade", AgentAction.SideEffectLevel.REVERSIBLE_WRITE, stageTools),
                 descriptor("paper-decision", "papertrade", AgentAction.SideEffectLevel.READ_ONLY, decisionTools),
                 descriptor("paper-run", "papertrade", AgentAction.SideEffectLevel.READ_ONLY, runTools),
-                descriptor("paper-note", "papertrade", AgentAction.SideEffectLevel.REVERSIBLE_WRITE, noteTools));
+                descriptor("paper-note", "papertrade", AgentAction.SideEffectLevel.REVERSIBLE_WRITE, noteTools),
+                descriptor("paper-market", "papertrade", AgentAction.SideEffectLevel.READ_ONLY, marketReadTools),
+                descriptor("paper-research-feed", "papertrade", AgentAction.SideEffectLevel.READ_ONLY, researchReadTools),
+                descriptor("paper-strategy", "papertrade", AgentAction.SideEffectLevel.READ_ONLY, strategyReadTools));
         Map<String, ToolDescriptor> indexed = new LinkedHashMap<>();
         for (ToolDescriptor descriptor : descriptors) {
             if (indexed.putIfAbsent(descriptor.id(), descriptor) != null) {

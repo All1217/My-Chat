@@ -1,5 +1,7 @@
 package com.mychat.apps.papertrade.agent;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+
 import java.util.List;
 
 /** 搜集员类型化输出契约。 */
@@ -21,6 +23,7 @@ public record ResearchCardBatch(List<ResearchCardDecision> cards) {
             double fitScore,
             double evidenceScore,
             List<String> signalTags,
+            @JsonDeserialize(using = FlexibleStringListDeserializer.class)
             List<String> evidenceRefs) {
 
         /** 固化列表字段。 */
@@ -31,3 +34,4 @@ public record ResearchCardBatch(List<ResearchCardDecision> cards) {
         }
     }
 }
+

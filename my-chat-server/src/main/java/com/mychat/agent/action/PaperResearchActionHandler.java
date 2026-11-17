@@ -38,14 +38,23 @@ public class PaperResearchActionHandler implements AgentActionHandler {
     @Override
     public AgentStepResult handle(
             AgentRunRequest request, AgentDecision decision, int stepIndex) {
+        String message = ActionPromptSupport.message(request, decision) + """
+
+                【输出约束】
+                最终只输出紧凑 ResearchCardBatch JSON：{"cards":[...]}，不要 Markdown。
+                story≤80字；risks/signalTags/evidenceRefs 均为短字符串数组（evidenceRefs 禁止对象）。
+                完整批次只出现在本动作结果中，不要依赖 Planner finalOutput。
+                """;
         String result = capability.execute(
                 AgentScenarioId.PAPER_RESEARCH,
                 request,
-                ActionPromptSupport.message(request, decision),
-                Set.of("paper-run", "web-search"));
+                message,
+                Set.of("paper-market", "paper-research-feed", "paper-strategy",
+                        "web-search", "mcp-crawler"));
         return new AgentStepResult(
                 stepIndex, action().id(), AgentStepResult.Status.SUCCEEDED,
                 result, null,
                 Map.of("toolCalls", 1, "toolName", "paper-research-readonly"));
     }
 }
+

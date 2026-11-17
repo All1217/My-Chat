@@ -38,14 +38,22 @@ public class PaperTraderActionHandler implements AgentActionHandler {
     @Override
     public AgentStepResult handle(
             AgentRunRequest request, AgentDecision decision, int stepIndex) {
+        String message = ActionPromptSupport.message(request, decision) + """
+
+                【输出约束】
+                最终只输出紧凑 TradeDecisionBatch JSON：{"decisions":[...]}，不要 Markdown。
+                reasoning≤80字；evidenceRefs 为短字符串数组（禁止对象）。
+                完整批次只出现在本动作结果中，不要依赖 Planner finalOutput。
+                """;
         String result = capability.execute(
                 AgentScenarioId.PAPER_TRADER,
                 request,
-                ActionPromptSupport.message(request, decision),
-                Set.of("paper-decision", "paper-run"));
+                message,
+                Set.of("paper-decision", "paper-run", "paper-market", "paper-strategy"));
         return new AgentStepResult(
                 stepIndex, action().id(), AgentStepResult.Status.SUCCEEDED,
                 result, null,
                 Map.of("toolCalls", 1, "toolName", "paper-trader-readonly"));
     }
 }
+

@@ -14,6 +14,8 @@ public class PaperAiRunVO {
     private String rawResponse;
     private String errorMessage;
     private String frameworkTrace;
+    /** 关联 agent_run.id（business_ref 反查）。 */
+    private String agentRunId;
     private String createdAt;
     private String finishedAt;
     private List<PaperAiDecisionVO> decisions;

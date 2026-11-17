@@ -1,5 +1,6 @@
 package com.mychat.agent.runtime;
 
+import com.mychat.agent.api.AgentScenarioId;
 import com.mychat.agent.api.AgentStepResult;
 import com.mychat.agent.trace.AgentTraceEvent;
 import com.mychat.agent.trace.AgentTracePublisher;
@@ -15,6 +16,9 @@ import java.util.Map;
 public class StructuredDecisionEngine implements DecisionEngine {
 
     private static final int MAX_ATTEMPTS = 2;
+    private static final int PAPER_FINAL_OUTPUT_MAX = 200;
+    private static final int STEP_OBS_CLIP = 600;
+
     private final ChatClient chatClient;
     private final AgentTracePublisher tracePublisher;
 
@@ -67,6 +71,7 @@ public class StructuredDecisionEngine implements DecisionEngine {
                 已完成步骤：{steps}
                 当前第 {stepIndex} 步
                 上次校验错误：{validationError}
+                {paperRules}
 
                 完成时设置 finish=true，并把完整答复放入 finalOutput；
                 否则 finish=false，actionId 必须来自可用动作，instruction 要可独立执行。
@@ -78,9 +83,27 @@ public class StructuredDecisionEngine implements DecisionEngine {
                         .param("context", modelContext(context))
                         .param("steps", formatSteps(context.completedSteps()))
                         .param("stepIndex", String.valueOf(context.nextStepIndex()))
-                        .param("validationError", validationError.isBlank() ? "无" : validationError))
+                        .param("validationError", validationError.isBlank() ? "无" : validationError)
+                        .param("paperRules", paperRules(context)))
                 .call()
                 .entity(DecisionPayload.class);
+    }
+
+    /** PAPER 场景：禁止把整批 JSON 塞进 finalOutput，避免 LENGTH 截断。 */
+    private String paperRules(AgentDecisionContext context) {
+        AgentScenarioId scenarioId = context.profile().scenarioId();
+        if (scenarioId != AgentScenarioId.PAPER_RESEARCH
+                && scenarioId != AgentScenarioId.PAPER_TRADER) {
+            return "";
+        }
+        String action = scenarioId == AgentScenarioId.PAPER_RESEARCH
+                ? "paper_research" : "paper_trade_review";
+        return """
+                【PAPER 强制规则】
+                1. 必须先调用动作 %s；批次 JSON 只能出现在该动作的 observation 中。
+                2. 动作成功后 finish=true，finalOutput 只写短确认（如 OK），不超过 %d 字。
+                3. 严禁把 ResearchCardBatch / TradeDecisionBatch / cards / decisions 写入 finalOutput。
+                """.formatted(action, PAPER_FINAL_OUTPUT_MAX);
     }
 
     /** 将模型载荷转换为运行时决策。 */
@@ -95,7 +118,18 @@ public class StructuredDecisionEngine implements DecisionEngine {
     /** 校验终止答复和动作白名单。 */
     private String validate(AgentDecisionContext context, AgentDecision decision) {
         if (decision.finish()) {
-            return decision.finalOutput().isBlank() ? "finish=true 时 finalOutput 不能为空" : "";
+            if (decision.finalOutput().isBlank()) {
+                return "finish=true 时 finalOutput 不能为空";
+            }
+            AgentScenarioId scenarioId = context.profile().scenarioId();
+            if ((scenarioId == AgentScenarioId.PAPER_RESEARCH
+                    || scenarioId == AgentScenarioId.PAPER_TRADER)
+                    && decision.finalOutput().length() > PAPER_FINAL_OUTPUT_MAX) {
+                return "PAPER 场景 finish 时 finalOutput 不得超过 "
+                        + PAPER_FINAL_OUTPUT_MAX
+                        + " 字；完整批次必须留在动作观察中，finalOutput 仅写 OK";
+            }
+            return "";
         }
         if (decision.actionId().isBlank()) {
             return "actionId 不能为空";
@@ -106,16 +140,24 @@ public class StructuredDecisionEngine implements DecisionEngine {
         return "";
     }
 
-    /** 压缩步骤为 Planner 可读文本。 */
+    /** 压缩步骤为 Planner 可读文本；长观察截断以免挤爆后续决策。 */
     private String formatSteps(List<AgentStepResult> steps) {
         if (steps.isEmpty()) {
             return "无";
         }
         return steps.stream()
                 .map(step -> step.index() + ". " + step.actionId() + " [" + step.status()
-                        + "] " + step.observation() + " " + step.errorMessage())
+                        + "] " + clip(step.observation(), STEP_OBS_CLIP)
+                        + " " + step.errorMessage())
                 .toList()
                 .toString();
+    }
+
+    private static String clip(String text, int max) {
+        if (text == null || text.isBlank()) {
+            return "";
+        }
+        return text.length() <= max ? text : text.substring(0, max) + "...(truncated)";
     }
 
     /** 优先使用 ContextBundle 渲染文本，Demo 请求回退原始 input。 */

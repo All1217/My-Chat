@@ -44,4 +44,8 @@ public class PaperResearchRun {
 
     @TableField("finished_at")
     private LocalDateTime finishedAt;
+
+    /** 关联 agent_run.id；经 business_ref 反查，不落库。 */
+    @TableField(exist = false)
+    private String agentRunId;
 }

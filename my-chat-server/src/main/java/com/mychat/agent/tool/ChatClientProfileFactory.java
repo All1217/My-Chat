@@ -41,6 +41,12 @@ public class ChatClientProfileFactory {
                 if (bridge != null) {
                     bridge.attachTo(builder);
                 }
+            } else if ("mcp-crawler".equals(descriptor.id())) {
+                McpToolBridge bridge = mcpBridge.getIfAvailable();
+                if (bridge != null) {
+                    bridge.attachTo(builder, Set.of(
+                            "mcp-crawler-server", "mcp-server-crawler", "crawler"));
+                }
             } else if (descriptor.toolObject() != null) {
                 builder.defaultTools(descriptor.toolObject());
             }

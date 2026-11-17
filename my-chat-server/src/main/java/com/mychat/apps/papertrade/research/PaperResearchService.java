@@ -14,6 +14,13 @@ import com.mychat.apps.market.MarketQuoteClient;
 import com.mychat.apps.market.entity.vo.MarketQuoteVO;
 import com.mychat.apps.papertrade.PaperTradeProperties;
 import com.mychat.apps.papertrade.agent.PaperAgentRuntimeAdapter;
+import com.mychat.entity.po.AgentRun;
+import com.mychat.agent.persistence.AgentRunRepository;
+import com.mychat.apps.papertrade.workflow.PaperWorkflowTrace;
+import com.mychat.apps.papertrade.workflow.PaperWorkflowStep;
+import com.mychat.apps.papertrade.workflow.PaperRunLifecycle;
+import com.mychat.apps.papertrade.guardrail.PaperTradeGuardrails;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.mychat.apps.papertrade.agent.ResearchCardBatch;
 import com.mychat.apps.papertrade.ledger.PaperTradeService;
 import com.mychat.apps.papertrade.risk.PaperSymbolFacts;
@@ -76,6 +83,9 @@ public class PaperResearchService {
     private final AsyncJobService asyncJobService;
     private final PaperScheduleService scheduleService;
     private final PaperStrategyService strategyService;
+    private final PaperRunLifecycle lifecycle;
+    private final PaperTradeGuardrails guardrails;
+    private final AgentRunRepository agentRunRepository;
     private final ObjectMapper objectMapper = new ObjectMapper()
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
@@ -92,7 +102,10 @@ public class PaperResearchService {
                                 PaperAgentRuntimeAdapter agentRuntime,
                                 AsyncJobService asyncJobService,
                                 PaperScheduleService scheduleService,
-                                PaperStrategyService strategyService) {
+                                PaperStrategyService strategyService,
+                                PaperRunLifecycle lifecycle,
+                                PaperTradeGuardrails guardrails,
+                                AgentRunRepository agentRunRepository) {
         this.runMapper = runMapper;
         this.noteMapper = noteMapper;
         this.feed = feed;
@@ -107,11 +120,18 @@ public class PaperResearchService {
         this.asyncJobService = asyncJobService;
         this.scheduleService = scheduleService;
         this.strategyService = strategyService;
+        this.lifecycle = lifecycle;
+        this.guardrails = guardrails;
+        this.agentRunRepository = agentRunRepository;
     }
 
-    /** 提交一轮搜集，立刻返回。 */
+    /** 提交一轮搜集，立刻返回；拒绝重叠活动轮次。 */
     @Transactional
     public PaperAiSubmitVO submitRun() {
+        lifecycle.requireNoActive(runMapper, q -> q.in(
+                PaperResearchRun::getStatus,
+                PaperRunLifecycle.activeStatuses(
+                        PaperResearchRun.STATUS_PENDING, PaperResearchRun.STATUS_RUNNING)));
         PaperResearchRun run = new PaperResearchRun();
         run.setId(UUID.randomUUID().toString().replace("-", ""));
         run.setStatus(PaperResearchRun.STATUS_PENDING);
@@ -128,40 +148,82 @@ public class PaperResearchService {
         return vo;
     }
 
-    /** 后台执行。材料不足时直接成功，不调用模型。 */
+    /** 后台执行。材料不足或无有效卡片时成功结束，kept=0。 */
     public void run(String runId) throws Exception {
         PaperResearchRun run = runMapper.selectById(runId);
         if (run == null) {
             throw new IllegalArgumentException("搜集轮次不存在");
         }
+        PaperWorkflowTrace trace = new PaperWorkflowTrace();
+        boolean marked = lifecycle.tryMarkRunning(runMapper, u -> u
+                .eq(PaperResearchRun::getId, runId)
+                .eq(PaperResearchRun::getStatus, PaperResearchRun.STATUS_PENDING)
+                .set(PaperResearchRun::getStatus, PaperResearchRun.STATUS_RUNNING));
+        if (!marked) {
+            log.info("搜集轮次已非 PENDING，跳过重复执行 runId={} status={}", runId, run.getStatus());
+            return;
+        }
         run.setStatus(PaperResearchRun.STATUS_RUNNING);
-        runMapper.updateById(run);
         try {
             boolean toolSearch = Boolean.TRUE.equals(
                     scheduleService.requireSettings().getResearchToolSearchEnabled());
-            // 1. 名单：跳过近期整理过的，再按闸门收成一小批；可选预取 B 源
+            // START_RUN 已完成条件进入 RUNNING
+            trace.ok(PaperWorkflowStep.START_RUN, "jobId=" + run.getJobId());
+
+            // DISCOVER + VALIDATE_MARKET_DATA：Java 只做候选与行情闸门，证据由 Agent 按需拉取
             List<Material> batch = screen(toolSearch);
             run.setScreenedCount(batch.size());
+            trace.ok(PaperWorkflowStep.DISCOVER_CANDIDATES, "picked=" + batch.size());
+            trace.ok(PaperWorkflowStep.VALIDATE_MARKET_DATA, "qualified=" + batch.size());
             if (batch.isEmpty()) {
+                run.setFrameworkTrace(trace.toJson(objectMapper));
                 finish(run, 0, null, null);
+                trace.ok(PaperWorkflowStep.FINISH_RUN, "empty-batch");
                 return;
             }
-            // 2. 编排器整理，解析后按代码更新
+
             PaperAgentRuntimeAdapter.Outcome outcome =
                     agentRuntime.research(prompt(batch, toolSearch), run.getId(), run.getJobId());
-            run.setFrameworkTrace(outcome.traceJson());
+            trace.bindAgentRun(outcome.agentRunId());
+            trace.ok(PaperWorkflowStep.AI_COLLECT_AND_ANALYZE, "agentRunId=" + outcome.agentRunId());
+
             List<Card> cards = parseTypedCards(outcome.answer());
-            if (cards.isEmpty()) {
-                throw new IllegalStateException("搜集员没有返回有效卡片");
+            Set<String> pool = new HashSet<>();
+            for (Material m : batch) {
+                pool.add(m.symbol());
             }
-            int kept = upsert(run.getId(), batch, cards);
+            cards = guardrails.validateCards(cards, pool);
+            trace.ok(PaperWorkflowStep.VALIDATE_CARDS, "cards=" + cards.size());
+            int kept = cards.isEmpty() ? 0 : upsert(run.getId(), batch, cards);
+            if (!cards.isEmpty()) {
+                trace.ok(PaperWorkflowStep.UPSERT_NOTES, "kept=" + kept);
+            }
+            // 合并领域步骤与 Agent 脱敏轨迹
+            run.setFrameworkTrace(mergeTrace(trace, outcome.traceJson()));
             finish(run, kept, outcome.answer(), null);
+            trace.ok(PaperWorkflowStep.FINISH_RUN, "kept=" + kept);
         } catch (Exception e) {
+            trace.fail(PaperWorkflowStep.FINISH_RUN, e.getMessage());
+            run.setFrameworkTrace(trace.toJson(objectMapper));
             run.setStatus(PaperResearchRun.STATUS_FAILED);
             run.setErrorMessage(clip(e.getMessage(), 1000));
             run.setFinishedAt(LocalDateTime.now());
             runMapper.updateById(run);
             throw e;
+        }
+    }
+
+    /** 把 agentRunId/domainSteps 与适配器轨迹合并进 framework_trace。 */
+    private String mergeTrace(PaperWorkflowTrace domain, String agentTraceJson) {
+        try {
+            var root = objectMapper.readTree(domain.toJson(objectMapper));
+            if (agentTraceJson != null && !agentTraceJson.isBlank()) {
+                ((com.fasterxml.jackson.databind.node.ObjectNode) root)
+                        .set("agent", objectMapper.readTree(agentTraceJson));
+            }
+            return objectMapper.writeValueAsString(root);
+        } catch (Exception e) {
+            return domain.toJson(objectMapper);
         }
     }
 
@@ -198,7 +260,15 @@ public class PaperResearchService {
         if (run == null) {
             throw new IllegalArgumentException("搜集轮次不存在");
         }
+        run.setAgentRunId(resolveAgentRunId(id));
         return run;
+    }
+
+    /** 通过 business_ref 反查最近一次 agent_run。 */
+    private String resolveAgentRunId(String businessRef) {
+        List<AgentRun> runs = agentRunRepository.search(
+                null, null, businessRef, null, null, 1);
+        return runs.isEmpty() ? null : runs.get(0).getId();
     }
 
     private void finish(PaperResearchRun run, int kept, String raw, String error) {
@@ -271,14 +341,8 @@ public class PaperResearchService {
                     continue;
                 }
                 String name = facts.name() == null ? row.name() : facts.name();
-                List<PaperStoryFeed.SourceItem> sources = new ArrayList<>();
-                mergeSources(sources, feed.announcements(row.code()));
-                mergeSources(sources, feed.news(row.code()));
-                mergeSources(sources, macroFeed.sectorBriefs(name));
-                boolean webAdded = false;
-                if (toolSearch) {
-                    webAdded = webEnricher.enrich(row.code(), name, sources);
-                }
+                // 证据材料改由 Agent 按需工具拉取（含 mcp-crawler）
+                List<PaperStoryFeed.SourceItem> sources = List.of();
                 Double premium = null;
                 if (facts.etf()) {
                     EtfPremiumClient.PremiumQuote pq = premiums.lookup(row.code(), snap.lastPrice());
@@ -287,7 +351,7 @@ public class PaperResearchService {
                     }
                 }
                 out.add(new Material(facts.symbol().toUpperCase(Locale.ROOT),
-                        name, snap, facts, premium, sources, webAdded ? TIER_A_WEB : TIER_A));
+                        name, snap, facts, premium, sources, TIER_A));
             } catch (Exception e) {
                 quoteFailures++;
                 log.debug("搜集剔除 {}: {}", row.code(), e.getMessage());
@@ -361,38 +425,23 @@ public class PaperResearchService {
             put(n, "drawdown60Pct", m.snap().drawdown60Pct());
             put(n, "avgAmount20", m.facts().avgAmount20());
             put(n, "premiumPct", m.premiumPct());
-            ArrayNode sources = n.putArray("sources");
-            for (PaperStoryFeed.SourceItem s : m.sources()) {
-                ObjectNode src = sources.addObject();
-                src.put("kind", s.kind());
-                src.put("title", s.title());
-                if (s.url() != null) {
-                    src.put("url", s.url());
-                }
-                if (s.publishedAt() != null) {
-                    src.put("publishedAt", s.publishedAt());
-                }
-            }
         }
-        PaperStrategy strategy = strategyService.requireDefault();
-        String strategyText = clip(strategy.getContent(), STRATEGY_CLIP);
         String searchRule = toolSearch
-                ? "材料已含 A 股信源与预取网页标题；禁止再发起搜索，禁止编造未给出的标题或链接。"
-                : "材料已齐（仅 A 股 HTTP 信源）；禁止再发起联网搜索，禁止编造未给出的新闻。";
+                ? "可按需调用 web-search；公告落地页优先用 mcp-crawler 抓取正文。禁止编造未工具返回的 URL。"
+                : "不要调用 web-search；可用公告/新闻接口与 mcp-crawler 抓取已有链接正文。禁止编造 URL。";
         return """
-                你是模拟炒股的信息搜集员，不下单。下面是本批候选的行情与已合并的信源（公告/新闻/宏观/可选网页）。
-                请对照投资策略整理成 JSON 数组，不要 Markdown。
-                每项字段：symbol,name,kept,story,risks,rejectReason,fitScore,evidenceScore,signalTags。
-                fitScore、evidenceScore 必须给出 0 到 1 的小数，缺一不可；signalTags 为短字符串数组（如相对低点、企稳、流动性、溢价、跳空、策略冲突）。
-                kept 由你根据策略契合与证据充分度判定，true 才留给操盘手。
-                评判轴：相对低点、企稳、流动性、溢价/跳空、与策略冲突；故事只能引用本批 sources 标题或行情数字，证据不足则 kept=false。
+                你是模拟炒股的信息搜集员，不下单、不写研究卡。
+                候选列表仅含行情闸门后的标的；请按需调用工具补充证据：
+                paper-strategy、paper-market、paper-research-feed（公告/新闻/板块）、mcp-crawler（网页正文）。
                 %s
-                不要选择材料以外的新代码。
-                投资策略：
+                最终只输出紧凑 ResearchCardBatch JSON 对象（字段 cards[]），不要 Markdown。
+                每项含 symbol,name,kept,story,risks,rejectReason,fitScore,evidenceScore,signalTags,evidenceRefs。
+                story≤80字；fitScore/evidenceScore 为 0~1；
+                evidenceRefs 必须是字符串数组（标题或 URL），禁止对象；不可凭空生成。
+                只能使用候选列表中的代码；证据不足则 kept=false。
+                候选：
                 %s
-                材料：
-                %s
-                """.formatted(searchRule, strategyText, objectMapper.writeValueAsString(arr));
+                """.formatted(searchRule, objectMapper.writeValueAsString(arr));
     }
 
     /** 从最终答复或各步观察里取出 JSON 数组。操盘手也用来读编排结果。 */

@@ -1,8 +1,10 @@
 package com.mychat.apps.papertrade;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.mychat.agent.persistence.AgentRunRepository;
 import com.mychat.apps.papertrade.ledger.PaperTradeService;
 import com.mychat.apps.papertrade.ledger.entity.vo.PaperAccountVO;
+import com.mychat.entity.po.AgentRun;
 import com.mychat.apps.papertrade.research.entity.dto.PaperResearchNoteRequest;
 import com.mychat.apps.papertrade.research.entity.po.PaperResearchNote;
 import com.mychat.apps.papertrade.research.entity.po.PaperResearchRun;
@@ -46,6 +48,7 @@ public class PaperTradeAdminService {
     private final PaperAiRunMapper aiRunMapper;
     private final PaperResearchRunMapper researchRunMapper;
     private final PaperResearchNoteMapper researchNoteMapper;
+    private final AgentRunRepository agentRunRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /** 清空业务数据并重置账户，保留策略与账户行。 */
@@ -214,6 +217,8 @@ public class PaperTradeAdminService {
         if (run == null) {
             throw new IllegalArgumentException("搜集轮次不存在");
         }
+        List<AgentRun> agentRuns = agentRunRepository.search(null, null, id, null, null, 1);
+        run.setAgentRunId(agentRuns.isEmpty() ? null : agentRuns.get(0).getId());
         return run;
     }
 

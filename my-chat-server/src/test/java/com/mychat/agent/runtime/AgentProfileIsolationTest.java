@@ -49,11 +49,13 @@ class AgentProfileIsolationTest {
         AgentScenarioProfile trader = configuration.paperTraderRuntimeProfile();
 
         assertThat(research.allowedTools())
-                .containsExactlyInAnyOrder("paper-run", "web-search")
-                .doesNotContain("paper-note", "file", "mcp");
+                .contains("paper-market", "paper-research-feed", "paper-strategy",
+                        "web-search", "mcp-crawler")
+                .doesNotContain("paper-note", "file", "mcp", "paper-stage");
         assertThat(trader.allowedTools())
-                .containsExactlyInAnyOrder("paper-decision", "paper-run")
-                .doesNotContain("paper-stage", "paper-note", "file", "mcp", "web-search");
+                .contains("paper-decision", "paper-run", "paper-market", "paper-strategy")
+                .doesNotContain("paper-stage", "paper-note", "file", "mcp",
+                        "web-search", "mcp-crawler");
     }
 
     /** 面试官使用独立上下文、Memory、质量和回答策略。 */

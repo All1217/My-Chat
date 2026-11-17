@@ -29,7 +29,8 @@ public class PaperTraderActionHandler implements AgentActionHandler {
                 "读取模拟交易上下文，落库决策并可执行下单",
                 "{\"instruction\":\"string\"}",
                 "trade_decision_batch",
-                AgentAction.SideEffectLevel.HIGH_RISK_WRITE);
+                // 虚拟盘异步轮不可等人批；闸门在工具内，与搜集员 REVERSIBLE_WRITE 同级
+                AgentAction.SideEffectLevel.REVERSIBLE_WRITE);
     }
 
     @Override

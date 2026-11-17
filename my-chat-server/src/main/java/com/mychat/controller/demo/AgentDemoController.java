@@ -1,5 +1,11 @@
 package com.mychat.controller.demo;
 
+import com.mychat.agent.api.AgentRunContext;
+import com.mychat.agent.api.AgentRunRequest;
+import com.mychat.agent.api.AgentRunResult;
+import com.mychat.agent.api.AgentScenarioId;
+import com.mychat.agent.runtime.AgentRuntime;
+import com.mychat.entity.dto.AgentRuntimeDemoRequest;
 import com.mychat.entity.dto.EvaluateOptimizeRequest;
 import com.mychat.entity.dto.OrchestrateRequest;
 import com.mychat.entity.dto.RouteRequest;
@@ -22,6 +28,8 @@ import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Flux;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
+import java.util.UUID;
 
 /**
  * Agent 调试 API，不进入主聊天产品路径。
@@ -39,6 +47,32 @@ public class AgentDemoController {
     private final AgentRouteDemoStreamService agentRouteDemoStreamService;
     private final AgentOrchestratorService agentOrchestratorService;
     private final AgentEvaluatorOptimizerService agentEvaluatorOptimizerService;
+    private final AgentRuntime agentRuntime;
+
+    /** 运行 Phase 2 Runtime；写动作不会在该入口获得批准。 */
+    @PostMapping(value = "/runtime", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Result<AgentRunResult> runtime(@RequestBody AgentRuntimeDemoRequest request) {
+        try {
+            AgentRunContext context = new AgentRunContext(
+                    UUID.randomUUID().toString(),
+                    AgentScenarioId.MAIN_CHAT,
+                    request.conversationId(),
+                    null,
+                    request.kbId(),
+                    request.workDir(),
+                    null,
+                    request.metadata());
+            AgentRunResult result = agentRuntime.run(new AgentRunRequest(
+                    request.input(), context, Map.of("maxDurationMs", 120_000L)));
+            return Result.ok(result);
+        } catch (IllegalArgumentException exception) {
+            log.warn("Runtime Demo 参数错误: {}", exception.getMessage());
+            return Result.fail(400, exception.getMessage());
+        } catch (Exception exception) {
+            log.error("Runtime Demo 执行失败", exception);
+            return Result.fail("Runtime Demo 执行失败: " + exception.getMessage());
+        }
+    }
 
     /**
      * 路由调试（覆盖原同步 {@code Result&lt;RouteResultVO&gt;}）：分类后流式分发到

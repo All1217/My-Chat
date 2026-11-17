@@ -8,7 +8,6 @@ import com.mychat.service.knowledge.KnowledgeRetrievalService;
 import com.mychat.utils.ChatStreamEventWriter;
 import com.mychat.utils.NdjsonStreamSupport;
 import com.mychat.utils.ObservabilityStreamAdvisor;
-import com.mychat.utils.ReasoningContentExtractor;
 import com.mychat.utils.SearchSystemPrompts;
 import com.mychat.utils.WorkspacePromptBuilder;
 import com.mychat.utils.WorkspaceUtil;
@@ -29,7 +28,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Demo 旁路：单次 Routing 的 NDJSON 流式管道。
@@ -106,9 +104,8 @@ public class AgentRouteDemoStreamService {
         NdjsonStreamSupport.emitTracked(sink, accumulated, ChatStreamEvent.route(
                 turnId, seq, classified.selection(), classified.reasoning()));
 
-        AtomicReference<String> lastReasoning = new AtomicReference<>();
         Mono<Void> drive = streamByRoute(
-                classified.selection(), input, chatId, kbId, obs, sink, turnId, seq, accumulated, lastReasoning)
+                classified.selection(), input, chatId, kbId, obs, sink, turnId, seq, accumulated)
                 .doOnSuccess(v -> {
                     if (qualityLoop) {
                         log.info("Demo /route qualityLoop=true 已忽略（请用主聊天或 /ai/agent/evaluate-optimize）turnId={}",
@@ -139,8 +136,7 @@ public class AgentRouteDemoStreamService {
             Sinks.Many<ChatStreamEvent> sink,
             String turnId,
             AtomicInteger seq,
-            List<ChatStreamEvent> accumulated,
-            AtomicReference<String> lastReasoning) {
+            List<ChatStreamEvent> accumulated) {
 
         Flux<ChatResponse> responses = switch (route) {
             case "kb" -> {
@@ -187,27 +183,18 @@ public class AgentRouteDemoStreamService {
         };
 
         return responses
-                .doOnNext(cr -> emitTextEvents(sink, turnId, seq, cr, accumulated, lastReasoning))
+                .doOnNext(cr -> emitTextEvents(sink, turnId, seq, cr, accumulated))
                 .then();
     }
 
-    /**
-     * 与主聊天 route 目标语义对齐：工具帧也可抽 thinking，不发 text_delta。
-     */
+    /** 仅发送用户可见正文；Phase 3 不再公开 thinking_delta。 */
     private void emitTextEvents(Sinks.Many<ChatStreamEvent> sink,
                                 String turnId,
                                 AtomicInteger seq,
                                 ChatResponse response,
-                                List<ChatStreamEvent> accumulated,
-                                AtomicReference<String> lastReasoning) {
+                                List<ChatStreamEvent> accumulated) {
         if (response == null || response.getResult() == null) {
             return;
-        }
-        String thinkingDelta = ReasoningContentExtractor.nextDelta(
-                lastReasoning, ReasoningContentExtractor.extract(response));
-        if (thinkingDelta != null) {
-            NdjsonStreamSupport.emitTracked(sink, accumulated,
-                    ChatStreamEvent.thinkingDelta(turnId, seq, thinkingDelta));
         }
         if (response.hasToolCalls()) {
             return;

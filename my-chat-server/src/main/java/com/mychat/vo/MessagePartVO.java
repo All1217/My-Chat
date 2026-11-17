@@ -27,6 +27,15 @@ public class MessagePartVO {
     @Schema(description = "running | done | error | cancelled")
     private String status;
 
+    @Schema(description = "父步骤 ID；工具子项使用")
+    private String parentStepId;
+
+    @Schema(description = "用户可见名称")
+    private String displayName;
+
+    @Schema(description = "执行耗时毫秒")
+    private Long elapsedMs;
+
     @Schema(description = "工具结果预览，或路由分类理由")
     private String resultPreview;
 

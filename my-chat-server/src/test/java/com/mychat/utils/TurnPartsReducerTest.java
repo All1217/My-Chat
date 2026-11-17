@@ -1,5 +1,7 @@
 package com.mychat.utils;
 
+import com.mychat.agent.api.AgentStepResult;
+import com.mychat.agent.api.PublicProgressEvent;
 import com.mychat.common.ChatStreamEvent;
 import com.mychat.entity.dto.KnowledgeRetrieveHit;
 import com.mychat.vo.MessagePartVO;
@@ -64,5 +66,28 @@ class TurnPartsReducerTest {
         assertTrue(!args.containsKey("citations"));
         assertTrue(!args.containsKey("kbScope"));
         assertEquals(1, args.get("stepIndex"));
+    }
+
+    /** 相同 stepId 的开始/完成事件原位更新，不追加重复项。 */
+    @Test
+    void sameStepIdUpdatesInPlace() {
+        AtomicInteger sequence = new AtomicInteger();
+        PublicProgressEvent running = new PublicProgressEvent(
+                "run-1", "step-stable", null,
+                PublicProgressEvent.Type.STEP, AgentStepResult.Status.RUNNING,
+                "联网搜索", "", 0, Map.of("actionId", "search"));
+        PublicProgressEvent completed = new PublicProgressEvent(
+                "run-1", "step-stable", null,
+                PublicProgressEvent.Type.STEP, AgentStepResult.Status.SUCCEEDED,
+                "联网搜索", "完成", 30, Map.of("actionId", "search"));
+
+        TurnPartsReducer.TurnSnapshot snapshot = TurnPartsReducer.reduce(List.of(
+                ChatStreamEvent.publicProgress("turn-1", sequence, running),
+                ChatStreamEvent.publicProgress("turn-1", sequence, completed)), false);
+
+        assertEquals(1, snapshot.parts().size());
+        assertEquals("step-stable", snapshot.parts().get(0).getId());
+        assertEquals("done", snapshot.parts().get(0).getStatus());
+        assertEquals(30L, snapshot.parts().get(0).getElapsedMs());
     }
 }

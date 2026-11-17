@@ -27,6 +27,14 @@ export interface ChatStreamEvent {
   preview?: string
   truncated?: boolean
   message?: string
+  runId?: string
+  stepId?: string
+  parentStepId?: string
+  status?: 'PENDING' | 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'SKIPPED' | 'CANCELLED'
+  displayName?: string
+  visibility?: 'public'
+  startedAt?: string
+  elapsedMs?: number
 }
 
 /** 与后端 KnowledgeRetrieveHit 对齐的聊天引用来源 */
@@ -106,6 +114,9 @@ export type MessagePart =
     observation?: string
     citations?: KbCitation[]
     kbScope?: 'catalog' | 'vector'
+    status?: ActivityStatus
+    displayName?: string
+    elapsedMs?: number
   }
   | {
     type: 'tool'
@@ -115,8 +126,12 @@ export type MessagePart =
     status: 'running' | 'done' | 'error' | 'cancelled'
     resultPreview?: string
     ok?: boolean
+    parentStepId?: string
+    displayName?: string
+    elapsedMs?: number
   }
 
+export type ActivityStatus = 'running' | 'done' | 'error' | 'cancelled'
 export type ToolMessagePart = Extract<MessagePart, { type: 'tool' }>
 export type RouteMessagePart = Extract<MessagePart, { type: 'route' }>
 export type StepMessagePart = Extract<MessagePart, { type: 'step' }>

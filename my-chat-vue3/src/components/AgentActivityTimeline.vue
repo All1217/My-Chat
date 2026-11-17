@@ -9,32 +9,40 @@
             路由 → {{ routeLabel(part.route) }}
             <el-tag size="small" type="info" effect="plain">已分流</el-tag>
           </span>
-          <div v-if="part.reasoning" class="route-reason">{{ part.reasoning }}</div>
         </div>
         <!-- Orchestrator / 质量环步骤 -->
         <div v-else-if="part.type === 'step'" class="step-row">
           <span class="tool-title">
-            步骤 {{ part.stepIndex }} → {{ actionLabel(part.action) }}
-            <el-tag size="small" type="warning" effect="plain">编排</el-tag>
+            <el-icon v-if="part.status === 'running'" class="is-loading" :size="14"><Loading /></el-icon>
+            步骤 {{ part.stepIndex }} → {{ part.displayName || actionLabel(part.action) }}
+            <el-tag size="small" :type="statusTagType(part.status || 'done')" effect="plain">
+              {{ statusLabel(part.status || 'done') }}
+            </el-tag>
             <el-tag v-if="part.action === 'retrieve_kb' && part.kbScope" size="small"
               :type="part.kbScope === 'catalog' ? 'info' : 'success'" effect="plain">
               {{ part.kbScope === 'catalog' ? '文档目录' : '向量检索' }}
             </el-tag>
           </span>
-          <div v-if="part.reasoning" class="route-reason">{{ part.reasoning }}</div>
+          <span v-if="part.elapsedMs != null" class="elapsed">{{ part.elapsedMs }} ms</span>
           <KbCitationTags v-if="part.action === 'retrieve_kb'" :citations="part.citations" />
           <el-collapse v-if="hasStepDetail(part)">
-            <el-collapse-item title="查看指令 / 观察" :name="part.id">
-              <div v-if="part.instruction" class="detail-block">
-                <div class="detail-label">指令</div>
-                <pre class="detail-pre">{{ part.instruction }}</pre>
-              </div>
+            <el-collapse-item title="查看结果摘要" :name="part.id">
               <div v-if="part.observation" class="detail-block">
-                <div class="detail-label">观察</div>
+                <div class="detail-label">结果摘要</div>
                 <pre class="detail-pre">{{ part.observation }}</pre>
               </div>
             </el-collapse-item>
           </el-collapse>
+          <div v-if="childTools(part.id).length" class="tool-children">
+            <div v-for="tool in childTools(part.id)" :key="tool.id" class="tool-child">
+              <el-icon v-if="tool.status === 'running'" class="is-loading" :size="13"><Loading /></el-icon>
+              <span>{{ tool.displayName || toolDisplayName(tool.name) }}</span>
+              <el-tag size="small" :type="statusTagType(tool.status)" effect="plain">
+                {{ statusLabel(tool.status) }}
+              </el-tag>
+              <span v-if="tool.elapsedMs != null" class="elapsed">{{ tool.elapsedMs }} ms</span>
+            </div>
+          </div>
         </div>
         <!-- 工具调用 -->
         <div v-else-if="part.type === 'tool'" class="tool-row">
@@ -49,12 +57,8 @@
           </span>
           <el-collapse v-if="hasDetail(part)">
             <el-collapse-item :title="detailTitle(part)" :name="part.id">
-              <div v-if="part.args != null" class="detail-block">
-                <div class="detail-label">参数</div>
-                <pre class="detail-pre">{{ formatJson(part.args) }}</pre>
-              </div>
               <div v-if="part.resultPreview" class="detail-block">
-                <div class="detail-label">结果预览</div>
+                <div class="detail-label">结果摘要</div>
                 <pre class="detail-pre">{{ part.resultPreview }}</pre>
               </div>
             </el-collapse-item>
@@ -103,7 +107,8 @@ const ACTION_LABELS: Record<string, string> = {
 const timelineParts = computed(() =>
   (props.parts ?? []).filter(
     (p): p is TimelinePart =>
-      p.type === 'tool' || p.type === 'route' || p.type === 'step',
+      p.type === 'route' || p.type === 'step'
+      || (p.type === 'tool' && !p.parentStepId),
   ),
 )
 
@@ -112,12 +117,12 @@ function partKey(part: TimelinePart) {
 }
 
 function isRunning(part: TimelinePart) {
-  return part.type === 'tool' && part.status === 'running'
+  return (part.type === 'tool' || part.type === 'step') && part.status === 'running'
 }
 
 function itemType(part: TimelinePart) {
   if (part.type === 'route') return 'info'
-  if (part.type === 'step') return 'warning'
+  if (part.type === 'step') return timelineType(part.status || 'done')
   return timelineType(part.status)
 }
 
@@ -130,7 +135,14 @@ function actionLabel(action: string) {
 }
 
 function hasStepDetail(part: StepMessagePart) {
-  return !!part.instruction || !!part.observation
+  return !!part.observation
+}
+
+function childTools(stepId: string): ToolMessagePart[] {
+  return (props.parts ?? []).filter(
+    (part): part is ToolMessagePart =>
+      part.type === 'tool' && part.parentStepId === stepId,
+  )
 }
 
 function timelineType(status: ToolMessagePart['status']) {
@@ -175,7 +187,7 @@ function statusLabel(status: ToolMessagePart['status']) {
 }
 
 function hasDetail(part: ToolMessagePart) {
-  return part.args != null || !!part.resultPreview
+  return !!part.resultPreview
 }
 
 function detailTitle(part: ToolMessagePart) {
@@ -183,13 +195,6 @@ function detailTitle(part: ToolMessagePart) {
   return '查看参数 / 结果'
 }
 
-function formatJson(value: unknown): string {
-  try {
-    return JSON.stringify(value, null, 2)
-  } catch {
-    return String(value)
-  }
-}
 </script>
 
 <style scoped lang="less">
@@ -239,6 +244,28 @@ function formatJson(value: unknown): string {
   font-size: 12px;
   color: #909399;
   line-height: 1.45;
+}
+
+.elapsed {
+  font-size: 11px;
+  color: #909399;
+}
+
+.tool-children {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 5px 8px;
+  background: #f7f8fa;
+  border-radius: 6px;
+}
+
+.tool-child {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #606266;
 }
 
 .detail-block {

@@ -10,13 +10,6 @@
                     <p class="message-content" v-if="msg.messageType === MessageType.USER">{{ msg.text }}</p>
                     <div class="message-content" v-else>
                         <AgentActivityTimeline :parts="msg.parts" />
-                        <div v-if="msg.thinking" class="thinking-box">
-                            <el-collapse>
-                                <el-collapse-item title="思考过程">
-                                    <MarkdownRenderer :content="msg.thinking" />
-                                </el-collapse-item>
-                            </el-collapse>
-                        </div>
                         <MarkdownRenderer v-if="msg.text" :content="msg.text" />
                         <KbCitationTags :citations="uniqueKbCitations(msg.parts)" />
                     </div>
@@ -30,13 +23,6 @@
                 <li class="message-ai" v-if="isStreaming">
                     <div class="message-content">
                         <AgentActivityTimeline :parts="streamingParts" />
-                        <div v-if="streamingThinking" class="thinking-box">
-                            <el-collapse>
-                                <el-collapse-item title="思考过程（实时更新中...）">
-                                    <MarkdownRenderer :content="streamingThinking" />
-                                </el-collapse-item>
-                            </el-collapse>
-                        </div>
                         <MarkdownRenderer v-if="streamingContent" :content="streamingContent" />
                         <KbCitationTags :citations="uniqueKbCitations(streamingParts)" />
                     </div>
@@ -155,7 +141,6 @@ const {
     inputText,
     isStreaming,
     streamingContent,
-    streamingThinking,
     streamingParts,
     sendMessage,
     stopStreaming,

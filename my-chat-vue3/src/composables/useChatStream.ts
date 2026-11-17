@@ -1,13 +1,12 @@
 import { ref, computed, watch } from 'vue'
 import { streamChat, generateChatId } from '@/utils/streamChat'
-import { unwrapToolPreview } from '@/utils/unwrapToolPreview'
 import { useChatStore } from '@/stores/chat'
 import { chatApi } from '@/api/chat'
 import { ElMessage } from 'element-plus'
 import { MessageType } from '@/types/AiModule/enums'
 import type { Message } from '@/types/AiModule/types'
-import type { ChatStreamEvent, MessagePart, ToolMessagePart, StepMessagePart } from '@/types/AiModule/streamEvents'
-import { parseKbCitations, parseKbScope } from '@/types/AiModule/streamEvents'
+import type { ChatStreamEvent, MessagePart } from '@/types/AiModule/streamEvents'
+import { applyTimelineEvent, normalizeTimelineParts } from '@/utils/agentTimelineReducer'
 
 /**
  * 聊天消息流式处理 — 发送 / 接收 / 历史加载 / NDJSON 事件归约
@@ -107,91 +106,20 @@ export function useChatStream(
 
     function applyStreamEvent(event: ChatStreamEvent) {
         switch (event.type) {
-            case 'route': {
-                const route = event.name ?? 'general'
-                streamingParts.value.push({
-                    type: 'route',
-                    id: `route-${event.seq}`,
-                    route,
-                    reasoning: event.text,
-                })
+            case 'route':
+            case 'step':
+            case 'tool_call':
+            case 'tool_result':
+                applyTimelineEvent(streamingParts.value, event)
                 break
-            }
-            case 'step': {
-                const args = (event.args ?? {}) as {
-                    stepIndex?: number
-                    instruction?: string
-                    citations?: unknown
-                    kbScope?: unknown
-                }
-                const stepIndex = typeof args.stepIndex === 'number'
-                    ? args.stepIndex
-                    : Number(String(event.id ?? '').replace(/^step-/, '')) || event.seq
-                streamingParts.value.push({
-                    type: 'step',
-                    id: event.id ?? `step-${event.seq}`,
-                    stepIndex,
-                    action: event.name ?? 'unknown',
-                    reasoning: event.text,
-                    instruction: args.instruction,
-                    observation: event.preview,
-                    citations: parseKbCitations(args.citations),
-                    kbScope: parseKbScope(args.kbScope),
-                } satisfies StepMessagePart)
-                break
-            }
             case 'thinking_delta':
-                if (event.text) {
-                    streamingThinking.value += event.text
-                }
+                // Phase 3 不再把模型思考作为公开进度。
                 break
             case 'text_delta':
                 if (event.text) {
                     streamingContent.value += event.text
                 }
                 break
-            case 'tool_call': {
-                if (!event.id) break
-                const existing = streamingParts.value.find(
-                    p => p.type === 'tool' && p.id === event.id,
-                ) as ToolMessagePart | undefined
-                if (existing) {
-                    existing.name = event.name ?? existing.name
-                    existing.args = event.args ?? existing.args
-                    existing.status = 'running'
-                } else {
-                    streamingParts.value.push({
-                        type: 'tool',
-                        id: event.id,
-                        name: event.name ?? 'unknown',
-                        args: event.args,
-                        status: 'running',
-                    })
-                }
-                break
-            }
-            case 'tool_result': {
-                if (!event.id) break
-                const tool = streamingParts.value.find(
-                    p => p.type === 'tool' && p.id === event.id,
-                ) as ToolMessagePart | undefined
-                if (tool) {
-                    tool.status = event.ok === false ? 'error' : 'done'
-                    tool.ok = event.ok
-                    tool.resultPreview = unwrapToolPreview(event.preview)
-                    if (event.name) tool.name = event.name
-                } else {
-                    streamingParts.value.push({
-                        type: 'tool',
-                        id: event.id,
-                        name: event.name ?? 'unknown',
-                        status: event.ok === false ? 'error' : 'done',
-                        ok: event.ok,
-                        resultPreview: unwrapToolPreview(event.preview),
-                    })
-                }
-                break
-            }
             case 'error':
                 if (event.message) {
                     ElMessage.warning(event.message)
@@ -199,7 +127,7 @@ export function useChatStream(
                         (streamingContent.value ? '\n' : '') + `（错误：${event.message}）`
                 }
                 for (const p of streamingParts.value) {
-                    if (p.type === 'tool' && p.status === 'running') {
+                    if ((p.type === 'tool' || p.type === 'step') && p.status === 'running') {
                         p.status = 'error'
                     }
                 }
@@ -257,7 +185,7 @@ export function useChatStream(
             stopStreamingFn = null
         }
         for (const p of streamingParts.value) {
-            if (p.type === 'tool' && p.status === 'running') {
+            if ((p.type === 'tool' || p.type === 'step') && p.status === 'running') {
                 p.status = 'cancelled'
             }
         }
@@ -307,49 +235,9 @@ export function useChatStream(
 
     /** 后端 MessagePartVO（route/step）→ 前端 MessagePart */
     function normalizeMessageParts(msg: Message): Message {
-        if (!msg.parts?.length) return msg
         return {
             ...msg,
-            parts: msg.parts.map((p) => {
-                if (p.type === 'route') {
-                    const raw = p as unknown as {
-                        id?: string
-                        name?: string
-                        route?: string
-                        reasoning?: string
-                        resultPreview?: string
-                    }
-                    return {
-                        type: 'route' as const,
-                        id: raw.id ?? `route-${raw.name ?? raw.route ?? 'general'}`,
-                        route: raw.route ?? raw.name ?? 'general',
-                        reasoning: raw.reasoning ?? raw.resultPreview,
-                    }
-                }
-                if (p.type === 'step') {
-                    const raw = p as unknown as {
-                        id?: string
-                        name?: string
-                        args?: { stepIndex?: number; instruction?: string; citations?: unknown; kbScope?: unknown }
-                        resultPreview?: string
-                    }
-                    const stepIndex = typeof raw.args?.stepIndex === 'number'
-                        ? raw.args.stepIndex
-                        : Number(String(raw.id ?? '').replace(/^step-/, '')) || 0
-                    return {
-                        type: 'step' as const,
-                        id: raw.id ?? `step-${stepIndex}`,
-                        stepIndex,
-                        action: raw.name ?? 'unknown',
-                        reasoning: raw.resultPreview,
-                        instruction: raw.args?.instruction,
-                        observation: undefined,
-                        citations: parseKbCitations(raw.args?.citations),
-                        kbScope: parseKbScope(raw.args?.kbScope),
-                    }
-                }
-                return p
-            }),
+            parts: normalizeTimelineParts(msg.parts),
         }
     }
 

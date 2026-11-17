@@ -26,8 +26,8 @@ public final class TurnPartsReducer {
     public static TurnSnapshot reduce(List<ChatStreamEvent> events, boolean markRunningAsCancelled) {
         List<MessagePartVO> ordered = new ArrayList<>();
         Map<String, MessagePartVO> toolsById = new LinkedHashMap<>();
+        Map<String, MessagePartVO> stepsById = new LinkedHashMap<>();
         StringBuilder text = new StringBuilder();
-        StringBuilder thinking = new StringBuilder();
 
         if (events != null) {
             for (ChatStreamEvent e : events) {
@@ -40,13 +40,9 @@ public final class TurnPartsReducer {
                             text.append(e.text());
                         }
                     }
-                    case ChatStreamEvent.TYPE_THINKING_DELTA -> {
-                        if (e.text() != null) {
-                            thinking.append(e.text());
-                        }
-                    }
+                    case ChatStreamEvent.TYPE_THINKING_DELTA -> { /* Phase 3 不持久化模型思考 */ }
                     case ChatStreamEvent.TYPE_ROUTE -> applyRoute(ordered, e);
-                    case ChatStreamEvent.TYPE_STEP -> applyStep(ordered, e);
+                    case ChatStreamEvent.TYPE_STEP -> applyStep(ordered, stepsById, e);
                     case ChatStreamEvent.TYPE_TOOL_CALL -> applyToolCall(ordered, toolsById, e);
                     case ChatStreamEvent.TYPE_TOOL_RESULT -> applyToolResult(ordered, toolsById, e);
                     default -> {
@@ -62,12 +58,16 @@ public final class TurnPartsReducer {
                     part.setStatus("cancelled");
                 }
             }
+            for (MessagePartVO part : stepsById.values()) {
+                if ("running".equals(part.getStatus())) {
+                    part.setStatus("cancelled");
+                }
+            }
         }
 
-        String thinkingStr = thinking.toString().trim();
         return new TurnSnapshot(
                 ordered,
-                thinkingStr.isEmpty() ? null : thinkingStr,
+                null,
                 text.toString()
         );
     }
@@ -75,7 +75,7 @@ public final class TurnPartsReducer {
     private static void applyRoute(List<MessagePartVO> ordered, ChatStreamEvent e) {
         MessagePartVO part = new MessagePartVO();
         part.setType("route");
-        part.setId("route-" + UUID.randomUUID());
+        part.setId(e.stepId() != null ? e.stepId() : "route-" + UUID.randomUUID());
         part.setName(e.name() != null ? e.name() : "general");
         part.setStatus("done");
         part.setResultPreview(e.text());
@@ -83,22 +83,23 @@ public final class TurnPartsReducer {
     }
 
     /** Orchestrator / 质量环步骤 → parts.type=step */
-    private static void applyStep(List<MessagePartVO> ordered, ChatStreamEvent e) {
-        MessagePartVO part = new MessagePartVO();
+    private static void applyStep(List<MessagePartVO> ordered,
+                                  Map<String, MessagePartVO> stepsById,
+                                  ChatStreamEvent e) {
+        String id = e.stepId() != null ? e.stepId()
+                : e.id() != null ? e.id() : "step-" + UUID.randomUUID();
+        boolean isNew = !stepsById.containsKey(id);
+        MessagePartVO part = stepsById.computeIfAbsent(id, ignored -> new MessagePartVO());
         part.setType("step");
-        part.setId(e.id() != null ? e.id() : "step-" + UUID.randomUUID());
+        part.setId(id);
         part.setName(e.name() != null ? e.name() : "unknown");
-        part.setStatus("done");
+        part.setStatus(publicStatus(e.status(), "done"));
         part.setArgs(e.args());
-        // 理由放 resultPreview 前缀，便于无 instruction 时仍可读
+        part.setParentStepId(e.parentStepId());
+        part.setDisplayName(e.displayName());
+        part.setElapsedMs(e.elapsedMs());
         StringBuilder preview = new StringBuilder();
-        if (e.text() != null && !e.text().isBlank()) {
-            preview.append(e.text().trim());
-        }
         if (e.preview() != null && !e.preview().isBlank()) {
-            if (!preview.isEmpty()) {
-                preview.append("\n---\n");
-            }
             preview.append(e.preview());
         }
         if (!preview.isEmpty()) {
@@ -107,18 +108,21 @@ public final class TurnPartsReducer {
         if (e.truncated() != null) {
             part.setTruncated(e.truncated());
         }
-        ordered.add(part);
+        if (isNew) {
+            ordered.add(part);
+        }
     }
 
     private static void applyToolCall(
             List<MessagePartVO> ordered,
             Map<String, MessagePartVO> toolsById,
             ChatStreamEvent e) {
-        if (e.id() == null || e.id().isBlank()) {
+        String id = e.stepId() != null ? e.stepId() : e.id();
+        if (id == null || id.isBlank()) {
             return;
         }
-        boolean isNew = !toolsById.containsKey(e.id());
-        MessagePartVO part = toolsById.computeIfAbsent(e.id(), id -> {
+        boolean isNew = !toolsById.containsKey(id);
+        MessagePartVO part = toolsById.computeIfAbsent(id, ignored -> {
             MessagePartVO p = new MessagePartVO();
             p.setType("tool");
             p.setId(id);
@@ -131,6 +135,9 @@ public final class TurnPartsReducer {
         if (e.args() != null) {
             part.setArgs(e.args());
         }
+        part.setParentStepId(e.parentStepId());
+        part.setDisplayName(e.displayName());
+        part.setElapsedMs(e.elapsedMs());
         if (!"done".equals(part.getStatus()) && !"error".equals(part.getStatus())) {
             part.setStatus("running");
         }
@@ -143,11 +150,12 @@ public final class TurnPartsReducer {
             List<MessagePartVO> ordered,
             Map<String, MessagePartVO> toolsById,
             ChatStreamEvent e) {
-        if (e.id() == null || e.id().isBlank()) {
+        String id = e.stepId() != null ? e.stepId() : e.id();
+        if (id == null || id.isBlank()) {
             return;
         }
-        boolean isNew = !toolsById.containsKey(e.id());
-        MessagePartVO part = toolsById.computeIfAbsent(e.id(), id -> {
+        boolean isNew = !toolsById.containsKey(id);
+        MessagePartVO part = toolsById.computeIfAbsent(id, ignored -> {
             MessagePartVO p = new MessagePartVO();
             p.setType("tool");
             p.setId(id);
@@ -158,8 +166,11 @@ public final class TurnPartsReducer {
         }
         boolean ok = Boolean.TRUE.equals(e.ok());
         part.setOk(ok);
-        part.setStatus(ok ? "done" : "error");
+        part.setStatus(publicStatus(e.status(), ok ? "done" : "error"));
         part.setResultPreview(unwrapToolPreview(e.preview()));
+        part.setParentStepId(e.parentStepId());
+        part.setDisplayName(e.displayName());
+        part.setElapsedMs(e.elapsedMs());
         if (e.truncated() != null) {
             part.setTruncated(e.truncated());
         }
@@ -189,6 +200,20 @@ public final class TurnPartsReducer {
             }
         }
         return raw;
+    }
+
+    /** 将扩展状态映射为旧前端可识别状态。 */
+    private static String publicStatus(String status, String fallback) {
+        if (status == null || status.isBlank()) {
+            return fallback;
+        }
+        return switch (status) {
+            case "PENDING", "RUNNING" -> "running";
+            case "SUCCEEDED", "SKIPPED" -> "done";
+            case "FAILED" -> "error";
+            case "CANCELLED" -> "cancelled";
+            default -> fallback;
+        };
     }
 
     public record TurnSnapshot(List<MessagePartVO> parts, String thinking, String assistantText) {

@@ -1,4 +1,4 @@
-# My-Chat：复用宿主机已有 pg 容器，Compose 只跑 app + nginx
+# My-Chat：复用宿主机已有 pg 容器，Compose 跑 app + nginx + 常驻 crawler（可选关）
 # 可选：--profile jenkins | --profile ops（dozzle 日志 + adminer 查库）
 # 用法（在仓库根 /data/my-chat/repo）：
 #   docker compose -f deploy/docker-compose.yml --env-file /data/my-chat/.env up -d
@@ -6,12 +6,44 @@
 name: my-chat
 
 services:
+  # 爬虫 MCP：仅 Docker 内网 :8103，不对公网映射；纸面搜集经 PaperCrawlerClient 软依赖
+  crawler:
+    build:
+      context: ../mcp-server-crawler
+      dockerfile: Dockerfile
+    image: my-chat-crawler:local
+    restart: unless-stopped
+    expose:
+      - "8103"
+    # 运维本机探活时可临时取消注释（勿对公网防火墙放行）：
+    # ports:
+    #   - "127.0.0.1:8103:8103"
+    environment:
+      CRAWLER_HOST: "0.0.0.0"
+      CRAWLER_PORT: "8103"
+    mem_limit: 384m
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import socket; s=socket.create_connection(('127.0.0.1',8103),2); s.close()",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
   app:
     build:
       context: ..
       dockerfile: deploy/Dockerfile.app
     image: my-chat-app:local
     restart: unless-stopped
+    depends_on:
+      crawler:
+        condition: service_started
     extra_hosts:
       # 访问宿主机上已运行的 pg（docker run --name pg -p 5432:5432 ...）
       - "host.docker.internal:host-gateway"
@@ -21,7 +53,12 @@ services:
       SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME:-postgres}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       EMBEDDING_MODEL_API_KEY: ${EMBEDDING_MODEL_API_KEY}
-      APP_MCP_ENABLED: ${APP_MCP_ENABLED:-false}
+      # 默认只开 crawler MCP；database / Smithery 云上关闭
+      APP_MCP_ENABLED: ${APP_MCP_ENABLED:-true}
+      APP_MCP_DATABASE_ENABLED: ${APP_MCP_DATABASE_ENABLED:-false}
+      APP_MCP_CRAWLER_ENABLED: ${APP_MCP_CRAWLER_ENABLED:-true}
+      APP_MCP_SMITHERY_ENABLED: ${APP_MCP_SMITHERY_ENABLED:-false}
+      MCP_CRAWLER_URL: ${MCP_CRAWLER_URL:-http://crawler:8103}
       FLYWAY_BASELINE_ON_MIGRATE: ${FLYWAY_BASELINE_ON_MIGRATE:-false}
       EXA_API_KEY: ${EXA_API_KEY:-}
       SMITHERY_API_KEY: ${SMITHERY_API_KEY:-}

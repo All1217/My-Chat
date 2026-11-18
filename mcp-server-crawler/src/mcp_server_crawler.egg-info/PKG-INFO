@@ -47,6 +47,16 @@ python -m crawler_mcp.server
 
 可选环境变量见 [`.env.example`](.env.example)。
 
+## Docker（云上常驻）
+
+Compose 服务见 [`deploy/docker-compose.yml`](../deploy/docker-compose.yml) 的 `crawler`：仅 Docker 内网 `expose: 8103`，不对公网映射。
+
+```bash
+docker compose -f deploy/docker-compose.yml --env-file /data/my-chat/.env up -d crawler
+```
+
+主应用设 `MCP_CRAWLER_URL=http://crawler:8103`，并保持 `APP_MCP_DATABASE_ENABLED=false`、`APP_MCP_SMITHERY_ENABLED=false`。详见 [`docs/部署与运维指引.md`](../docs/部署与运维指引.md)。
+
 ## 接入 Cursor
 
 `.cursor/` 被 gitignore，**每台机器自行**在项目根 `.cursor/mcp.json` 增加：

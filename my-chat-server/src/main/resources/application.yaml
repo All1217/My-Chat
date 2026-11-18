@@ -102,7 +102,8 @@ spring:
               endpoint: /mcp
             # 本地网页抓取 MCP（Python FastMCP）；未启动时惰性握手不拖垮主应用
             mcp-crawler-server:
-              url: http://localhost:8103
+              # 本地默认 localhost；云上 Compose 设 MCP_CRAWLER_URL=http://crawler:8103
+              url: ${MCP_CRAWLER_URL:http://localhost:8103}
               endpoint: /mcp
             # Smithery 工具箱 Namespace MCP Endpoint（含 Exa Search 等）
             # 切勿把完整 URL 写到 url 且留下默认 endpoint=/mcp，否则会请求到 .../2625705206/mcp
@@ -177,13 +178,16 @@ app:
     # 总开关；他机无 MCP 环境时可设 APP_MCP_ENABLED=false，主聊天仍可启动
     enabled: ${APP_MCP_ENABLED:true}
     database:
-      enabled: true
+      # 云上建议 false（Cursor 开发库另连本机 :8102）
+      enabled: ${APP_MCP_DATABASE_ENABLED:true}
       connection-name: mcp-database-server
     crawler:
-      enabled: true
+      # 云上常驻 crawler 时 true；与 APP_MCP_ENABLED 同时打开
+      enabled: ${APP_MCP_CRAWLER_ENABLED:true}
       connection-name: mcp-crawler-server
     smithery:
-      enabled: true
+      # 云上建议 false，减轻外网与内存压力
+      enabled: ${APP_MCP_SMITHERY_ENABLED:true}
       # 缺省为空串，避免未设环境变量时 Spring 属性解析失败拖垮启动
       # 从 https://smithery.ai/account/api-keys 获取，通过环境变量注入，勿写死进仓库
       api-key: ${SMITHERY_API_KEY:}

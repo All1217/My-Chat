@@ -49,6 +49,8 @@ pipeline {
                     sh '''
                         set -e
                         # 直接调用插件形式，避免 COMPOSE_BIN="docker compose" 在 sh 中被拆词
+                        # 2C4G 串行；crawler 依赖 PyPI（默认阿里云镜像源）
+                        docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" build crawler
                         docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" build app
                         docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" build nginx
                     '''
@@ -61,7 +63,7 @@ pipeline {
                 dir("${REPO_DIR}") {
                     sh '''
                         set -e
-                        docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d app nginx
+                        docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d crawler app nginx
                     '''
                 }
             }

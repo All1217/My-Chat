@@ -55,7 +55,7 @@ cd mcp-server-database
 
 ## 接入 my-chat-server
 
-主应用通过 `spring.ai.mcp.client.streamable-http.connections.mcp-database-server` 连接本服务，并由 `app.mcp.database.enabled` 控制是否挂载工具。云上主应用通常 `APP_MCP_ENABLED=false`，与本 Cursor 侧 MCP 无关。
+主应用通过 `spring.ai.mcp.client.streamable-http.connections.mcp-database-server` 连接本服务，并由 `app.mcp.database.enabled` 控制是否挂载工具。云上默认只常驻 crawler（`APP_MCP_DATABASE_ENABLED=false`），本服务仍仅供本机 Cursor / 开发库，与云库无关。
 
 ## 手工冒烟清单
 

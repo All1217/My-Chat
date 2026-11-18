@@ -11,6 +11,10 @@ services:
     build:
       context: ../mcp-server-crawler
       dockerfile: Dockerfile
+      args:
+        # 云上慢/超时可改 .env：PIP_INDEX_URL / PIP_TRUSTED_HOST
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-https://mirrors.aliyun.com/pypi/simple/}
+        PIP_TRUSTED_HOST: ${PIP_TRUSTED_HOST:-mirrors.aliyun.com}
     image: my-chat-crawler:local
     restart: unless-stopped
     expose:

@@ -54,6 +54,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * 搜集员：一小批行情和公告交给编排器，结果累积进卡片表。不下单。
@@ -68,6 +74,10 @@ public class PaperResearchService {
     private static final int STRATEGY_CLIP = 6000;
     private static final String TIER_A = "A_ONLY";
     private static final String TIER_A_WEB = "A_PLUS_WEB";
+    /** qualify 外呼并发上限。 */
+    private static final int QUALIFY_PARALLELISM = 6;
+    /** 全轮爬虫 fetch 共享预算（非每票）。 */
+    private static final int CRAWL_BUDGET_PER_ROUND = 4;
 
     private final PaperResearchRunMapper runMapper;
     private final PaperResearchNoteMapper noteMapper;
@@ -336,77 +346,136 @@ public class PaperResearchService {
         return recent;
     }
 
-    /** 日 K 闸门和相对低点；接口信源 + 爬虫正文软合并。 */
+    /**
+     * 日 K 闸门和相对低点；接口信源 + 爬虫正文软合并。
+     * 按票并行外呼（并发 {@link #QUALIFY_PARALLELISM}），结果保持 picked 顺序。
+     */
     private List<Material> qualify(List<PaperStoryFeed.ListRow> picked) {
-        EtfPremiumClient.Session premiums = premiumClient.newSession();
-        List<Material> out = new ArrayList<>();
-        int quoteFailures = 0;
-        for (PaperStoryFeed.ListRow row : picked) {
-            try {
-                MarketQuoteVO quote = quoteClient.fetch(row.code(), "1Y");
-                PaperSymbolFacts facts = symbolGate.analyze(quote);
-                if (!passesGate(facts)) {
-                    continue;
-                }
-                MarketDipIndicators.Snapshot snap = MarketDipIndicators.from(quote);
-                if (!relativelyLow(snap)) {
-                    continue;
-                }
-                String name = facts.name() == null ? row.name() : facts.name();
-                // 1) 接口路径：公告/新闻标题（失败不拖垮标的）
-                List<PaperStoryFeed.SourceItem> sources = new ArrayList<>();
-                try {
-                    mergeSources(sources, feed.announcements(row.code()));
-                } catch (Exception e) {
-                    log.debug("公告接口跳过 {}: {}", row.code(), e.getMessage());
-                }
-                try {
-                    mergeSources(sources, feed.news(row.code()));
-                } catch (Exception e) {
-                    log.debug("新闻接口跳过 {}: {}", row.code(), e.getMessage());
-                }
-                try {
-                    mergeSources(sources, macroFeed.sectorBriefs(name));
-                } catch (Exception e) {
-                    log.debug("板块检索跳过 {}: {}", row.code(), e.getMessage());
-                }
-                // 2) 爬虫路径：对有 URL 的条目抽正文（限 2；失败保留标题）
-                enrichWithCrawler(sources);
-                String tier = sources.stream().anyMatch(s -> "CRAWL".equals(s.kind()))
-                        ? TIER_A_WEB : TIER_A;
-                Double premium = null;
-                if (facts.etf()) {
-                    EtfPremiumClient.PremiumQuote pq = premiums.lookup(row.code(), snap.lastPrice());
-                    if (pq != null) {
-                        premium = pq.getPremiumPct();
+        long started = System.nanoTime();
+        if (picked == null || picked.isEmpty()) {
+            log.info("qualify 完成 qualifyMs=0 picked=0 qualified=0 crawlUsed=0");
+            return List.of();
+        }
+        AtomicInteger quoteFailures = new AtomicInteger();
+        AtomicInteger crawlBudget = new AtomicInteger(CRAWL_BUDGET_PER_ROUND);
+        AtomicInteger crawlUsed = new AtomicInteger();
+        Material[] slots = new Material[picked.size()];
+        ExecutorService exec = Executors.newFixedThreadPool(QUALIFY_PARALLELISM);
+        try {
+            List<Future<?>> futures = new ArrayList<>(picked.size());
+            for (int i = 0; i < picked.size(); i++) {
+                final int idx = i;
+                final PaperStoryFeed.ListRow row = picked.get(i);
+                futures.add(exec.submit(() -> {
+                    try {
+                        slots[idx] = qualifyOne(row, crawlBudget, crawlUsed);
+                    } catch (Exception e) {
+                        quoteFailures.incrementAndGet();
+                        log.debug("搜集剔除 {}: {}", row.code(), e.getMessage());
                     }
+                }));
+            }
+            for (Future<?> future : futures) {
+                try {
+                    future.get();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException("qualify 被中断", e);
+                } catch (ExecutionException e) {
+                    throw new IllegalStateException("qualify 并行失败", e.getCause());
                 }
-                out.add(new Material(facts.symbol().toUpperCase(Locale.ROOT),
-                        name, snap, facts, premium, sources, tier));
-            } catch (Exception e) {
-                quoteFailures++;
-                log.debug("搜集剔除 {}: {}", row.code(), e.getMessage());
+            }
+        } finally {
+            exec.shutdown();
+            try {
+                if (!exec.awaitTermination(3, TimeUnit.MINUTES)) {
+                    exec.shutdownNow();
+                }
+            } catch (InterruptedException e) {
+                exec.shutdownNow();
+                Thread.currentThread().interrupt();
             }
         }
-        requireAnyQuote(picked.size(), quoteFailures);
+        requireAnyQuote(picked.size(), quoteFailures.get());
+        List<Material> out = new ArrayList<>();
+        for (Material m : slots) {
+            if (m != null) {
+                out.add(m);
+            }
+        }
+        long qualifyMs = (System.nanoTime() - started) / 1_000_000L;
+        log.info("qualify 完成 qualifyMs={} picked={} qualified={} crawlUsed={}",
+                qualifyMs, picked.size(), out.size(), crawlUsed.get());
         return out;
     }
 
-    /** 对最多 2 条带 URL 的信源调爬虫；失败则保留原标题项。 */
-    private void enrichWithCrawler(List<PaperStoryFeed.SourceItem> sources) {
-        if (sources == null || sources.isEmpty()) {
-            return;
+    /** 单票 qualify；溢价 Session 每票自建，避免共享 HashMap。闸门未过返回 null。 */
+    private Material qualifyOne(PaperStoryFeed.ListRow row,
+                                AtomicInteger crawlBudget,
+                                AtomicInteger crawlUsed) {
+        MarketQuoteVO quote = quoteClient.fetch(row.code(), "1Y");
+        PaperSymbolFacts facts = symbolGate.analyze(quote);
+        if (!passesGate(facts)) {
+            return null;
         }
-        int budget = 2;
-        List<PaperStoryFeed.SourceItem> crawled = new ArrayList<>();
-        for (PaperStoryFeed.SourceItem s : sources) {
-            if (budget <= 0) {
-                break;
+        MarketDipIndicators.Snapshot snap = MarketDipIndicators.from(quote);
+        if (!relativelyLow(snap)) {
+            return null;
+        }
+        String name = facts.name() == null ? row.name() : facts.name();
+        List<PaperStoryFeed.SourceItem> sources = new ArrayList<>();
+        try {
+            mergeSources(sources, feed.announcements(row.code()));
+        } catch (Exception e) {
+            log.debug("公告接口跳过 {}: {}", row.code(), e.getMessage());
+        }
+        try {
+            mergeSources(sources, feed.news(row.code()));
+        } catch (Exception e) {
+            log.debug("新闻接口跳过 {}: {}", row.code(), e.getMessage());
+        }
+        try {
+            mergeSources(sources, macroFeed.sectorBriefs(name));
+        } catch (Exception e) {
+            log.debug("板块检索跳过 {}: {}", row.code(), e.getMessage());
+        }
+        enrichWithCrawler(sources, crawlBudget, crawlUsed);
+        String tier = sources.stream().anyMatch(s -> "CRAWL".equals(s.kind()))
+                ? TIER_A_WEB : TIER_A;
+        Double premium = null;
+        if (facts.etf()) {
+            EtfPremiumClient.PremiumQuote pq =
+                    premiumClient.newSession().lookup(row.code(), snap.lastPrice());
+            if (pq != null) {
+                premium = pq.getPremiumPct();
             }
+        }
+        return new Material(facts.symbol().toUpperCase(Locale.ROOT),
+                name, snap, facts, premium, sources, tier);
+    }
+
+    /**
+     * 全轮共享爬虫预算：成功抢到名额才 fetch；用尽则只保留标题/URL。
+     *
+     * @return 本票实际发起的爬虫次数（含失败）
+     */
+    private int enrichWithCrawler(List<PaperStoryFeed.SourceItem> sources,
+                                  AtomicInteger crawlBudget,
+                                  AtomicInteger crawlUsed) {
+        if (sources == null || sources.isEmpty()) {
+            return 0;
+        }
+        List<PaperStoryFeed.SourceItem> crawled = new ArrayList<>();
+        int attempted = 0;
+        for (PaperStoryFeed.SourceItem s : sources) {
             if (s == null || !StringUtils.hasText(s.url())) {
                 continue;
             }
-            budget--;
+            if (!tryConsumeCrawlBudget(crawlBudget)) {
+                break;
+            }
+            attempted++;
+            crawlUsed.incrementAndGet();
             crawlerClient.fetchText(s.url()).ifPresent(text -> crawled.add(
                     new PaperStoryFeed.SourceItem(
                             "CRAWL",
@@ -415,6 +484,20 @@ public class PaperResearchService {
                             s.publishedAt())));
         }
         mergeSources(sources, crawled);
+        return attempted;
+    }
+
+    /** CAS 扣减全轮爬虫预算。 */
+    static boolean tryConsumeCrawlBudget(AtomicInteger crawlBudget) {
+        while (true) {
+            int left = crawlBudget.get();
+            if (left <= 0) {
+                return false;
+            }
+            if (crawlBudget.compareAndSet(left, left - 1)) {
+                return true;
+            }
+        }
     }
 
     /** 按 URL/标题去重追加。 */

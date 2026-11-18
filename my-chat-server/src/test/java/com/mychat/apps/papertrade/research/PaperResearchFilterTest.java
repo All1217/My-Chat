@@ -60,4 +60,18 @@ class PaperResearchFilterTest {
         assertDoesNotThrow(() -> PaperResearchService.requireAnyQuote(15, 3));
         assertDoesNotThrow(() -> PaperResearchService.requireAnyQuote(0, 0));
     }
+
+    @Test
+    void crawlBudgetConsumesUntilZero() {
+        java.util.concurrent.atomic.AtomicInteger budget = new java.util.concurrent.atomic.AtomicInteger(4);
+        int ok = 0;
+        for (int i = 0; i < 10; i++) {
+            if (PaperResearchService.tryConsumeCrawlBudget(budget)) {
+                ok++;
+            }
+        }
+        assertEquals(4, ok);
+        assertEquals(0, budget.get());
+        assertFalse(PaperResearchService.tryConsumeCrawlBudget(budget));
+    }
 }

@@ -137,6 +137,17 @@ public class PaperTradeAdminController {
         }
     }
 
+    /** 删除交易轮次（含下属决策）。 */
+    @DeleteMapping("/admin/ai-runs/{id}")
+    public Result<Void> deleteAiRun(@PathVariable String id) {
+        try {
+            adminService.deleteAiRun(id);
+            return Result.ok(null);
+        } catch (IllegalArgumentException e) {
+            return Result.fail(404, e.getMessage());
+        }
+    }
+
     // —— 搜集轮次 ——
 
     @GetMapping("/admin/research-runs")

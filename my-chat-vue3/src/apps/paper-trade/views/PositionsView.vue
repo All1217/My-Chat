@@ -36,7 +36,6 @@
         <span>{{ formatMoney(account?.initialCash) }}</span>
       </div>
     </section>
-    <p v-if="account?.latestSummary" class="summary">{{ account.latestSummary }}</p>
 
     <section class="panel board-panel">
       <div class="panel-head">
@@ -342,16 +341,6 @@ onMounted(() => {
     font-size: 13px;
     color: #334155;
   }
-}
-
-.summary {
-  margin: 0 0 10px;
-  padding: 8px 10px;
-  font-size: 12px;
-  line-height: 1.45;
-  color: #3f6212;
-  background: #f0fdf4;
-  border-radius: 6px;
 }
 
 .grid {

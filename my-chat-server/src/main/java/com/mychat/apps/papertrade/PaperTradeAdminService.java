@@ -201,6 +201,20 @@ public class PaperTradeAdminService {
         }
     }
 
+    /** 删除交易轮次，并清理其下属决策。 */
+    @Transactional
+    public void deleteAiRun(String id) {
+        if (!StringUtils.hasText(id)) {
+            throw new IllegalArgumentException("交易轮次不存在");
+        }
+        String runId = id.trim();
+        decisionMapper.delete(new LambdaQueryWrapper<PaperAiDecision>()
+                .eq(PaperAiDecision::getRunId, runId));
+        if (aiRunMapper.deleteById(runId) == 0) {
+            throw new IllegalArgumentException("交易轮次不存在");
+        }
+    }
+
     // —— 搜集轮次 ——
 
     /** 搜集轮次列表。 */

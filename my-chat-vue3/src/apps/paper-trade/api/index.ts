@@ -135,6 +135,9 @@ export const paperTradeApi = {
   adminDeleteDecision: (id: string) =>
     ragClient.delete<void>(`/ai/apps/paper-trade/admin/decisions/${id}`),
 
+  adminDeleteAiRun: (id: string) =>
+    ragClient.delete<void>(`/ai/apps/paper-trade/admin/ai-runs/${id}`),
+
   adminResearchRuns: (limit = 50) =>
     ragClient.get<PaperResearchRun[]>('/ai/apps/paper-trade/admin/research-runs', {
       params: { limit },

@@ -159,9 +159,7 @@ export const historyResources: HistoryResource[] = [
     ],
     list: async (limit) => asRows(await paperTradeApi.aiRuns(limit)),
     get: async (id) => asRow(await paperTradeApi.aiRunDetail(id)),
-    remove: async () => {
-      throw new Error('交易轮次请从管理端删除决策后清理，暂不支持直接删除')
-    },
+    remove: (id) => paperTradeApi.adminDeleteAiRun(id),
   },
   {
     key: 'research-notes',

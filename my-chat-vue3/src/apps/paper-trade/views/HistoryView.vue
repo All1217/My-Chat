@@ -80,64 +80,98 @@
       <StockBoardPanel :symbol="quoteSymbol" />
     </el-drawer>
 
-    <el-drawer v-model="drawerOpen" :title="drawerTitle" size="420px" destroy-on-close>
-      <el-form label-position="top" class="edit-form">
-        <el-form-item
-          v-for="field in editableFields"
-          :key="field.key"
-          :label="field.label"
-        >
-          <el-input
-            v-if="field.type === 'textarea'"
-            v-model="form[field.key]"
-            type="textarea"
-            :rows="4"
-            :disabled="isFieldReadonly(field.key)"
-          />
-          <el-switch
-            v-else-if="field.type === 'switch'"
-            v-model="form[field.key]"
-            :disabled="isFieldReadonly(field.key)"
-          />
-          <el-input-number
-            v-else-if="field.type === 'number'"
-            v-model="form[field.key]"
-            :controls="false"
-            style="width: 100%"
-            :disabled="isFieldReadonly(field.key)"
-          />
-          <el-select
-            v-else-if="field.type === 'valueTier'"
-            v-model="form[field.key]"
-            style="width: 100%"
-            :disabled="isFieldReadonly(field.key)"
-          >
-            <el-option
-              v-for="opt in VALUE_TIER_OPTIONS"
-              :key="opt.value"
-              :label="opt.label"
-              :value="opt.value"
-            />
-          </el-select>
-          <el-input
-            v-else
-            v-model="form[field.key]"
-            :disabled="isFieldReadonly(field.key)"
-          />
-        </el-form-item>
-      </el-form>
+    <el-dialog
+      v-model="drawerOpen"
+      :title="drawerTitle"
+      width="820px"
+      align-center
+      destroy-on-close
+      :close-on-click-modal="false"
+      class="hist-detail-dialog"
+      append-to-body
+    >
+      <div class="detail-shell">
+        <div v-if="!creating && detailMeta.length" class="detail-meta">
+          <span v-for="m in detailMeta" :key="m.label" class="meta-chip">
+            <em>{{ m.label }}</em>{{ m.value }}
+          </span>
+        </div>
+
+        <el-form label-position="top" class="edit-form">
+          <div v-if="compactFields.length" class="field-grid">
+            <el-form-item
+              v-for="field in compactFields"
+              :key="field.key"
+              :label="field.label"
+            >
+              <el-switch
+                v-if="field.type === 'switch'"
+                v-model="form[field.key]"
+                :disabled="isFieldReadonly(field.key)"
+              />
+              <el-input-number
+                v-else-if="field.type === 'number'"
+                v-model="form[field.key]"
+                :controls="false"
+                style="width: 100%"
+                :disabled="isFieldReadonly(field.key)"
+              />
+              <el-select
+                v-else-if="field.type === 'valueTier'"
+                v-model="form[field.key]"
+                style="width: 100%"
+                :disabled="isFieldReadonly(field.key)"
+              >
+                <el-option
+                  v-for="opt in VALUE_TIER_OPTIONS"
+                  :key="opt.value"
+                  :label="opt.label"
+                  :value="opt.value"
+                />
+              </el-select>
+              <el-input
+                v-else
+                v-model="form[field.key]"
+                :disabled="isFieldReadonly(field.key)"
+              />
+            </el-form-item>
+          </div>
+
+          <div v-if="blockFields.length" class="field-blocks">
+            <el-form-item
+              v-for="field in blockFields"
+              :key="field.key"
+              :label="field.label"
+            >
+              <el-input
+                v-model="form[field.key]"
+                type="textarea"
+                :rows="textareaRows(field.key)"
+                :disabled="isFieldReadonly(field.key)"
+                resize="vertical"
+              />
+            </el-form-item>
+          </div>
+        </el-form>
+      </div>
+
       <template #footer>
-        <el-button @click="drawerOpen = false">取消</el-button>
-        <el-button
-          v-if="canSave"
-          type="primary"
-          :loading="saving"
-          @click="onSave"
-        >
-          保存
-        </el-button>
+        <div class="detail-footer">
+          <span class="footer-hint">{{ canSave ? '可编辑字段保存后立即生效' : '只读查看' }}</span>
+          <div class="footer-actions">
+            <el-button @click="drawerOpen = false">关闭</el-button>
+            <el-button
+              v-if="canSave"
+              type="primary"
+              :loading="saving"
+              @click="onSave"
+            >
+              保存
+            </el-button>
+          </div>
+        </div>
       </template>
-    </el-drawer>
+    </el-dialog>
   </div>
 </template>
 
@@ -185,17 +219,55 @@ const drawerTitle = computed(() => {
 
 const editableFields = computed(() => current.value?.formFields ?? [])
 
+const compactFields = computed(() =>
+  editableFields.value.filter((f) => f.type !== 'textarea'),
+)
+
+const blockFields = computed(() =>
+  editableFields.value.filter((f) => f.type === 'textarea'),
+)
+
 const canSave = computed(() => {
   if (creating.value) return !!current.value?.creatable && !!current.value?.create
   return !!current.value?.update
 })
 
+/** 详情顶栏摘要：优先展示状态 / 代码 / ID。 */
+const detailMeta = computed(() => {
+  const chips: { label: string; value: string }[] = []
+  const push = (label: string, key: string) => {
+    const raw = form[key]
+    if (raw == null || raw === '') return
+    chips.push({ label, value: String(raw) })
+  }
+  push('状态', 'status')
+  push('执行', 'execStatus')
+  push('代码', 'symbol')
+  push('动作', 'action')
+  if (form.valueTier != null && form.valueTier !== '') {
+    chips.push({ label: '价值等级', value: formatValueTier(form.valueTier) })
+  }
+  push('ID', 'id')
+  return chips.slice(0, 4)
+})
+
 function isFieldReadonly(key: string) {
   if (creating.value) return false
-  // 研究卡片主键不可改；搜集轮次只读查看
+  if (!canSave.value) return true
+  // 研究卡片主键不可改
   if (current.value?.key === 'research-notes' && key === 'symbol') return true
-  if (current.value?.key === 'research-runs') return true
   return false
+}
+
+/** 长文本按字段给足行高，便于充实阅读。 */
+function textareaRows(key: string) {
+  if (['contextJson', 'rawResponse', 'frameworkTrace', 'sourcesJson'].includes(key)) {
+    return 12
+  }
+  if (['summaryText', 'story', 'risks', 'quoteSummary', 'rationale'].includes(key)) {
+    return 8
+  }
+  return 5
 }
 
 function boolFormatter(_row: unknown, _col: unknown, cell: unknown) {
@@ -260,7 +332,7 @@ function resetForm(seed: Record<string, unknown> = {}) {
     const v = seed[field.key]
     if (field.type === 'switch') {
       form[field.key] = v === true
-    } else if (field.type === 'number') {
+    } else if (field.type === 'number' || field.type === 'valueTier') {
       form[field.key] = v == null || v === '' ? undefined : Number(v)
     } else {
       form[field.key] = v == null ? '' : String(v)
@@ -338,8 +410,10 @@ async function onDelete(row: Record<string, unknown>) {
     await current.value.remove(id)
     ElMessage.success('已删除')
     await loadList()
-  } catch {
-    /* 拦截器已提示 */
+  } catch (e: unknown) {
+    // HTTP 错误由拦截器提示；本地 throw 需补 toast
+    if (e && typeof e === 'object' && 'isAxiosError' in e) return
+    ElMessage.error(e instanceof Error ? e.message : '删除失败')
   }
 }
 
@@ -439,7 +513,121 @@ onMounted(() => {
 
 .edit-form {
   :deep(.el-form-item) {
-    margin-bottom: 12px;
+    margin-bottom: 0;
+  }
+
+  :deep(.el-form-item__label) {
+    margin-bottom: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #475569;
+    line-height: 1.2;
+  }
+}
+
+.detail-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: min(68vh, 640px);
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.detail-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.meta-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  max-width: 100%;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: #f0fdf4;
+  border: 1px solid #dcfce7;
+  font-size: 12px;
+  color: #14532d;
+  word-break: break-all;
+
+  em {
+    font-style: normal;
+    font-size: 11px;
+    font-weight: 600;
+    color: #64748b;
+  }
+}
+
+.field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
+
+  @media (max-width: 720px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.field-blocks {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.detail-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+
+.footer-hint {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.footer-actions {
+  display: flex;
+  gap: 8px;
+}
+</style>
+
+<style lang="less">
+/* append-to-body 弹窗需非 scoped 才能命中 */
+.hist-detail-dialog.el-dialog {
+  border-radius: 14px;
+  overflow: hidden;
+
+  .el-dialog__header {
+    margin: 0;
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .el-dialog__title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #14532d;
+  }
+
+  .el-dialog__body {
+    padding: 16px 20px;
+  }
+
+  .el-dialog__footer {
+    padding: 12px 20px 16px;
+    border-top: 1px solid #e2e8f0;
+  }
+
+  .el-textarea__inner {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #334155;
   }
 }
 </style>

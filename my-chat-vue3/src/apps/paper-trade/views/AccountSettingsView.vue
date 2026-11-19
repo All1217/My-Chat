@@ -63,7 +63,7 @@
       <div class="sched-row">
         <div class="sched-meta">
           <strong>搜集员</strong>
-          <p>默认每天 09:00；可改 cron，如仅工作日 <code>0 0 9 * * MON-FRI</code></p>
+          <p>{{ cronHintLine(DEFAULT_CRONS.research, schedule.researchCron) }}</p>
         </div>
         <div class="sched-ops">
           <el-button size="small" :loading="researchRunning" @click="onRunResearch">执行一次</el-button>
@@ -74,7 +74,7 @@
       <div class="sched-row">
         <div class="sched-meta">
           <strong>交易员（盘后单次）</strong>
-          <p>与收盘价撮合一致；建议 ≥15:05，默认 <code>0 35 15 * * MON-FRI</code></p>
+          <p>{{ cronHintLine(DEFAULT_CRONS.trader, schedule.traderCron) }}</p>
         </div>
         <div class="sched-ops">
           <el-button size="small" type="primary" :loading="traderRunning" @click="onRunTrader">
@@ -87,7 +87,7 @@
       <div class="sched-row">
         <div class="sched-meta">
           <strong>票仓分析员</strong>
-          <p>默认每天 18:00；对 valueTier=2 深搜后调等级</p>
+          <p>{{ cronHintLine(DEFAULT_CRONS.analyst, schedule.analystCron) }}</p>
         </div>
         <div class="sched-ops">
           <el-button size="small" :loading="analystRunning" @click="onRunAnalyst">执行一次</el-button>
@@ -98,7 +98,7 @@
       <div class="sched-row">
         <div class="sched-meta">
           <strong>票仓清理</strong>
-          <p>默认每天 23:00；1→2，滞留 2→3，删除 3；无 AI</p>
+          <p>{{ cronHintLine(DEFAULT_CRONS.cleanup, schedule.cleanupCron) }}</p>
         </div>
         <div class="sched-ops">
           <el-button size="small" :loading="cleanupRunning" @click="onRunCleanup">执行一次</el-button>
@@ -109,7 +109,7 @@
       <div class="sched-row">
         <div class="sched-meta">
           <strong>交易评估员</strong>
-          <p>默认周六 10:00；写阶段总结并邮件建议可编辑策略；枯竭时由交易员唤醒</p>
+          <p>{{ cronHintLine(DEFAULT_CRONS.evaluator, schedule.evaluatorCron) }}</p>
         </div>
         <div class="sched-ops">
           <el-button size="small" :loading="evaluatorRunning" @click="onRunEvaluator">执行一次</el-button>
@@ -337,6 +337,7 @@ import { onMounted, onUnmounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { paperTradeApi } from '@/apps/paper-trade/api'
 import type { PaperAccount, PaperRiskSettings } from '@/apps/paper-trade/types'
+import { cronHintLine, DEFAULT_CRONS } from '@/apps/paper-trade/utils/cronZh'
 import { formatMoney } from '@/apps/paper-trade/utils/format'
 
 const account = ref<PaperAccount | null>(null)
@@ -410,16 +411,16 @@ let evaluatorTimer: ReturnType<typeof setInterval> | null = null
 
 const schedule = reactive({
   researchEnabled: false,
-  researchCron: '0 0 9 * * *',
+  researchCron: DEFAULT_CRONS.research,
   traderEnabled: false,
-  traderCron: '0 35 15 * * MON-FRI',
+  traderCron: DEFAULT_CRONS.trader,
   analystEnabled: true,
-  analystCron: '0 0 18 * * *',
+  analystCron: DEFAULT_CRONS.analyst,
   cleanupEnabled: true,
-  cleanupCron: '0 0 23 * * *',
+  cleanupCron: DEFAULT_CRONS.cleanup,
   warehouseTier2RetainDays: 2,
   evaluatorEnabled: true,
-  evaluatorCron: '0 0 10 * * SAT',
+  evaluatorCron: DEFAULT_CRONS.evaluator,
   evaluatorEmail: '3116459510@qq.com',
   zoneId: 'Asia/Shanghai',
   includeWatchlist: true,
@@ -442,17 +443,17 @@ function applySchedule(sch: {
   includeWatchlist?: boolean
 }) {
   schedule.researchEnabled = !!sch.researchEnabled
-  schedule.researchCron = sch.researchCron || '0 0 9 * * *'
+  schedule.researchCron = sch.researchCron || DEFAULT_CRONS.research
   schedule.traderEnabled = !!sch.traderEnabled
-  schedule.traderCron = sch.traderCron || '0 35 15 * * MON-FRI'
+  schedule.traderCron = sch.traderCron || DEFAULT_CRONS.trader
   schedule.analystEnabled = sch.analystEnabled !== false
-  schedule.analystCron = sch.analystCron || '0 0 18 * * *'
+  schedule.analystCron = sch.analystCron || DEFAULT_CRONS.analyst
   schedule.cleanupEnabled = sch.cleanupEnabled !== false
-  schedule.cleanupCron = sch.cleanupCron || '0 0 23 * * *'
+  schedule.cleanupCron = sch.cleanupCron || DEFAULT_CRONS.cleanup
   schedule.warehouseTier2RetainDays =
     sch.warehouseTier2RetainDays == null ? 2 : Number(sch.warehouseTier2RetainDays)
   schedule.evaluatorEnabled = sch.evaluatorEnabled !== false
-  schedule.evaluatorCron = sch.evaluatorCron || '0 0 10 * * SAT'
+  schedule.evaluatorCron = sch.evaluatorCron || DEFAULT_CRONS.evaluator
   schedule.evaluatorEmail = sch.evaluatorEmail || '3116459510@qq.com'
   schedule.zoneId = sch.zoneId || 'Asia/Shanghai'
   schedule.includeWatchlist = sch.includeWatchlist !== false

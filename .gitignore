@@ -75,5 +75,8 @@ my-chat-vue3/src/**/*.vue.d.ts
 
 .cursor
 
+# 本机 AI 协作说明，不入库
+/AGENTS.md
+
 # 部署密钥（仅保留 .env.example）
 deploy/.env

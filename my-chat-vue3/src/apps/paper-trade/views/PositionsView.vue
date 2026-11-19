@@ -112,7 +112,11 @@
       </div>
       <el-table :data="decisions" stripe empty-text="暂无决策" size="small" max-height="260">
         <el-table-column prop="createdAt" label="时间" width="150" />
-        <el-table-column prop="action" label="动作" width="70" />
+        <el-table-column label="动作" width="108">
+          <template #default="{ row }">
+            <EnumTag kind="action" :value="row.action" />
+          </template>
+        </el-table-column>
         <el-table-column prop="symbol" label="代码" width="90" />
         <el-table-column prop="qty" label="数量" width="70" />
         <el-table-column label="置信度" width="80">
@@ -120,7 +124,11 @@
             {{ row.confidence == null ? '—' : Number(row.confidence).toFixed(2) }}
           </template>
         </el-table-column>
-        <el-table-column prop="execStatus" label="状态" width="100" />
+        <el-table-column label="状态" width="100">
+          <template #default="{ row }">
+            <EnumTag kind="execStatus" :value="row.execStatus" />
+          </template>
+        </el-table-column>
         <el-table-column prop="rationale" label="理由" min-width="140" show-overflow-tooltip />
         <el-table-column label="操作" width="150" fixed="right">
           <template #default="{ row }">
@@ -140,7 +148,11 @@
       <el-table :data="orders" stripe empty-text="暂无订单" size="small" max-height="240">
         <el-table-column prop="createdAt" label="时间" width="150" />
         <el-table-column prop="source" label="来源" width="70" />
-        <el-table-column prop="side" label="方向" width="70" />
+        <el-table-column label="方向" width="80">
+          <template #default="{ row }">
+            <EnumTag kind="action" :value="row.side" />
+          </template>
+        </el-table-column>
         <el-table-column prop="symbol" label="代码" width="90" />
         <el-table-column prop="qty" label="数量" width="70" />
         <el-table-column label="成交价" width="100">
@@ -149,7 +161,11 @@
         <el-table-column label="费用" width="80">
           <template #default="{ row }">{{ formatMoney(row.fee) }}</template>
         </el-table-column>
-        <el-table-column prop="status" label="状态" width="90" />
+        <el-table-column label="状态" width="90">
+          <template #default="{ row }">
+            <EnumTag kind="orderStatus" :value="row.status" />
+          </template>
+        </el-table-column>
         <el-table-column prop="rejectReason" label="说明" min-width="120" show-overflow-tooltip />
       </el-table>
     </section>
@@ -167,6 +183,7 @@ import type {
   PaperOrder,
   PaperPosition,
 } from '@/apps/paper-trade/types'
+import EnumTag from '@/apps/paper-trade/components/EnumTag.vue'
 import { formatMoney, formatPct } from '@/apps/paper-trade/utils/format'
 
 const account = ref<PaperAccount | null>(null)

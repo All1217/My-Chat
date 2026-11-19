@@ -45,9 +45,31 @@
             :label="col.label"
             :width="col.width"
             :min-width="col.minWidth"
-            :show-overflow-tooltip="col.overflow"
-            :formatter="columnFormatter(col)"
-          />
+            :show-overflow-tooltip="col.overflow && !isTagColumn(col)"
+            :formatter="isTagColumn(col) ? undefined : columnFormatter(col)"
+          >
+            <template v-if="isTagColumn(col)" #default="{ row }">
+              <EnumTag
+                v-if="col.format === 'action'"
+                kind="action"
+                :value="row[col.prop]"
+              />
+              <EnumTag
+                v-else-if="col.format === 'execStatus'"
+                kind="execStatus"
+                :value="row[col.prop]"
+              />
+              <EnumTag
+                v-else-if="col.format === 'runStatus'"
+                kind="runStatus"
+                :value="row[col.prop]"
+              />
+              <SignalTags
+                v-else-if="col.format === 'signalTags'"
+                :value="row[col.prop]"
+              />
+            </template>
+          </el-table-column>
           <el-table-column
             label="操作"
             :width="current?.key === 'research-notes' ? 200 : 140"
@@ -93,7 +115,9 @@
       <div class="detail-shell">
         <div v-if="!creating && detailMeta.length" class="detail-meta">
           <span v-for="m in detailMeta" :key="m.label" class="meta-chip">
-            <em>{{ m.label }}</em>{{ m.value }}
+            <em>{{ m.label }}</em>
+            <EnumTag v-if="m.kind" :kind="m.kind" :value="m.raw" />
+            <template v-else>{{ m.value }}</template>
           </span>
         </div>
 
@@ -129,6 +153,17 @@
                   :value="opt.value"
                 />
               </el-select>
+              <div v-else-if="field.type === 'signalTags'" class="signal-tags-field">
+                <SignalTags :value="form[field.key]" />
+                <el-input
+                  v-model="form[field.key]"
+                  type="textarea"
+                  :rows="2"
+                  :disabled="isFieldReadonly(field.key)"
+                  placeholder='JSON 数组或逗号分隔，如 ["低吸","ETF"]'
+                  resize="vertical"
+                />
+              </div>
               <el-input
                 v-else
                 v-model="form[field.key]"
@@ -185,7 +220,12 @@ import {
   type HistoryColumn,
   type HistoryResource,
 } from '@/apps/paper-trade/history/resources'
-import { formatDateTime } from '@/apps/paper-trade/utils/format'
+import EnumTag from '@/apps/paper-trade/components/EnumTag.vue'
+import SignalTags from '@/apps/paper-trade/components/SignalTags.vue'
+import {
+  formatDateTime,
+  type EnumTagKind,
+} from '@/apps/paper-trade/utils/format'
 import {
   VALUE_TIER_OPTIONS,
   formatValueTier,
@@ -234,20 +274,30 @@ const canSave = computed(() => {
 
 /** 详情顶栏摘要：优先展示状态 / 代码 / ID。 */
 const detailMeta = computed(() => {
-  const chips: { label: string; value: string }[] = []
-  const push = (label: string, key: string) => {
+  const chips: {
+    label: string
+    value?: string
+    raw?: unknown
+    kind?: EnumTagKind
+  }[] = []
+  const pushText = (label: string, key: string) => {
     const raw = form[key]
     if (raw == null || raw === '') return
     chips.push({ label, value: String(raw) })
   }
-  push('状态', 'status')
-  push('执行', 'execStatus')
-  push('代码', 'symbol')
-  push('动作', 'action')
+  const pushTag = (label: string, key: string, kind: EnumTagKind) => {
+    const raw = form[key]
+    if (raw == null || raw === '') return
+    chips.push({ label, raw, kind })
+  }
+  pushTag('状态', 'status', 'runStatus')
+  pushTag('执行', 'execStatus', 'execStatus')
+  pushText('代码', 'symbol')
+  pushTag('动作', 'action', 'action')
   if (form.valueTier != null && form.valueTier !== '') {
     chips.push({ label: '价值等级', value: formatValueTier(form.valueTier) })
   }
-  push('ID', 'id')
+  pushText('ID', 'id')
   return chips.slice(0, 4)
 })
 
@@ -274,7 +324,16 @@ function boolFormatter(_row: unknown, _col: unknown, cell: unknown) {
   return cell ? '是' : '否'
 }
 
-/** 按列 format 选择 formatter；无 format 时原样展示。 */
+function isTagColumn(col: HistoryColumn) {
+  return (
+    col.format === 'action' ||
+    col.format === 'execStatus' ||
+    col.format === 'runStatus' ||
+    col.format === 'signalTags'
+  )
+}
+
+/** 按列 format 选择 formatter；Tag 列走自定义插槽。 */
 function columnFormatter(col: HistoryColumn) {
   if (col.format === 'bool') return boolFormatter
   if (col.format === 'datetime') {
@@ -542,7 +601,7 @@ onMounted(() => {
 
 .meta-chip {
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
   gap: 6px;
   max-width: 100%;
   padding: 6px 10px;
@@ -559,6 +618,13 @@ onMounted(() => {
     font-weight: 600;
     color: #64748b;
   }
+}
+
+.signal-tags-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
 }
 
 .field-grid {

@@ -7,8 +7,15 @@ export interface HistoryColumn {
   width?: number
   minWidth?: number
   overflow?: boolean
-  /** datetime → yyyy-MM-dd HH:mm:ss；bool → 是/否；valueTier → 已持仓/应该买入… */
-  format?: 'datetime' | 'bool' | 'valueTier'
+  /** datetime / bool / valueTier / action / execStatus / runStatus / signalTags */
+  format?:
+    | 'datetime'
+    | 'bool'
+    | 'valueTier'
+    | 'action'
+    | 'execStatus'
+    | 'runStatus'
+    | 'signalTags'
 }
 
 /** 可扩展历史资源注册项。 */
@@ -23,7 +30,7 @@ export interface HistoryResource {
   formFields: {
     key: string
     label: string
-    type?: 'text' | 'textarea' | 'number' | 'switch' | 'valueTier'
+    type?: 'text' | 'textarea' | 'number' | 'switch' | 'valueTier' | 'signalTags'
   }[]
   list: (limit?: number) => Promise<Record<string, unknown>[]>
   get: (id: string) => Promise<Record<string, unknown>>
@@ -83,11 +90,11 @@ export const historyResources: HistoryResource[] = [
     creatable: false,
     columns: [
       { prop: 'createdAt', label: '时间', width: 170, format: 'datetime' },
-      { prop: 'action', label: '动作', width: 70 },
+      { prop: 'action', label: '动作', width: 108, format: 'action' },
       { prop: 'symbol', label: '代码', width: 90 },
       { prop: 'qty', label: '数量', width: 70 },
       { prop: 'confidence', label: '置信度', width: 80 },
-      { prop: 'execStatus', label: '状态', width: 100 },
+      { prop: 'execStatus', label: '状态', width: 100, format: 'execStatus' },
       { prop: 'rationale', label: '理由', minWidth: 160, overflow: true },
     ],
     formFields: [
@@ -115,7 +122,7 @@ export const historyResources: HistoryResource[] = [
     creatable: false,
     columns: [
       { prop: 'createdAt', label: '创建', width: 170, format: 'datetime' },
-      { prop: 'status', label: '状态', width: 100 },
+      { prop: 'status', label: '状态', width: 100, format: 'runStatus' },
       { prop: 'screenedCount', label: '筛选数', width: 80 },
       { prop: 'keptCount', label: '留下数', width: 80 },
       { prop: 'errorMessage', label: '错误', minWidth: 160, overflow: true },
@@ -142,7 +149,7 @@ export const historyResources: HistoryResource[] = [
     creatable: false,
     columns: [
       { prop: 'createdAt', label: '创建', width: 170, format: 'datetime' },
-      { prop: 'status', label: '状态', width: 100 },
+      { prop: 'status', label: '状态', width: 100, format: 'runStatus' },
       { prop: 'agentRunId', label: 'Agent Run', width: 180, overflow: true },
       { prop: 'errorMessage', label: '错误', minWidth: 160, overflow: true },
       { prop: 'finishedAt', label: '结束', width: 170, format: 'datetime' },
@@ -177,7 +184,7 @@ export const historyResources: HistoryResource[] = [
       { prop: 'fitScore', label: '契合', width: 70 },
       { prop: 'evidenceScore', label: '证据', width: 70 },
       { prop: 'sourceTier', label: '信源', width: 100 },
-      { prop: 'signalTags', label: '标签', minWidth: 120, overflow: true },
+      { prop: 'signalTags', label: '标签', minWidth: 160, format: 'signalTags' },
       { prop: 'story', label: '故事', minWidth: 180, overflow: true },
       { prop: 'rejectReason', label: '拒绝原因', minWidth: 120, overflow: true },
     ],
@@ -189,7 +196,7 @@ export const historyResources: HistoryResource[] = [
       { key: 'valueTier', label: '价值等级', type: 'valueTier' },
       { key: 'fitScore', label: '契合分', type: 'text' },
       { key: 'evidenceScore', label: '证据分', type: 'text' },
-      { key: 'signalTags', label: '信号标签', type: 'text' },
+      { key: 'signalTags', label: '信号标签', type: 'signalTags' },
       { key: 'sourceTier', label: '信源层级', type: 'text' },
       { key: 'story', label: '故事', type: 'textarea' },
       { key: 'risks', label: '风险', type: 'textarea' },

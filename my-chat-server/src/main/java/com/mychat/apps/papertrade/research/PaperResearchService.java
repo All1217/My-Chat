@@ -205,18 +205,21 @@ public class PaperResearchService {
                 cards = guardrails.validateCards(cards, pool);
                 trace.ok(PaperWorkflowStep.VALIDATE_CARDS, "cards=" + cards.size());
                 // 工具已落库则跳过；否则 Java 兜底并告警
-                long toolWrote = noteMapper.selectCount(new LambdaQueryWrapper<PaperResearchNote>()
+                long upserted = noteMapper.selectCount(new LambdaQueryWrapper<PaperResearchNote>()
                         .eq(PaperResearchNote::getRunId, run.getId()));
                 int kept;
-                if (toolWrote > 0) {
-                    kept = (int) Math.min(toolWrote, Integer.MAX_VALUE);
-                    trace.ok(PaperWorkflowStep.UPSERT_NOTES, "via-tool kept≈" + kept);
+                if (upserted > 0) {
+                    kept = countKeptForRun(run.getId());
+                    trace.ok(PaperWorkflowStep.UPSERT_NOTES,
+                            "via-tool upserted≈" + upserted + " kept=" + kept);
                 } else if (cards.isEmpty()) {
                     kept = 0;
                 } else {
                     log.warn("搜集员未走 upsertResearchCards，Java 兜底落库 runId={}", run.getId());
-                    kept = upsert(run.getId(), batch, cards);
-                    trace.ok(PaperWorkflowStep.UPSERT_NOTES, "fallback kept=" + kept);
+                    int newlyKept = upsert(run.getId(), batch, cards);
+                    kept = countKeptForRun(run.getId());
+                    trace.ok(PaperWorkflowStep.UPSERT_NOTES,
+                            "fallback newlyKept=" + newlyKept + " kept=" + kept);
                 }
                 run.setFrameworkTrace(mergeTrace(trace, outcome.traceJson()));
                 finish(run, kept, outcome.answer(), null);
@@ -303,6 +306,17 @@ public class PaperResearchService {
         if (raw != null) {
             log.info("搜集完成 runId={} screened={} kept={}", run.getId(), run.getScreenedCount(), kept);
         }
+    }
+
+    /** 本轮 runId 下 kept=true 的卡片数（写入 kept_count，与落库条数区分）。 */
+    private int countKeptForRun(String runId) {
+        if (!StringUtils.hasText(runId)) {
+            return 0;
+        }
+        long n = noteMapper.selectCount(new LambdaQueryWrapper<PaperResearchNote>()
+                .eq(PaperResearchNote::getRunId, runId.trim())
+                .eq(PaperResearchNote::getKept, true));
+        return (int) Math.min(n, Integer.MAX_VALUE);
     }
 
     /** 翻页直到凑够一批，或翻完上限。 */

@@ -20,9 +20,7 @@
     <div v-if="current" class="meta-bar">
       <template v-if="current.latest">
         <span>最近一轮 <code>{{ current.latest.runId }}</code></span>
-        <el-tag size="small" :type="tagType(current.latest.status)">
-          {{ current.latest.status || '—' }}
-        </el-tag>
+        <EnumTag kind="runStatus" :value="current.latest.status" />
         <span class="muted">创建 {{ current.latest.createdAt || '—' }}</span>
         <span class="muted">结束 {{ current.latest.finishedAt || '—' }}</span>
         <span v-if="current.latest.errorMessage" class="err">{{ current.latest.errorMessage }}</span>
@@ -40,6 +38,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { paperTradeApi } from '@/apps/paper-trade/api'
 import type { PaperWorkflowGraph } from '@/apps/paper-trade/types'
+import EnumTag from '@/apps/paper-trade/components/EnumTag.vue'
 import WorkflowCanvas from '@/apps/paper-trade/components/WorkflowCanvas.vue'
 
 const loading = ref(false)
@@ -65,13 +64,6 @@ async function load() {
   }
 }
 
-function tagType(status?: string | null) {
-  const s = (status || '').toUpperCase()
-  if (s === 'SUCCEEDED') return 'success'
-  if (s === 'FAILED') return 'danger'
-  if (s === 'RUNNING' || s === 'PENDING') return 'warning'
-  return 'info'
-}
 
 onMounted(load)
 </script>

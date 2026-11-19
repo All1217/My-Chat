@@ -65,4 +65,36 @@ class PaperAiDecisionParseTest {
         assertEquals(29.5, d.takeProfit);
         assertEquals(25.18, d.stopLoss);
     }
+
+    /** TradeDecisionBatch 路径：snake_case 止损止盈与参考价不得被静默丢弃。 */
+    @Test
+    void typedBatchReadsSnakeCaseStopAndPrice() {
+        PaperAiTraderService.RawDecision d = service.parseTypedDecisions("""
+                {"decisions":[{"action":"buy","symbol":"159338","name":"中证A500ETF国泰",
+                "quantity":18600,"capital_ratio":0.9,"reference_price":1.02,
+                "take_profit":0.03,"stop_loss":0.02,"max_hold_days":15,
+                "confidence":0.72,"reasoning":"低吸","risk_flags":[],"manual_review":false}]}
+                """).get(0);
+        assertEquals(18600, d.quantity);
+        assertEquals(1.02, d.referencePrice);
+        assertEquals(0.03, d.takeProfit);
+        assertEquals(0.02, d.stopLoss);
+        assertEquals(15, d.maxHoldDays);
+    }
+
+    /** TradeDecisionBatch 路径：驼峰字段同样可读。 */
+    @Test
+    void typedBatchReadsCamelCaseStopAndPrice() {
+        PaperAiTraderService.RawDecision d = service.parseTypedDecisions("""
+                {"decisions":[{"action":"BUY","symbol":"159338","name":"中证A500ETF国泰",
+                "quantity":18600,"capitalRatio":0.9,"referencePrice":1.02,
+                "takeProfit":0.03,"stopLoss":0.02,"maxHoldDays":15,
+                "confidence":0.72,"rationale":"低吸","riskFlags":["波动"],"manualReview":true}]}
+                """).get(0);
+        assertEquals(1.02, d.referencePrice);
+        assertEquals(0.03, d.takeProfit);
+        assertEquals(0.02, d.stopLoss);
+        assertEquals("低吸", d.reasoning);
+        assertEquals(Boolean.TRUE, d.manualReview);
+    }
 }

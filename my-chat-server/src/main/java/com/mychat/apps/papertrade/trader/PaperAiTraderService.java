@@ -49,6 +49,7 @@ import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -86,6 +87,9 @@ public class PaperAiTraderService {
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     /** Agent 工具已落库决策的 runId。 */
     private final ConcurrentHashMap<String, Boolean> toolWroteDecisions = new ConcurrentHashMap<>();
+    /** 本轮首次组上下文时的标的 facts，供工具二次 build 行情抖动时复用。 */
+    private final ConcurrentHashMap<String, Map<String, PaperSymbolFacts>> runFactsCache =
+            new ConcurrentHashMap<>();
 
     public PaperAiTraderService(PaperAiRunMapper runMapper,
                                 PaperAiDecisionMapper decisionMapper,
@@ -182,11 +186,12 @@ public class PaperAiTraderService {
             run.setContextJson(ctx.contextJson());
             runMapper.updateById(run);
             trace.ok(PaperWorkflowStep.BUILD_CONTEXT, "context ready");
+            cacheRunFacts(run.getId(), ctx.facts());
             PaperGateContext gate = baseGate();
             gate.setPositions(ctx.positions());
             gate.setCooldownSymbols(ctx.cooldownSymbols());
             gate.setPremiums(ctx.premiums());
-            gate.setFacts(ctx.facts());
+            gate.setFacts(mergeFacts(run.getId(), ctx.facts(), null));
             gate.setBestEtfSymbol(ctx.bestEtfSymbol());
             gate.setCash(ctx.cash());
 
@@ -246,6 +251,8 @@ public class PaperAiTraderService {
             run.setFinishedAt(LocalDateTime.now());
             runMapper.updateById(run);
             throw e;
+        } finally {
+            clearRunCaches(run.getId());
         }
     }
 
@@ -280,7 +287,7 @@ public class PaperAiTraderService {
         gate.setPositions(ctx.positions());
         gate.setCooldownSymbols(ctx.cooldownSymbols());
         gate.setPremiums(ctx.premiums());
-        gate.setFacts(ctx.facts());
+        gate.setFacts(mergeFacts(d.getRunId(), ctx.facts(), d.getSymbol()));
         gate.setBestEtfSymbol(ctx.bestEtfSymbol());
         gate.setCash(ctx.cash());
         d.setNeedsHumanReview(false);
@@ -370,7 +377,7 @@ public class PaperAiTraderService {
                 3. 禁止编造未在上下文给出的行情数字；可引用 candidates/positions 中的字段。
                 4. hold/flat 不下单；buy/sell 才进入执行闸门。动作请用小写或大写均可。
                 5. 数量用 quantity（A 股 100 股整数倍）。不足 1 手会被拒绝，不要向上凑整。
-                6. 买入必须给出 stop_loss 和 take_profit（小数，如 0.03）。ETF 溢价拿不到或过高时不要建议买入。
+                6. 买入必须给出止损/止盈比例小数（如 0.03=3%），不是绝对价格。字段可用 stop_loss/take_profit 或 stopLoss/takeProfit。
                 7. 已持有的标的不要再买。连续止损暂停、回撤收紧时遵守上下文里的限制。
                 8. 只能买卖 candidates 与 positions 里出现的代码。不要搜索新标的，不要使用知识库。
                 9. 买入仅考虑 valueTier=1（应该买入）的候选；valueTier=0 为已持仓只可卖出。
@@ -379,9 +386,10 @@ public class PaperAiTraderService {
                 当前账户与行情上下文（JSON）：
                 %s
 
-                本轮 runId=%s。请给出本轮决策，每项字段：
-                action,symbol,name,asset_type,planned_time,quantity,capital_ratio,reference_price,
-                take_profit,stop_loss,max_hold_days,cooldown_until,confidence,reasoning,risk_flags,manual_review
+                本轮 runId=%s。请给出本轮决策。止损止盈与参考价均为比例小数或价格数字字段，snake_case 与 camelCase 均可：
+                action,symbol,name,quantity,capital_ratio|capitalRatio,reference_price|referencePrice,
+                take_profit|takeProfit,stop_loss|stopLoss,max_hold_days|maxHoldDays,
+                confidence,reasoning|rationale,risk_flags|riskFlags,manual_review|manualReview
                 """.formatted(contextJson, runId);
         return agentRuntime.trader(system + "\n" + user, runId, asyncJobId);
     }
@@ -401,7 +409,7 @@ public class PaperAiTraderService {
         gate.setPositions(ctx.positions());
         gate.setCooldownSymbols(ctx.cooldownSymbols());
         gate.setPremiums(ctx.premiums());
-        gate.setFacts(ctx.facts());
+        gate.setFacts(mergeFacts(runId.trim(), ctx.facts(), null));
         gate.setBestEtfSymbol(ctx.bestEtfSymbol());
         gate.setCash(ctx.cash());
         List<String> ids = new ArrayList<>();
@@ -445,7 +453,7 @@ public class PaperAiTraderService {
         gate.setPositions(ctx.positions());
         gate.setCooldownSymbols(ctx.cooldownSymbols());
         gate.setPremiums(ctx.premiums());
-        gate.setFacts(ctx.facts());
+        gate.setFacts(mergeFacts(d.getRunId(), ctx.facts(), d.getSymbol()));
         gate.setBestEtfSymbol(ctx.bestEtfSymbol());
         gate.setCash(ctx.cash());
         processDecision(d, gate, PaperOrder.SOURCE_AI);
@@ -715,6 +723,58 @@ public class PaperAiTraderService {
         gate.setPremiums(Map.of());
         gate.setFacts(Map.of());
         return gate;
+    }
+
+    /** 写入本轮首次可用的标的 facts。 */
+    private void cacheRunFacts(String runId, Map<String, PaperSymbolFacts> facts) {
+        if (!StringUtils.hasText(runId) || facts == null || facts.isEmpty()) {
+            return;
+        }
+        runFactsCache.put(runId.trim(), new ConcurrentHashMap<>(facts));
+    }
+
+    /**
+     * 合并 live facts 与本轮缓存：live 覆盖同名标的；live 缺失时保留缓存。
+     * forSymbol 非空且仅靠缓存命中时打 WARN。
+     */
+    private Map<String, PaperSymbolFacts> mergeFacts(String runId,
+                                                     Map<String, PaperSymbolFacts> live,
+                                                     String forSymbol) {
+        Map<String, PaperSymbolFacts> merged = new LinkedHashMap<>();
+        Map<String, PaperSymbolFacts> cached = StringUtils.hasText(runId)
+                ? runFactsCache.get(runId.trim()) : null;
+        if (cached != null && !cached.isEmpty()) {
+            merged.putAll(cached);
+        }
+        if (live != null && !live.isEmpty()) {
+            merged.putAll(live);
+            if (StringUtils.hasText(runId)) {
+                runFactsCache.compute(runId.trim(), (key, old) -> {
+                    ConcurrentHashMap<String, PaperSymbolFacts> next =
+                            old == null ? new ConcurrentHashMap<>() : new ConcurrentHashMap<>(old);
+                    next.putAll(live);
+                    return next;
+                });
+            }
+        }
+        if (StringUtils.hasText(forSymbol)) {
+            String symbol = forSymbol.trim().toUpperCase(Locale.ROOT);
+            boolean liveHit = live != null && live.containsKey(symbol);
+            boolean cacheHit = cached != null && cached.containsKey(symbol);
+            if (!liveHit && cacheHit) {
+                log.warn("下单复用本轮缓存 facts symbol={} runId={}", symbol, runId);
+            }
+        }
+        return merged;
+    }
+
+    private void clearRunCaches(String runId) {
+        if (!StringUtils.hasText(runId)) {
+            return;
+        }
+        String id = runId.trim();
+        runFactsCache.remove(id);
+        toolWroteDecisions.remove(id);
     }
 
     private void refreshGateBook(PaperGateContext gate) {

@@ -4,6 +4,7 @@ import type {
   PaperAiDecision,
   PaperAiRun,
   PaperAiSubmit,
+  PaperCrawlerProbe,
   PaperOrder,
   PaperOrderRequest,
   PaperPosition,
@@ -85,6 +86,9 @@ export const paperTradeApi = {
 
   researchRunDetail: (id: string) =>
     ragClient.get<PaperResearchRun>(`/ai/apps/paper-trade/research/runs/${id}`),
+
+  /** 探测本地爬虫 MCP（先查启用开关，再 list_adapters）。 */
+  crawlerProbe: () => ragClient.post<PaperCrawlerProbe>('/ai/apps/paper-trade/crawler/probe'),
 
   warehouseCleanupRun: () =>
     ragClient.post<PaperAiSubmit>('/ai/apps/paper-trade/warehouse/cleanup/run'),

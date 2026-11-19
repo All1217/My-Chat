@@ -3,7 +3,9 @@ package com.mychat.apps.papertrade;
 import com.mychat.apps.papertrade.ledger.PaperQuoteService;
 import com.mychat.apps.papertrade.ledger.PaperTradeService;
 import com.mychat.apps.papertrade.ledger.entity.dto.PaperOrderRequest;
+import com.mychat.apps.papertrade.research.PaperCrawlerClient;
 import com.mychat.apps.papertrade.research.PaperResearchService;
+import com.mychat.apps.papertrade.research.entity.vo.PaperCrawlerProbeVO;
 import com.mychat.apps.papertrade.risk.PaperStageService;
 import com.mychat.apps.papertrade.schedule.PaperScheduleManager;
 import com.mychat.apps.papertrade.schedule.PaperScheduleService;
@@ -54,6 +56,7 @@ public class PaperTradeController {
     private final PaperStrategyService strategyService;
     private final PaperAiTraderService aiTraderService;
     private final PaperResearchService researchService;
+    private final PaperCrawlerClient crawlerClient;
     private final PaperStageService stageService;
     private final PaperScheduleService scheduleService;
     private final PaperScheduleManager scheduleManager;
@@ -197,6 +200,12 @@ public class PaperTradeController {
     @GetMapping("/research/notes")
     public Result<List<PaperResearchNoteVO>> researchNotes(@RequestParam(defaultValue = "40") int limit) {
         return Result.ok(researchService.listKept(limit));
+    }
+
+    /** 探测本地爬虫 MCP：先查启用开关，再调 list_adapters。 */
+    @PostMapping("/crawler/probe")
+    public Result<PaperCrawlerProbeVO> crawlerProbe() {
+        return Result.ok(crawlerClient.probe());
     }
 
     /** 提交搜集一轮（异步）。 */

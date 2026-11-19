@@ -330,6 +330,14 @@ export interface PaperQuote {
   history?: PaperKlinePoint[] | null
 }
 
+/** 本地爬虫 MCP 连通探测。 */
+export interface PaperCrawlerProbe {
+  ok: boolean
+  status: 'DISABLED' | 'NO_CLIENT' | 'ERROR' | 'OK' | string
+  message: string
+  detail?: string | null
+}
+
 /** 阶段总结。 */
 export interface PaperStageSummary {
   id: string

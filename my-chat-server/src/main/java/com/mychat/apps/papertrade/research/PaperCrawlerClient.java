@@ -2,6 +2,7 @@ package com.mychat.apps.papertrade.research;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mychat.apps.papertrade.research.entity.vo.PaperCrawlerProbeVO;
 import com.mychat.mcp.TolerantMcpToolCallbackProvider;
 import com.mychat.mcp.settings.McpRuntimeSettingsService;
 import com.mychat.mcp.settings.entity.po.McpConnectionSettings;
@@ -26,6 +27,7 @@ import java.util.Optional;
 public class PaperCrawlerClient {
 
     private static final int TEXT_CLIP = 800;
+    private static final int DETAIL_CLIP = 240;
 
     private final ObjectProvider<List<McpSyncClient>> clientsProvider;
     private final McpRuntimeSettingsService runtimeSettings;
@@ -35,6 +37,55 @@ public class PaperCrawlerClient {
                               McpRuntimeSettingsService runtimeSettings) {
         this.clientsProvider = clientsProvider;
         this.runtimeSettings = runtimeSettings;
+    }
+
+    /**
+     * 探测本地爬虫 MCP 连通性：先看运行时开关，再调 list_adapters（不抓外网）。
+     */
+    public PaperCrawlerProbeVO probe() {
+        // 1) 运行时开关
+        if (!runtimeSettings.isEnabled(McpConnectionSettings.ID_CRAWLER)) {
+            return PaperCrawlerProbeVO.of(
+                    false,
+                    "DISABLED",
+                    "本地网页抓取 MCP（mcp-crawler-server）未启用，请先到「设置 → MCP 工具管理」开启后再测。",
+                    null);
+        }
+        // 2) 客户端是否挂上
+        McpSyncClient client = findCrawler();
+        if (client == null) {
+            return PaperCrawlerProbeVO.of(
+                    false,
+                    "NO_CLIENT",
+                    "已启用但未连上爬虫客户端，请确认本机 mcp-server-crawler 已启动（默认 http://localhost:8103/mcp），并检查 APP_MCP_* / MCP_CRAWLER_URL。",
+                    null);
+        }
+        // 3) 轻量工具调用
+        try {
+            McpSchema.CallToolResult result = client.callTool(
+                    new McpSchema.CallToolRequest("list_adapters", Map.of()));
+            if (Boolean.TRUE.equals(result.isError())) {
+                return PaperCrawlerProbeVO.of(
+                        false,
+                        "ERROR",
+                        "爬虫 MCP 已连上，但 list_adapters 返回错误。",
+                        clip(String.valueOf(result), DETAIL_CLIP));
+            }
+            String detail = clip(String.valueOf(result), DETAIL_CLIP);
+            String name = TolerantMcpToolCallbackProvider.describe(client);
+            return PaperCrawlerProbeVO.of(
+                    true,
+                    "OK",
+                    "本地爬虫 MCP 连通正常" + (StringUtils.hasText(name) ? "（" + name + "）" : "") + "。",
+                    detail);
+        } catch (Exception e) {
+            log.warn("crawler probe 失败: {}", e.getMessage());
+            return PaperCrawlerProbeVO.of(
+                    false,
+                    "ERROR",
+                    "调用爬虫 MCP 失败：" + (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName()),
+                    null);
+        }
     }
 
     /** 抓取页面正文摘要；不可用或失败时 empty。 */

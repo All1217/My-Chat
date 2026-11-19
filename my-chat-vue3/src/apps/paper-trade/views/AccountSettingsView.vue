@@ -41,6 +41,15 @@
         />
         <span class="hint">价值等级=2 超过该自然日数后，清理任务会改为 3（移出）。</span>
       </div>
+      <div class="sched-row">
+        <div class="sched-meta">
+          <strong>测试本地爬虫连通性</strong>
+          <p>检查 mcp-crawler-server 是否已启用，再调 list_adapters 探测本机 mcp-server-crawler（8103）</p>
+        </div>
+        <div class="sched-ops">
+          <el-button size="small" :loading="crawlerProbing" @click="onProbeCrawler">测试连通性</el-button>
+        </div>
+      </div>
     </section>
 
     <section class="panel panel-workflow">
@@ -358,6 +367,7 @@ const risk = reactive<PaperRiskSettings>({
 })
 const savingGeneral = ref(false)
 const savingStrategy = ref(false)
+const crawlerProbing = ref(false)
 
 function applyRisk(r?: Partial<PaperRiskSettings> | null) {
   if (!r) return
@@ -501,6 +511,27 @@ async function onSaveSchedule() {
     /* toast */
   } finally {
     savingSchedule.value = false
+  }
+}
+
+/** 探测本地爬虫 MCP：未启用则提醒，已启用再测连通。 */
+async function onProbeCrawler() {
+  crawlerProbing.value = true
+  try {
+    const r = await paperTradeApi.crawlerProbe()
+    if (r.status === 'DISABLED') {
+      ElMessage.warning(r.message || '爬虫 MCP 未启用，请先到设置页开启')
+      return
+    }
+    if (r.ok) {
+      ElMessage.success(r.message || '爬虫 MCP 连通正常')
+      return
+    }
+    ElMessage.error(r.message || '爬虫 MCP 连通失败')
+  } catch {
+    /* toast */
+  } finally {
+    crawlerProbing.value = false
   }
 }
 

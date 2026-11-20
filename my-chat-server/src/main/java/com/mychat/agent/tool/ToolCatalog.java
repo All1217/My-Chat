@@ -12,6 +12,7 @@ import com.mychat.apps.papertrade.tools.PaperStageSummaryTools;
 import com.mychat.apps.papertrade.tools.PaperStrategyReadTools;
 import com.mychat.apps.papertrade.tools.PaperTradeExecTools;
 import com.mychat.tools.FileTools;
+import com.mychat.tools.ShellTool;
 import com.mychat.tools.WebSearchTools;
 import org.springframework.stereotype.Component;
 
@@ -27,7 +28,7 @@ public class ToolCatalog {
     private final Map<String, ToolDescriptor> tools;
 
     /** 登记当前系统工具并拒绝重名。 */
-    public ToolCatalog(FileTools fileTools, WebSearchTools webSearchTools,
+    public ToolCatalog(FileTools fileTools, ShellTool shellTool, WebSearchTools webSearchTools,
                        PaperStageSummaryTools stageTools, PaperDecisionTools decisionTools,
                        PaperResearchRunTools runTools, PaperResearchNoteTools noteTools,
                        PaperNoteBatchTools noteBatchTools,
@@ -38,6 +39,7 @@ public class ToolCatalog {
                        PaperStrategyReadTools strategyReadTools) {
         List<ToolDescriptor> descriptors = List.of(
                 descriptor("file", "workspace", AgentAction.SideEffectLevel.HIGH_RISK_WRITE, fileTools),
+                descriptor("shell", "workspace", AgentAction.SideEffectLevel.HIGH_RISK_WRITE, shellTool),
                 descriptor("web-search", "search", AgentAction.SideEffectLevel.READ_ONLY, webSearchTools),
                 descriptor("mcp", "remote", AgentAction.SideEffectLevel.READ_ONLY, null),
                 descriptor("mcp-crawler", "remote", AgentAction.SideEffectLevel.READ_ONLY, null),

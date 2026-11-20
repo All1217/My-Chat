@@ -22,8 +22,8 @@ public class AgentRuntimeConfiguration {
         return new AgentScenarioProfile(
                 AgentScenarioId.MAIN_CHAT,
                 "phase4-v1",
-                Set.of("general", "file", "search", "retrieve_kb"),
-                Set.of("file", "web-search", "mcp"),
+                Set.of("general", "file", "search", "retrieve_kb", "shell"),
+                Set.of("file", "web-search", "mcp", "shell"),
                 6,
                 8,
                 "text",

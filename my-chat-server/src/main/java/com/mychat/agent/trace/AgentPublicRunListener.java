@@ -70,6 +70,7 @@ public class AgentPublicRunListener implements AgentRunListener {
         return switch (actionId) {
             case "retrieve_kb" -> "知识库检索";
             case "file" -> "文件处理";
+            case "shell" -> "命令行";
             case "search" -> "联网搜索";
             case "general" -> "分析与生成";
             default -> actionId;

@@ -26,11 +26,13 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
 /**
  * 票仓分析员：遍历 value_tier=2，Agent 深搜后 updateValueTier。
+ * 单票失败不拖死整轮；有成功处理则整轮 SUCCEEDED。
  */
 @Slf4j
 @Service
@@ -106,13 +108,13 @@ public class PaperWarehouseAnalystService {
                     .last("LIMIT " + batch));
             run.setScreenedCount(tier2.size());
             trace.ok(PaperWorkflowStep.LIST_TIER2, "count=" + tier2.size());
+            persistProgress(run, trace, List.of());
             if (tier2.isEmpty()) {
                 run.setAdjustedCount(0);
-                run.setFrameworkTrace(trace.toJson(objectMapper));
                 run.setStatus(PaperWarehouseAnalystRun.STATUS_SUCCEEDED);
                 run.setFinishedAt(LocalDateTime.now());
-                runMapper.updateById(run);
                 trace.ok(PaperWorkflowStep.FINISH_RUN, "empty");
+                persistProgress(run, trace, List.of());
                 return;
             }
 
@@ -125,46 +127,143 @@ public class PaperWarehouseAnalystService {
             String accountSnippet = clip(ctx.contextJson(), 6000);
 
             int adjusted = 0;
+            int okCount = 0;
+            List<String> failedSymbols = new ArrayList<>();
             ArrayNode perSymbol = objectMapper.createArrayNode();
+            List<ObjectNode> agentTraces = new ArrayList<>();
+            int index = 0;
             for (PaperResearchNote note : tier2) {
+                index++;
                 int before = note.getValueTier() == null ? 2 : note.getValueTier();
-                String prompt = buildPrompt(note, strategyClip, accountSnippet);
-                PaperAgentRuntimeAdapter.Outcome outcome =
-                        agentRuntime.warehouseAnalyze(prompt, run.getId(), run.getJobId());
-                trace.bindAgentRun(outcome.agentRunId());
-                PaperResearchNote after = noteMapper.selectById(note.getSymbol());
-                int afterTier = after == null || after.getValueTier() == null
-                        ? before : after.getValueTier();
                 ObjectNode row = perSymbol.addObject();
                 row.put("symbol", note.getSymbol());
                 row.put("from", before);
-                row.put("to", afterTier);
-                row.put("agentRunId", outcome.agentRunId() == null ? "" : outcome.agentRunId());
-                if (afterTier != before) {
-                    adjusted++;
+                ObjectNode agentRow = objectMapper.createObjectNode();
+                agentRow.put("symbol", note.getSymbol());
+                try {
+                    String prompt = buildPrompt(note, strategyClip, accountSnippet);
+                    PaperAgentRuntimeAdapter.Outcome outcome =
+                            agentRuntime.warehouseAnalyze(prompt, run.getId(), run.getJobId());
+                    if (StringUtils.hasText(outcome.agentRunId())) {
+                        trace.bindAgentRun(outcome.agentRunId());
+                        row.put("agentRunId", outcome.agentRunId());
+                        agentRow.put("agentRunId", outcome.agentRunId());
+                    } else {
+                        row.put("agentRunId", "");
+                    }
+                    if (StringUtils.hasText(outcome.traceJson())) {
+                        agentRow.set("trace", objectMapper.readTree(outcome.traceJson()));
+                    }
+                    agentRow.put("ok", true);
+                    PaperResearchNote after = noteMapper.selectById(note.getSymbol());
+                    int afterTier = after == null || after.getValueTier() == null
+                            ? before : after.getValueTier();
+                    row.put("to", afterTier);
+                    row.put("ok", true);
+                    okCount++;
+                    if (afterTier != before) {
+                        adjusted++;
+                    }
+                } catch (Exception symbolError) {
+                    // 单票隔离：记失败后继续后续标的
+                    log.warn("票仓分析单票失败 symbol={}: {}", note.getSymbol(), symbolError.getMessage());
+                    row.put("to", before);
+                    row.put("ok", false);
+                    row.put("agentRunId", "");
+                    row.put("error", clip(symbolError.getMessage(), 400));
+                    agentRow.put("ok", false);
+                    agentRow.put("error", clip(symbolError.getMessage(), 400));
+                    failedSymbols.add(note.getSymbol());
                 }
+                agentTraces.add(agentRow);
+                trace.upsertOk(PaperWorkflowStep.AI_DEEP_GATHER,
+                        "done=" + index + "/" + tier2.size()
+                                + " ok=" + okCount + " failed=" + failedSymbols.size());
+                persistProgress(run, trace, agentTraces);
             }
-            trace.ok(PaperWorkflowStep.AI_DEEP_GATHER, "symbols=" + tier2.size());
+
+            trace.upsertOk(PaperWorkflowStep.AI_DEEP_GATHER,
+                    "symbols=" + tier2.size() + " ok=" + okCount + " failed=" + failedSymbols.size());
             trace.ok(PaperWorkflowStep.APPLY_TIER_UPDATE, "adjusted=" + adjusted);
 
             ObjectNode stats = objectMapper.createObjectNode();
             stats.put("screened", tier2.size());
             stats.put("adjusted", adjusted);
+            stats.put("okCount", okCount);
+            stats.put("failedCount", failedSymbols.size());
+            ArrayNode failedArr = stats.putArray("failedSymbols");
+            for (String s : failedSymbols) {
+                failedArr.add(s);
+            }
             stats.set("symbols", perSymbol);
             run.setStatsJson(objectMapper.writeValueAsString(stats));
             run.setAdjustedCount(adjusted);
-            run.setFrameworkTrace(trace.toJson(objectMapper));
+            run.setFinishedAt(LocalDateTime.now());
+
+            if (okCount == 0) {
+                run.setStatus(PaperWarehouseAnalystRun.STATUS_FAILED);
+                run.setErrorMessage(clip(
+                        "票仓分析员全部失败: " + String.join(",", failedSymbols), 1000));
+                persistProgress(run, trace, agentTraces);
+                throw new IllegalStateException(run.getErrorMessage());
+            }
+
             run.setStatus(PaperWarehouseAnalystRun.STATUS_SUCCEEDED);
-            run.setFinishedAt(LocalDateTime.now());
-            runMapper.updateById(run);
-            trace.ok(PaperWorkflowStep.FINISH_RUN, "adjusted=" + adjusted);
+            if (!failedSymbols.isEmpty()) {
+                run.setErrorMessage(clip(
+                        "部分失败(" + failedSymbols.size() + "): " + String.join(",", failedSymbols),
+                        1000));
+            } else {
+                run.setErrorMessage(null);
+            }
+            trace.ok(PaperWorkflowStep.FINISH_RUN, "adjusted=" + adjusted + " ok=" + okCount);
+            persistProgress(run, trace, agentTraces);
         } catch (Exception e) {
-            run.setFrameworkTrace(trace.toJson(objectMapper));
-            run.setStatus(PaperWarehouseAnalystRun.STATUS_FAILED);
-            run.setErrorMessage(clip(e.getMessage(), 1000));
-            run.setFinishedAt(LocalDateTime.now());
-            runMapper.updateById(run);
+            if (!PaperWarehouseAnalystRun.STATUS_FAILED.equals(run.getStatus())
+                    && !PaperWarehouseAnalystRun.STATUS_SUCCEEDED.equals(run.getStatus())) {
+                run.setStatus(PaperWarehouseAnalystRun.STATUS_FAILED);
+                run.setErrorMessage(clip(e.getMessage(), 1000));
+                run.setFinishedAt(LocalDateTime.now());
+            }
+            persistProgress(run, trace, List.of());
             throw e;
+        }
+    }
+
+    /** 中途落库 framework_trace（含 agents），便于工作流页看到进度。 */
+    private void persistProgress(PaperWarehouseAnalystRun run,
+                                 PaperWorkflowTrace trace,
+                                 List<ObjectNode> agentTraces) {
+        run.setFrameworkTrace(mergeTrace(trace, agentTraces));
+        runMapper.updateById(run);
+    }
+
+    /** 合并 domainSteps 与每票 Agent 轨迹（对齐搜集员 mergeTrace）。 */
+    private String mergeTrace(PaperWorkflowTrace domain, List<ObjectNode> agentTraces) {
+        try {
+            ObjectNode root = (ObjectNode) objectMapper.readTree(domain.toJson(objectMapper));
+            ArrayNode agents = root.putArray("agents");
+            ObjectNode lastAgent = null;
+            if (agentTraces != null) {
+                for (ObjectNode row : agentTraces) {
+                    if (row == null) {
+                        continue;
+                    }
+                    agents.add(row);
+                    if (row.has("trace")) {
+                        lastAgent = row;
+                    }
+                }
+            }
+            if (lastAgent != null && lastAgent.has("trace")) {
+                root.set("agent", lastAgent.get("trace"));
+                if (lastAgent.hasNonNull("agentRunId")) {
+                    root.put("agentRunId", lastAgent.get("agentRunId").asText());
+                }
+            }
+            return objectMapper.writeValueAsString(root);
+        } catch (Exception e) {
+            return domain.toJson(objectMapper);
         }
     }
 
@@ -182,10 +281,14 @@ public class PaperWarehouseAnalystService {
         card.put("quoteSummary", note.getQuoteSummary() == null ? "" : note.getQuoteSummary());
         return """
                 你是票仓分析员。当前标的 valueTier=2（继续观察）。
-                用最多 3 步深搜（paper-market / paper-research-feed / paper-strategy / web-search），
-                然后必须调用 updateValueTier(symbol, tier)：
-                - 1：应该买入；2：继续观察；3：移出票仓。
-                禁止改成 0。等级变更以工具成功为准；finalOutput 只写短确认 OK。
+                第1步：用 paper-market / paper-research-feed / paper-strategy / web-search 深搜，
+                并必须调用 updateValueTier(symbol, tier)：
+                - 1：应该买入（须同时：相对低点 relativelyLow=true，且企稳 stabilized=true，
+                  fit/evidence 建议≥0.7；缺任一条件只能标 2）；
+                - 2：继续观察；3：移出票仓。
+                禁止改成 0。等级变更以工具成功为准（工具也会校验低点+企稳并可能把 1 降为 2）。
+                第2步：updateValueTier 成功后必须 finish=true，finalOutput 只写短确认 OK；
+                禁止重复无增量的 paper_warehouse_analyze 占步。
                 【策略摘要】
                 %s
                 【账户/持仓片段】

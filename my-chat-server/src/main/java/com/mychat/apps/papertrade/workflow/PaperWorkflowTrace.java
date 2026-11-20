@@ -21,6 +21,13 @@ public class PaperWorkflowTrace {
         steps.add(new StepRecord(step.name(), "SUCCEEDED", summary, null));
     }
 
+    /** 覆盖同名步骤（用于中途进度，避免 UI 多条同名节点）。 */
+    public void upsertOk(PaperWorkflowStep step, String summary) {
+        String name = step.name();
+        steps.removeIf(s -> name.equals(s.step()));
+        ok(step, summary);
+    }
+
     /** 记录一步失败。 */
     public void fail(PaperWorkflowStep step, String error) {
         steps.add(new StepRecord(step.name(), "FAILED", null, error));

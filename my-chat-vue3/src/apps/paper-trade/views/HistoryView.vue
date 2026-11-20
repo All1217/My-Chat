@@ -17,7 +17,29 @@
           <h2>{{ current?.title }}</h2>
           <div class="toolbar-actions">
             <el-button size="small" :loading="loading" @click="loadList">刷新</el-button>
-            <el-button size="small" :loading="exporting" @click="onExport">导出</el-button>
+            <el-dropdown trigger="click" :disabled="exporting" @command="onExportTable">
+              <el-button size="small" :loading="exporting">
+                导出
+              </el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item
+                    v-if="current?.tableName"
+                    :command="current.tableName"
+                  >
+                    当前表（{{ current.tableName }}）
+                  </el-dropdown-item>
+                  <el-dropdown-item
+                    v-for="t in exportTableOptions"
+                    :key="t"
+                    :command="t"
+                    :divided="t === exportTableOptions[0]"
+                  >
+                    {{ t }}
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
             <el-button
               v-if="current?.creatable"
               size="small"
@@ -404,12 +426,33 @@ async function onRefreshNote(row: Record<string, unknown>) {
   }
 }
 
-/** 下载当前表全量 INSERT.sql。 */
-async function onExport() {
-  if (!current.value) return
+const exportTables = ref<string[]>([])
+
+const exportTableOptions = computed(() => {
+  const cur = current.value?.tableName
+  return exportTables.value.filter((t) => t && t !== cur)
+})
+
+/** 加载可导出表白名单（含 warehouse / evaluator）。 */
+async function loadExportTables() {
+  try {
+    const map = await paperTradeApi.adminExportTables()
+    exportTables.value = Object.keys(map ?? {}).sort()
+  } catch {
+    exportTables.value = [
+      'paper_warehouse_analyst_run',
+      'paper_warehouse_cleanup_run',
+      'paper_trade_evaluator_run',
+    ]
+  }
+}
+
+/** 下载指定表全量 INSERT.sql。 */
+async function onExportTable(table: string) {
+  if (!table) return
   exporting.value = true
   try {
-    const file = await paperTradeApi.adminExportSql(current.value.tableName)
+    const file = await paperTradeApi.adminExportSql(table)
     const blob = new Blob([file.content], { type: 'application/sql;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -532,6 +575,7 @@ async function onDelete(row: Record<string, unknown>) {
 
 onMounted(() => {
   loadList()
+  loadExportTables()
 })
 
 onUnmounted(() => {

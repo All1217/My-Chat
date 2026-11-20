@@ -29,7 +29,10 @@ public class PaperSqlExportService {
             "paper_ai_decision",
             "paper_ai_run",
             "paper_research_run",
-            "paper_research_note");
+            "paper_research_note",
+            "paper_warehouse_analyst_run",
+            "paper_warehouse_cleanup_run",
+            "paper_trade_evaluator_run");
 
     private final DataSource dataSource;
 

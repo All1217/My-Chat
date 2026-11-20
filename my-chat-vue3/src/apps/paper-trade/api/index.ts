@@ -183,6 +183,10 @@ export const paperTradeApi = {
       `/ai/apps/paper-trade/admin/research-notes/${encodeURIComponent(symbol)}/refresh`,
     ),
 
+  /** 可导出表白名单。 */
+  adminExportTables: () =>
+    ragClient.get<Record<string, string>>('/ai/apps/paper-trade/admin/export-tables'),
+
   /** 导出历史表全量 INSERT.sql。 */
   adminExportSql: (table: string) =>
     ragClient.get<PaperSqlExport>(

@@ -104,12 +104,17 @@ public class StructuredDecisionEngine implements DecisionEngine {
             case PAPER_TRADE_EVALUATOR -> "paper_trade_evaluate";
             default -> "paper_warehouse_analyze";
         };
+        String warehouseExtra = scenarioId == AgentScenarioId.PAPER_WAREHOUSE_ANALYST
+                ? """
+                4. 票仓分析：updateValueTier 成功后下一步必须 finish=true；禁止重复无增量深搜占满步数。
+                """
+                : "";
         return """
                 【PAPER 强制规则】
                 1. 必须先调用动作 %s；批次 JSON / 等级变更只能出现在该动作 observation 或写工具中。
                 2. 动作成功后 finish=true，finalOutput 只写短确认（如 OK），不超过 %d 字。
                 3. 严禁把 ResearchCardBatch / TradeDecisionBatch / StageEvalBatch 写入 finalOutput。
-                """.formatted(action, PAPER_FINAL_OUTPUT_MAX);
+                %s""".formatted(action, PAPER_FINAL_OUTPUT_MAX, warehouseExtra);
     }
 
     /** 将模型载荷转换为运行时决策。 */

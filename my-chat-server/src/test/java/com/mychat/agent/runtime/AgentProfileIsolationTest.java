@@ -68,7 +68,7 @@ class AgentProfileIsolationTest {
                 .doesNotContain("paper-trade-exec", "file", "shell", "mcp");
         assertThat(evaluator.allowedTools()).doesNotContain("shell", "file");
         assertThat(evaluator.allowedActions()).doesNotContain("shell");
-        assertThat(analyst.maxSteps()).isEqualTo(3);
+        assertThat(analyst.maxSteps()).isEqualTo(4);
     }
 
     /** 面试官使用独立上下文、Memory、质量和回答策略。 */

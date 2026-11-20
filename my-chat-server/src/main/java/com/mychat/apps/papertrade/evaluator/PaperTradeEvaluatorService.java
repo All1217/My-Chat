@@ -139,12 +139,24 @@ public class PaperTradeEvaluatorService {
             String contextJson = buildContext(run.getTriggerType(), endEquity);
             trace.ok(PaperWorkflowStep.GATHER_EVIDENCE, "contextBytes=" + contextJson.length());
 
-            PaperAgentRuntimeAdapter.Outcome outcome =
-                    agentRuntime.evaluate(prompt(run.getTriggerType(), contextJson),
-                            run.getId(), run.getJobId());
-            trace.bindAgentRun(outcome.agentRunId());
-            StageEvalBatch batch = parseBatch(outcome.answer(), outcome.observations());
-            trace.ok(PaperWorkflowStep.AI_EVALUATE, "agentRunId=" + outcome.agentRunId());
+            // AI 失败时仍落阶段总结，避免 paper_stage_summary 空窗
+            PaperAgentRuntimeAdapter.Outcome outcome = null;
+            StageEvalBatch batch;
+            boolean aiFailed = false;
+            try {
+                outcome = agentRuntime.evaluate(prompt(run.getTriggerType(), contextJson),
+                        run.getId(), run.getJobId());
+                if (StringUtils.hasText(outcome.agentRunId())) {
+                    trace.bindAgentRun(outcome.agentRunId());
+                }
+                batch = parseBatch(outcome.answer(), outcome.observations());
+                trace.ok(PaperWorkflowStep.AI_EVALUATE, "agentRunId=" + outcome.agentRunId());
+            } catch (Exception aiEx) {
+                aiFailed = true;
+                log.warn("评估员 AI 失败，改用兜底总结: {}", aiEx.getMessage());
+                trace.fail(PaperWorkflowStep.AI_EVALUATE, clip(aiEx.getMessage(), 400));
+                batch = new StageEvalBatch(fallbackSummary(endEquity), "", "", List.of());
+            }
 
             String summaryText = StringUtils.hasText(batch.summaryText())
                     ? batch.summaryText() : fallbackSummary(endEquity);
@@ -166,18 +178,19 @@ public class PaperTradeEvaluatorService {
                     emailBody);
             run.setEmailStatus(emailStatus);
             trace.ok(PaperWorkflowStep.SEND_EMAIL, "status=" + emailStatus);
-            trace.ok(PaperWorkflowStep.FINISH_RUN, reset ? "resetAccount" : "ok");
+            trace.ok(PaperWorkflowStep.FINISH_RUN, reset ? "resetAccount" : (aiFailed ? "ok-fallback" : "ok"));
 
             ObjectNode stats = objectMapper.createObjectNode();
             stats.put("trigger", run.getTriggerType());
             stats.put("stageSummaryId", stage.getId());
             stats.put("emailStatus", emailStatus);
             stats.put("resetAccount", reset);
+            stats.put("aiFailed", aiFailed);
             if (StringUtils.hasText(batch.strategyAdvice())) {
                 stats.put("strategyAdvice", clip(batch.strategyAdvice(), 2000));
             }
             run.setStatsJson(objectMapper.writeValueAsString(stats));
-            run.setFrameworkTrace(mergeTrace(trace, outcome.traceJson()));
+            run.setFrameworkTrace(mergeTrace(trace, outcome == null ? null : outcome.traceJson()));
             run.setStatus(PaperTradeEvaluatorRun.STATUS_SUCCEEDED);
             run.setFinishedAt(LocalDateTime.now());
             runMapper.updateById(run);

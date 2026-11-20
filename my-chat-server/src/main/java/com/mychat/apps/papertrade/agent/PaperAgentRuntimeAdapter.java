@@ -62,20 +62,71 @@ public class PaperAgentRuntimeAdapter {
                         null,
                         businessRef,
                         null,
-                        "必须调用 updateValueTier；finalOutput 仅短确认。",
+                        "第1步完成 updateValueTier 后下一步必须 finish=true；finalOutput 仅短确认。",
                         attributes));
         long elapsedMs = (System.nanoTime() - started) / 1_000_000L;
         String agentRunId = String.valueOf(result.metrics().getOrDefault("runId", ""));
+        String observations = joinObservations(result);
+        boolean soft = false;
         if (result.status() != AgentRunResult.Status.SUCCEEDED) {
-            throw new IllegalStateException(
-                    "票仓分析员失败: " + result.status() + " " + result.errorMessage());
+            // 步数耗尽但等级已落库：按软成功，避免拖死整批
+            if (tierUpdatedInSteps(result)) {
+                soft = true;
+            } else {
+                throw new IllegalStateException(
+                        "票仓分析员失败: " + result.status() + " " + result.errorMessage());
+            }
         }
-        String answer = StringUtils.hasText(result.output()) ? result.output() : "OK";
-        String observations = result.steps().stream()
+        String answer = StringUtils.hasText(result.output())
+                ? result.output()
+                : (soft ? "OK（等级已落库，未 finish）" : "OK");
+        return new Outcome(answer, observations, trace(result, elapsedMs, agentRunId, soft), agentRunId);
+    }
+
+    /** 拼接步骤观察文本。 */
+    private static String joinObservations(AgentRunResult result) {
+        return result.steps().stream()
                 .map(AgentStepResult::observation)
                 .filter(value -> value != null && !value.isBlank())
                 .reduce("", (left, right) -> left + right + "\n");
-        return new Outcome(answer, observations, trace(result, elapsedMs, agentRunId, false), agentRunId);
+    }
+
+    /**
+     * 观察中是否已出现 updateValueTier 成功回执。
+     * 典型片段：{"ok":true,"symbol":"300308","from":2,"to":2}
+     */
+    static boolean tierUpdatedInSteps(AgentRunResult result) {
+        if (result == null || result.steps() == null) {
+            return false;
+        }
+        for (AgentStepResult step : result.steps()) {
+            if (looksLikeTierUpdateOk(step.observation())) {
+                return true;
+            }
+            if (looksLikeTierUpdateOk(step.errorMessage())) {
+                return true;
+            }
+        }
+        return looksLikeTierUpdateOk(result.output())
+                || looksLikeTierUpdateOk(result.errorMessage());
+    }
+
+    /** 启发式识别 updateValueTier 成功 JSON。 */
+    static boolean looksLikeTierUpdateOk(String text) {
+        if (!StringUtils.hasText(text)) {
+            return false;
+        }
+        String compact = text.replace(" ", "");
+        if (!(compact.contains("\"ok\":true") || compact.contains("\"ok\":True"))) {
+            return false;
+        }
+        if (!compact.contains("\"symbol\"")) {
+            return false;
+        }
+        return compact.contains("\"to\":1")
+                || compact.contains("\"to\":2")
+                || compact.contains("\"to\":3")
+                || compact.contains("updateValueTier");
     }
 
     /** 调用通用 Runtime；失败或截断时尽量从观察抢救可落库批次。 */

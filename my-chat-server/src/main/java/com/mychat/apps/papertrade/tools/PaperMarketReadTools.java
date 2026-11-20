@@ -39,17 +39,21 @@ public class PaperMarketReadTools {
             out.put("changePct", snap.changePct());
             out.put("vsMa20Pct", snap.vsMa20Pct());
             out.put("drawdown60Pct", snap.drawdown60Pct());
+            boolean belowMa = snap.vsMa20Pct() != null && snap.vsMa20Pct() < 0;
+            boolean drawn = snap.drawdown60Pct() != null && snap.drawdown60Pct() <= -8;
+            out.put("relativelyLow", belowMa || drawn);
             out.put("barCount", quote.getHistory() == null ? 0 : quote.getHistory().size());
             return out;
         });
     }
 
-    /** 读取 ST/停牌/涨跌停/流动性等事实。 */
-    @Tool(description = "读取标的事实：ST、停牌、涨跌停、上市根数、流动性")
+    /** 读取 ST/停牌/涨跌停/流动性/企稳等事实。 */
+    @Tool(description = "读取标的事实：ST、停牌、涨跌停、上市根数、流动性、企稳")
     public String getSymbolFacts(@ToolParam(description = "股票或 ETF 代码") String symbol) {
         return call(() -> {
             MarketQuoteVO quote = quoteClient.fetch(symbol, "1Y");
             PaperSymbolFacts facts = symbolGate.analyze(quote);
+            MarketDipIndicators.Snapshot snap = MarketDipIndicators.from(quote);
             Map<String, Object> out = new LinkedHashMap<>();
             out.put("symbol", facts.symbol());
             out.put("name", facts.name());
@@ -58,6 +62,12 @@ public class PaperMarketReadTools {
             out.put("suspended", facts.suspended());
             out.put("limitUp", facts.limitUp());
             out.put("limitDown", facts.limitDown());
+            out.put("stabilized", facts.stabilized());
+            out.put("vsMa20Pct", snap.vsMa20Pct());
+            out.put("drawdown60Pct", snap.drawdown60Pct());
+            boolean belowMa = snap.vsMa20Pct() != null && snap.vsMa20Pct() < 0;
+            boolean drawn = snap.drawdown60Pct() != null && snap.drawdown60Pct() <= -8;
+            out.put("relativelyLow", belowMa || drawn);
             out.put("barCount", facts.barCount());
             out.put("avgAmount20", facts.avgAmount20());
             return out;

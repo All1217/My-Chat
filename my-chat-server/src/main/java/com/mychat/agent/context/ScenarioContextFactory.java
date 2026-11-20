@@ -28,7 +28,8 @@ public class ScenarioContextFactory {
         values.put(AgentScenarioId.PAPER_TRADER,
                 "生成决策后优先 recordAiDecisions / placePaperOrder；规则卖出走平台。");
         values.put(AgentScenarioId.PAPER_WAREHOUSE_ANALYST,
-                "仅对观察票深搜；用 updateValueTier 调到 1/2/3；禁止改 0、禁止下单。");
+                "仅对观察票深搜；用 updateValueTier 调到 1/2/3；禁止改 0、禁止下单；"
+                        + "updateValueTier 成功后必须 finish，禁止重复无增量深搜占步。");
         values.put(AgentScenarioId.PAPER_TRADE_EVALUATOR,
                 "只读复盘并输出阶段叙述与可编辑策略建议；禁止下单、禁止改锁定风控/value_tier。");
         this.policies = Map.copyOf(values);

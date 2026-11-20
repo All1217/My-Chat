@@ -39,7 +39,7 @@ public class PaperWarehouseAnalyzeActionHandler implements AgentActionHandler {
 
                 【输出约束】
                 深搜后必须调用 updateValueTier；禁止改成 0。
-                工具成功后观察可写短确认；不要输出大段 Markdown。
+                工具成功后观察可写短确认；本步结束后应由 Planner finish，勿重复空转深搜。
                 """;
         String result = capability.execute(
                 AgentScenarioId.PAPER_WAREHOUSE_ANALYST,

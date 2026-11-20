@@ -126,7 +126,7 @@ public class AgentRuntimeConfiguration {
                 "score-review");
     }
 
-    /** 票仓分析员：深搜后 updateValueTier，maxSteps=3。 */
+    /** 票仓分析员：深搜后 updateValueTier，maxSteps=4（留 finish 余量）。 */
     @Bean
     public AgentScenarioProfile paperWarehouseAnalystRuntimeProfile() {
         return new AgentScenarioProfile(
@@ -135,7 +135,7 @@ public class AgentRuntimeConfiguration {
                 Set.of("paper_warehouse_analyze", "general"),
                 Set.of("paper-market", "paper-research-feed", "paper-strategy",
                         "paper-note", "web-search"),
-                3,
+                4,
                 8,
                 "text",
                 "paper-warehouse-analyst",

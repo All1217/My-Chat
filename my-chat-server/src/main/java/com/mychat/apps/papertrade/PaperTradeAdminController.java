@@ -238,6 +238,12 @@ public class PaperTradeAdminController {
         }
     }
 
+    /** 可导出表白名单（含 warehouse / evaluator）。 */
+    @GetMapping("/admin/export-tables")
+    public Result<java.util.Map<String, String>> exportTables() {
+        return Result.ok(sqlExportService.allowedTables());
+    }
+
     /** 导出历史表白名单全表 INSERT.sql（表名：paper_*）。 */
     @GetMapping("/admin/export/{table}")
     public Result<PaperSqlExportVO> exportSql(@PathVariable String table) {

@@ -667,10 +667,56 @@ public class PaperResearchService {
         return facts.avgAmount20() != null && facts.avgAmount20() >= minAmount;
     }
 
-    private static boolean relativelyLow(MarketDipIndicators.Snapshot snap) {
+    /** 相对低点：低于 MA20 或 60 日回撤 ≤ -8%（与交易员策略口径一致）。 */
+    static boolean relativelyLow(MarketDipIndicators.Snapshot snap) {
+        if (snap == null) {
+            return false;
+        }
         boolean belowMa = snap.vsMa20Pct() != null && snap.vsMa20Pct() < 0;
         boolean drawn = snap.drawdown60Pct() != null && snap.drawdown60Pct() <= -8;
         return belowMa || drawn;
+    }
+
+    /**
+     * tier=1 须相对低点 + 企稳；否则降为 2。
+     * 与交易员候选上下文中的 vsMa20Pct / stabilized 对齐。
+     */
+    static void alignTier1WithStabilizeGates(List<Card> cards, List<Material> batch) {
+        if (cards == null || cards.isEmpty() || batch == null || batch.isEmpty()) {
+            return;
+        }
+        Map<String, Material> bySymbol = new HashMap<>();
+        for (Material m : batch) {
+            if (m != null && StringUtils.hasText(m.symbol())) {
+                bySymbol.put(m.symbol().trim().toUpperCase(Locale.ROOT), m);
+            }
+        }
+        for (Card card : cards) {
+            if (card == null || !Boolean.TRUE.equals(card.kept) || card.valueTier == null || card.valueTier != 1) {
+                continue;
+            }
+            if (!StringUtils.hasText(card.symbol)) {
+                continue;
+            }
+            Material m = bySymbol.get(card.symbol.trim().toUpperCase(Locale.ROOT));
+            if (m == null) {
+                continue;
+            }
+            boolean low = relativelyLow(m.snap());
+            boolean stab = m.facts() != null && m.facts().stabilized();
+            if (low && stab) {
+                continue;
+            }
+            card.valueTier = 2;
+            String reason = !low && !stab
+                    ? "TIER1_WITHOUT_DIP_OR_STABILIZED"
+                    : (!low ? "TIER1_WITHOUT_RELATIVE_LOW" : "TIER1_WITHOUT_STABILIZED");
+            if (!StringUtils.hasText(card.rejectReason)) {
+                card.rejectReason = reason;
+            } else if (!card.rejectReason.contains(reason)) {
+                card.rejectReason = clip(card.rejectReason + ";" + reason, 500);
+            }
+        }
     }
 
     private String prompt(List<Material> batch, String runId, boolean refreshOne) throws Exception {
@@ -686,6 +732,8 @@ public class PaperResearchService {
             put(n, "drawdown60Pct", m.snap().drawdown60Pct());
             put(n, "avgAmount20", m.facts().avgAmount20());
             put(n, "premiumPct", m.premiumPct());
+            n.put("stabilized", m.facts() != null && m.facts().stabilized());
+            n.put("relativelyLow", relativelyLow(m.snap()));
             ArrayNode sources = n.putArray("sources");
             for (PaperStoryFeed.SourceItem s : m.sources()) {
                 ObjectNode src = sources.addObject();
@@ -704,7 +752,9 @@ public class PaperResearchService {
                 %s每项含 symbol,name,kept,story,risks,rejectReason,fitScore,evidenceScore,signalTags,evidenceRefs,valueTier。
                 story≤80字；fitScore/evidenceScore 为 0~1；
                 valueTier 只能是 1（应该买入）、2（继续观察）、3（移出票仓），禁止输出 0（已持仓由成交回写）。
-                标 1：kept=true，契合当前账户策略，fit/evidence 建议≥0.7，入场条件与风险可写清。
+                标 1（必须同时满足）：kept=true；relativelyLow=true（vsMa20Pct<0 或 drawdown60Pct≤-8）；
+                stabilized=true（收阳或收盘>昨收）；fit/evidence 建议≥0.7；story 须分别点明「相对低点」与「企稳」。
+                缺相对低点或缺企稳 → 只能标 2，禁止标 1。
                 标 2：主题沾边但时机/证据未齐；标 3：论点失效或 kept=false。
                 evidenceRefs 必须是字符串数组（标题或 URL），禁止对象；不可凭空生成。
                 只能使用候选列表中的代码；证据不足则 kept=false 且 valueTier=3。
@@ -712,7 +762,8 @@ public class PaperResearchService {
                 %s
                 """.formatted(runId, refreshOne
                 ? """
-                这是指定代码补资料。低于均线、回撤是入场偏好，不能单独作为 kept=false 或价值等级 3 的理由。
+                这是指定代码补资料。低于均线、回撤是入场偏好，不能单独作为 kept=false 或价值等级 3 的理由；
+                但标 valueTier=1 仍须 relativelyLow 与 stabilized 同时为 true。
                 成交额、涨跌幅、资金流向只能照抄候选 JSON，方向不能改。
                 材料已齐，不要再调用 getQuote 或 getSymbolFacts。
                 """
@@ -793,6 +844,8 @@ public class PaperResearchService {
     }
 
     private int upsert(String runId, List<Material> batch, List<Card> cards) throws Exception {
+        // tier=1 必须相对低点+企稳，与交易员闸门对齐
+        alignTier1WithStabilizeGates(cards, batch);
         Map<String, Material> bySymbol = new HashMap<>();
         for (Material m : batch) {
             bySymbol.put(m.symbol(), m);
@@ -876,7 +929,7 @@ public class PaperResearchService {
         return 2;
     }
 
-    /** 分析员/工具：调价值等级，仅 1/2/3；禁止改 0。 */
+    /** 分析员/工具：调价值等级，仅 1/2/3；禁止改 0。标 1 须相对低点+企稳，否则降为 2。 */
     public Map<String, Object> updateValueTierByTool(String symbol, Integer tier) {
         if (!StringUtils.hasText(symbol)) {
             throw new IllegalArgumentException("symbol 不能为空");
@@ -893,14 +946,52 @@ public class PaperResearchService {
             throw new IllegalArgumentException("已持仓(0)不可通过工具改等级");
         }
         int from = note.getValueTier() == null ? 2 : note.getValueTier();
-        note.setValueTier(tier);
-        if (tier == 3) {
+        int to = tier;
+        String demoteReason = null;
+        if (to == 1) {
+            demoteReason = tier1DemoteReason(code);
+            if (demoteReason != null) {
+                to = 2;
+            }
+        }
+        note.setValueTier(to);
+        if (to == 3) {
             note.setKept(false);
-        } else if (tier == 1 || tier == 2) {
+        } else if (to == 1 || to == 2) {
             note.setKept(true);
         }
         noteMapper.updateById(note);
-        return Map.of("ok", true, "symbol", code, "from", from, "to", tier);
+        Map<String, Object> out = new HashMap<>();
+        out.put("ok", true);
+        out.put("symbol", code);
+        out.put("from", from);
+        out.put("to", to);
+        if (demoteReason != null) {
+            out.put("demotedFrom", 1);
+            out.put("demoteReason", demoteReason);
+        }
+        return out;
+    }
+
+    /** 现价不满足相对低点或企稳时返回降级原因，否则 null。 */
+    private String tier1DemoteReason(String symbol) {
+        try {
+            MarketQuoteVO quote = quoteClient.fetch(symbol, "1Y");
+            PaperSymbolFacts facts = symbolGate.analyze(quote);
+            MarketDipIndicators.Snapshot snap = MarketDipIndicators.from(quote);
+            boolean low = relativelyLow(snap);
+            boolean stab = facts != null && facts.stabilized();
+            if (low && stab) {
+                return null;
+            }
+            if (!low && !stab) {
+                return "TIER1_WITHOUT_DIP_OR_STABILIZED";
+            }
+            return !low ? "TIER1_WITHOUT_RELATIVE_LOW" : "TIER1_WITHOUT_STABILIZED";
+        } catch (Exception e) {
+            log.warn("tier1 闸门复检失败 symbol={}: {}", symbol, e.getMessage());
+            return "TIER1_GATE_CHECK_FAILED";
+        }
     }
 
     /** 工具：按 runId 材料 + cardsJson 落库（Agent 可调；无材料则失败）。 */
@@ -1020,9 +1111,10 @@ public class PaperResearchService {
         return text.length() <= max ? text : text.substring(0, max);
     }
 
-    private record Material(String symbol, String name, MarketDipIndicators.Snapshot snap,
-                             PaperSymbolFacts facts, Double premiumPct,
-                             List<PaperStoryFeed.SourceItem> sources, String sourceTier) {
+    /** 本轮候选材料（包内可见，供闸门对齐单测构造）。 */
+    record Material(String symbol, String name, MarketDipIndicators.Snapshot snap,
+                    PaperSymbolFacts facts, Double premiumPct,
+                    List<PaperStoryFeed.SourceItem> sources, String sourceTier) {
     }
 
     /** 搜集员 JSON 的一行。 */

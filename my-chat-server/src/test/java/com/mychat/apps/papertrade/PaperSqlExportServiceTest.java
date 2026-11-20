@@ -26,6 +26,15 @@ class PaperSqlExportServiceTest {
     }
 
     @Test
+    void allowsWarehouseAndEvaluatorTables() {
+        PaperSqlExportService svc = new PaperSqlExportService(mock(DataSource.class));
+        var allowed = svc.allowedTables();
+        assertTrue(allowed.containsKey("paper_warehouse_analyst_run"));
+        assertTrue(allowed.containsKey("paper_warehouse_cleanup_run"));
+        assertTrue(allowed.containsKey("paper_trade_evaluator_run"));
+    }
+
+    @Test
     void buildsInsertForOneRow() throws Exception {
         DataSource ds = mock(DataSource.class);
         Connection conn = mock(Connection.class);

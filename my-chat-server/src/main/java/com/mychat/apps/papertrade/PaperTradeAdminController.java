@@ -4,9 +4,11 @@ import com.mychat.apps.papertrade.entity.vo.PaperSqlExportVO;
 import com.mychat.apps.papertrade.ledger.PaperTradeService;
 import com.mychat.apps.papertrade.ledger.entity.dto.PaperInitialCashRequest;
 import com.mychat.apps.papertrade.ledger.entity.vo.PaperAccountVO;
+import com.mychat.apps.papertrade.research.PaperResearchService;
 import com.mychat.apps.papertrade.research.entity.dto.PaperResearchNoteRequest;
 import com.mychat.apps.papertrade.research.entity.po.PaperResearchRun;
 import com.mychat.apps.papertrade.research.entity.vo.PaperResearchNoteAdminVO;
+import com.mychat.apps.papertrade.trader.entity.vo.PaperAiSubmitVO;
 import com.mychat.apps.papertrade.risk.PaperStageService;
 import com.mychat.apps.papertrade.risk.entity.dto.PaperStageSummaryRequest;
 import com.mychat.apps.papertrade.risk.entity.po.PaperStageSummary;
@@ -36,6 +38,7 @@ public class PaperTradeAdminController {
     private final PaperTradeAdminService adminService;
     private final PaperStageService stageService;
     private final PaperSqlExportService sqlExportService;
+    private final PaperResearchService researchService;
 
     /** 修改初始资金。 */
     @PutMapping("/account/initial-cash")
@@ -209,6 +212,19 @@ public class PaperTradeAdminController {
             return Result.ok(adminService.updateResearchNote(symbol, request));
         } catch (IllegalArgumentException e) {
             return Result.fail(400, e.getMessage());
+        }
+    }
+
+    /** 对已有研究卡片补一轮搜集员资料，马上返回轮次。 */
+    @PostMapping("/admin/research-notes/{symbol}/refresh")
+    public Result<PaperAiSubmitVO> refreshResearchNote(@PathVariable String symbol) {
+        try {
+            return Result.ok(researchService.submitRefresh(symbol));
+        } catch (IllegalArgumentException e) {
+            int code = e.getMessage() != null && e.getMessage().contains("不存在") ? 404 : 400;
+            return Result.fail(code, e.getMessage());
+        } catch (IllegalStateException e) {
+            return Result.fail(409, e.getMessage());
         }
     }
 

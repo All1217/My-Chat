@@ -1,5 +1,6 @@
 package com.mychat.apps.papertrade.research;
 
+import com.mychat.apps.papertrade.risk.PaperSymbolFacts;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -9,6 +10,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -73,5 +75,19 @@ class PaperResearchFilterTest {
         assertEquals(4, ok);
         assertEquals(0, budget.get());
         assertFalse(PaperResearchService.tryConsumeCrawlBudget(budget));
+    }
+
+    @Test
+    void refreshPayloadAndHardBlocks() {
+        assertNull(PaperResearchService.refreshSymbol(null));
+        assertNull(PaperResearchService.refreshSymbol("  "));
+        assertEquals("159509", PaperResearchService.refreshSymbol("{\"symbol\":\"159509\"}"));
+        assertThrows(IllegalArgumentException.class, () -> PaperResearchService.refreshSymbol("{"));
+        PaperSymbolFacts st = new PaperSymbolFacts(
+                "600000", "ST股", false, false, true, false, false, false, false, 20, 1d);
+        assertEquals("ST，未更新卡片", PaperResearchService.hardBlockReason(st));
+        PaperSymbolFacts ok = new PaperSymbolFacts(
+                "159509", "纳指", true, true, false, false, false, false, true, 200, 1d);
+        assertNull(PaperResearchService.hardBlockReason(ok));
     }
 }

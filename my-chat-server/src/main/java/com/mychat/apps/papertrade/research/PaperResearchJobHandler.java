@@ -29,7 +29,8 @@ public class PaperResearchJobHandler implements JobHandler {
         if (!StringUtils.hasText(runId)) {
             throw new IllegalArgumentException("paper_trade_research 缺少 refId");
         }
-        log.info("开始搜集 runId={} jobId={}", runId, job.getId());
-        researchService.run(runId);
+        String symbol = PaperResearchService.refreshSymbol(job.getPayload());
+        log.info("开始搜集 runId={} jobId={} symbol={}", runId, job.getId(), symbol);
+        researchService.run(runId, symbol);
     }
 }

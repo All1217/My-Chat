@@ -51,16 +51,29 @@ public class PaperTradeAdminService {
     private final AgentRunRepository agentRunRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    /** 清空业务数据并重置账户，保留策略与账户行。 */
+    /** 清空业务数据并重置账户，保留策略与账户行；自选研究卡片不删。 */
     @Transactional
     public PaperAccountVO wipeTraining() {
-        // 1. 清历史业务表（策略 paper_strategy 不动）
+        // 1. 清历史业务表（策略 paper_strategy 不动；watchlist=true 的研究卡保留）
         decisionMapper.delete(new LambdaQueryWrapper<PaperAiDecision>().isNotNull(PaperAiDecision::getId));
         aiRunMapper.delete(new LambdaQueryWrapper<PaperAiRun>().isNotNull(PaperAiRun::getId));
-        researchNoteMapper.delete(new LambdaQueryWrapper<PaperResearchNote>().isNotNull(PaperResearchNote::getSymbol));
+        researchNoteMapper.delete(new LambdaQueryWrapper<PaperResearchNote>()
+                .and(w -> w.eq(PaperResearchNote::getWatchlist, false)
+                        .or()
+                        .isNull(PaperResearchNote::getWatchlist)));
+        // 持仓已清空：自选卡若仍是 0（已持仓）则回落到继续观察
+        List<PaperResearchNote> watchlist = researchNoteMapper.selectList(
+                new LambdaQueryWrapper<PaperResearchNote>()
+                        .eq(PaperResearchNote::getWatchlist, true));
+        for (PaperResearchNote note : watchlist) {
+            if (note.getValueTier() != null && note.getValueTier() == 0) {
+                note.setValueTier(2);
+                researchNoteMapper.updateById(note);
+            }
+        }
         researchRunMapper.delete(new LambdaQueryWrapper<PaperResearchRun>().isNotNull(PaperResearchRun::getId));
         stageSummaryMapper.delete(new LambdaQueryWrapper<PaperStageSummary>().isNotNull(PaperStageSummary::getId));
-        // 2. 清持仓/订单/冷却并复位资金
+        // 2. 清持仓/订单/冷却并复位资金（本身不删研究卡）
         return tradeService.resetAccount();
     }
 

@@ -325,7 +325,7 @@ public class PaperTradeService {
         return toOrderVo(filled);
     }
 
-    /** 清空持仓、订单与冷却，现金回到 initial_cash。 */
+    /** 清空持仓、订单与冷却，现金回到 initial_cash；不删研究卡片（含自选）。 */
     @Transactional
     public PaperAccountVO resetAccount() {
         PaperAccount account = requireAccount();

@@ -311,7 +311,7 @@
       <div class="danger-row">
         <div>
           <strong>重置账户</strong>
-          <p>清空持仓、订单与冷却，现金回到初始资金；保留 AI / 研究 / 阶段历史。</p>
+          <p>清空持仓、订单与冷却，现金回到初始资金；保留 AI / 研究 / 阶段历史（含自选研究卡片）。</p>
         </div>
         <el-button
           class="btn-reset"
@@ -324,7 +324,7 @@
       <div class="danger-row">
         <div>
           <strong>注销阶段训练</strong>
-          <p>彻底清空业务数据（持仓、订单、AI、研究、阶段总结）并重置账户；保留投资策略。</p>
+          <p>清空业务数据（持仓、订单、AI、非自选研究、阶段总结）并重置账户；保留投资策略与自选研究卡片。</p>
         </div>
         <el-button type="danger" :loading="wiping" @click="onWipe">注销阶段训练</el-button>
       </div>
@@ -773,7 +773,7 @@ async function onSaveStrategy() {
 async function onReset() {
   try {
     await ElMessageBox.confirm(
-      '将清空持仓、订单与冷却，现金回到初始值。历史记录保留。确定？',
+      '将清空持仓、订单与冷却，现金回到初始值。AI / 研究（含自选）/ 阶段历史保留。确定？',
       '重置账户',
       { type: 'warning' },
     )
@@ -795,7 +795,7 @@ async function onReset() {
 async function onWipe() {
   try {
     await ElMessageBox.confirm(
-      '将清空全部业务数据（含 AI、研究、阶段总结）并重置账户，仅保留投资策略。此操作不可恢复。确定？',
+      '将清空业务数据（含 AI、非自选研究、阶段总结）并重置账户；保留投资策略与自选研究卡片。此操作不可恢复。确定？',
       '注销阶段训练',
       { type: 'error', confirmButtonText: '确认注销', confirmButtonClass: 'el-button--danger' },
     )

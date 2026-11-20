@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -157,8 +158,63 @@ public class PaperResearchService {
         return vo;
     }
 
-    /** 后台执行。材料不足或无有效卡片时成功结束，kept=0。 */
-    public void run(String runId) throws Exception {
+    /** 对已有卡片补资料。payload 带代码，整轮搜集仍传 null。 */
+    @Transactional
+    public PaperAiSubmitVO submitRefresh(String symbol) {
+        if (!StringUtils.hasText(symbol)) {
+            throw new IllegalArgumentException("symbol 不能为空");
+        }
+        String code = symbol.trim().toUpperCase(Locale.ROOT);
+        if (noteMapper.selectById(code) == null) {
+            throw new IllegalArgumentException("研究卡片不存在");
+        }
+        lifecycle.requireNoActive(runMapper, q -> q.in(
+                PaperResearchRun::getStatus,
+                PaperRunLifecycle.activeStatuses(
+                        PaperResearchRun.STATUS_PENDING, PaperResearchRun.STATUS_RUNNING)));
+        PaperResearchRun run = new PaperResearchRun();
+        run.setId(UUID.randomUUID().toString().replace("-", ""));
+        run.setStatus(PaperResearchRun.STATUS_PENDING);
+        run.setScreenedCount(0);
+        run.setKeptCount(0);
+        runMapper.insert(run);
+        String payload;
+        try {
+            payload = objectMapper.writeValueAsString(Map.of("symbol", code));
+        } catch (Exception e) {
+            throw new IllegalStateException("无法提交更新");
+        }
+        AsyncJobVO job = asyncJobService.submit(JOB_TYPE, "模拟炒股更新卡片 " + code, run.getId(), payload, true);
+        run.setJobId(job.getId());
+        runMapper.updateById(run);
+        PaperAiSubmitVO vo = new PaperAiSubmitVO();
+        vo.setRunId(run.getId());
+        vo.setJobId(job.getId());
+        vo.setStatus(run.getStatus());
+        return vo;
+    }
+
+    /** 从任务 payload 取出单票代码；空 payload 表示整轮搜集。 */
+    static String refreshSymbol(String payload) {
+        if (!StringUtils.hasText(payload)) {
+            return null;
+        }
+        try {
+            JsonNode node = new ObjectMapper().readTree(payload);
+            String symbol = node.path("symbol").asText("");
+            if (!StringUtils.hasText(symbol)) {
+                throw new IllegalArgumentException("搜集任务 payload 缺少 symbol");
+            }
+            return symbol.trim().toUpperCase(Locale.ROOT);
+        } catch (IllegalArgumentException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalArgumentException("搜集任务 payload 无法解析");
+        }
+    }
+
+    /** 后台执行。材料不足或无有效卡片时成功结束，kept=0。symbol 非空时只补这一张。 */
+    public void run(String runId, String symbol) throws Exception {
         PaperResearchRun run = runMapper.selectById(runId);
         if (run == null) {
             throw new IllegalArgumentException("搜集轮次不存在");
@@ -177,8 +233,10 @@ public class PaperResearchService {
             // START_RUN 已完成条件进入 RUNNING
             trace.ok(PaperWorkflowStep.START_RUN, "jobId=" + run.getJobId());
 
-            // DISCOVER：列表/行情接口 + 公告新闻接口 + 爬虫正文软合并
-            List<Material> batch = screen();
+            // DISCOVER：整轮翻页筛选；单票只抓这一张已有卡片
+            List<Material> batch = StringUtils.hasText(symbol)
+                    ? List.of(qualifyRefresh(symbol))
+                    : screen();
             run.setScreenedCount(batch.size());
             trace.ok(PaperWorkflowStep.DISCOVER_CANDIDATES, "picked=" + batch.size());
             trace.ok(PaperWorkflowStep.VALIDATE_MARKET_DATA, "qualified=" + batch.size());
@@ -192,8 +250,10 @@ public class PaperResearchService {
             // 供 Agent 写工具 upsertResearchCards 取本批材料
             materialByRun.put(run.getId(), batch);
             try {
-                PaperAgentRuntimeAdapter.Outcome outcome =
-                        agentRuntime.research(prompt(batch, run.getId()), run.getId(), run.getJobId());
+                PaperAgentRuntimeAdapter.Outcome outcome = agentRuntime.research(
+                        prompt(batch, run.getId(), StringUtils.hasText(symbol)),
+                        run.getId(),
+                        run.getJobId());
                 trace.bindAgentRun(outcome.agentRunId());
                 trace.ok(PaperWorkflowStep.AI_COLLECT_AND_ANALYZE, "agentRunId=" + outcome.agentRunId());
 
@@ -436,22 +496,69 @@ public class PaperResearchService {
         if (!relativelyLow(snap)) {
             return null;
         }
-        String name = facts.name() == null ? row.name() : facts.name();
+        return composeMaterial(row.code(), row.name(), facts, snap, crawlBudget, crawlUsed);
+    }
+
+    /** 单票补资料：不要求相对低位、成交额和上市天数。硬伤口直接失败，不改原卡片。 */
+    private Material qualifyRefresh(String symbol) {
+        String code = symbol.trim().toUpperCase(Locale.ROOT);
+        PaperResearchNote note = noteMapper.selectById(code);
+        if (note == null) {
+            throw new IllegalArgumentException("研究卡片不存在");
+        }
+        // 行情失败由 quoteClient 抛出，本轮记失败，卡片保持原样
+        MarketQuoteVO quote = quoteClient.fetch(code, "1Y");
+        PaperSymbolFacts facts = symbolGate.analyze(quote);
+        String block = hardBlockReason(facts);
+        if (block != null) {
+            throw new IllegalStateException(block);
+        }
+        MarketDipIndicators.Snapshot snap = MarketDipIndicators.from(quote);
+        return composeMaterial(code, note.getName(), facts, snap,
+                new AtomicInteger(CRAWL_BUDGET_PER_ROUND), new AtomicInteger());
+    }
+
+    /** ST、停牌、涨跌停不写卡片。返回 null 表示可以继续。 */
+    static String hardBlockReason(PaperSymbolFacts facts) {
+        if (facts == null) {
+            return "无行情，未更新卡片";
+        }
+        if (facts.st()) {
+            return "ST，未更新卡片";
+        }
+        if (facts.suspended()) {
+            return "停牌，未更新卡片";
+        }
+        if (facts.limitUp() || facts.limitDown()) {
+            return "涨跌停，未更新卡片";
+        }
+        return null;
+    }
+
+    /** 公告、新闻、板块、爬虫和溢价。整轮与单票共用。 */
+    private Material composeMaterial(String code,
+                                     String fallbackName,
+                                     PaperSymbolFacts facts,
+                                     MarketDipIndicators.Snapshot snap,
+                                     AtomicInteger crawlBudget,
+                                     AtomicInteger crawlUsed) {
+        String name = facts.name() == null ? fallbackName : facts.name();
+        // 公告、新闻、板块失败只跳过，不中断这一票
         List<PaperStoryFeed.SourceItem> sources = new ArrayList<>();
         try {
-            mergeSources(sources, feed.announcements(row.code()));
+            mergeSources(sources, feed.announcements(code));
         } catch (Exception e) {
-            log.debug("公告接口跳过 {}: {}", row.code(), e.getMessage());
+            log.debug("公告接口跳过 {}: {}", code, e.getMessage());
         }
         try {
-            mergeSources(sources, feed.news(row.code()));
+            mergeSources(sources, feed.news(code));
         } catch (Exception e) {
-            log.debug("新闻接口跳过 {}: {}", row.code(), e.getMessage());
+            log.debug("新闻接口跳过 {}: {}", code, e.getMessage());
         }
         try {
             mergeSources(sources, macroFeed.sectorBriefs(name));
         } catch (Exception e) {
-            log.debug("板块检索跳过 {}: {}", row.code(), e.getMessage());
+            log.debug("板块检索跳过 {}: {}", code, e.getMessage());
         }
         enrichWithCrawler(sources, crawlBudget, crawlUsed);
         String tier = sources.stream().anyMatch(s -> "CRAWL".equals(s.kind()))
@@ -459,12 +566,13 @@ public class PaperResearchService {
         Double premium = null;
         if (facts.etf()) {
             EtfPremiumClient.PremiumQuote pq =
-                    premiumClient.newSession().lookup(row.code(), snap.lastPrice());
+                    premiumClient.newSession().lookup(code, snap.lastPrice());
             if (pq != null) {
                 premium = pq.getPremiumPct();
             }
         }
-        return new Material(facts.symbol().toUpperCase(Locale.ROOT),
+        String symbol = StringUtils.hasText(facts.symbol()) ? facts.symbol() : code;
+        return new Material(symbol.toUpperCase(Locale.ROOT),
                 name, snap, facts, premium, sources, tier);
     }
 
@@ -565,7 +673,7 @@ public class PaperResearchService {
         return belowMa || drawn;
     }
 
-    private String prompt(List<Material> batch, String runId) throws Exception {
+    private String prompt(List<Material> batch, String runId, boolean refreshOne) throws Exception {
         ArrayNode arr = objectMapper.createArrayNode();
         for (Material m : batch) {
             ObjectNode n = arr.addObject();
@@ -593,7 +701,7 @@ public class PaperResearchService {
                 web-search 是否可用取决于全局 Exa 开关。禁止编造未给出的 URL。
                 终局优先调用 upsertResearchCards(runId, cardsJson) 落库；同时输出紧凑 ResearchCardBatch JSON（cards[]）供兜底。
                 本轮 runId=%s。
-                每项含 symbol,name,kept,story,risks,rejectReason,fitScore,evidenceScore,signalTags,evidenceRefs,valueTier。
+                %s每项含 symbol,name,kept,story,risks,rejectReason,fitScore,evidenceScore,signalTags,evidenceRefs,valueTier。
                 story≤80字；fitScore/evidenceScore 为 0~1；
                 valueTier 只能是 1（应该买入）、2（继续观察）、3（移出票仓），禁止输出 0（已持仓由成交回写）。
                 标 1：kept=true，契合当前账户策略，fit/evidence 建议≥0.7，入场条件与风险可写清。
@@ -602,7 +710,13 @@ public class PaperResearchService {
                 只能使用候选列表中的代码；证据不足则 kept=false 且 valueTier=3。
                 候选：
                 %s
-                """.formatted(runId, objectMapper.writeValueAsString(arr));
+                """.formatted(runId, refreshOne
+                ? """
+                这是指定代码补资料。低于均线、回撤是入场偏好，不能单独作为 kept=false 或价值等级 3 的理由。
+                成交额、涨跌幅、资金流向只能照抄候选 JSON，方向不能改。
+                材料已齐，不要再调用 getQuote 或 getSymbolFacts。
+                """
+                : "", objectMapper.writeValueAsString(arr));
     }
 
     /** 从最终答复或各步观察里取出 JSON 数组。操盘手也用来读编排结果。 */

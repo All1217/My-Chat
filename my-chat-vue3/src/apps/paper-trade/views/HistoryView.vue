@@ -72,10 +72,20 @@
           </el-table-column>
           <el-table-column
             label="操作"
-            :width="current?.key === 'research-notes' ? 200 : 140"
+            :width="current?.key === 'research-notes' ? 280 : 140"
             fixed="right"
           >
             <template #default="{ row }">
+              <el-button
+                v-if="current?.key === 'research-notes'"
+                link
+                type="warning"
+                :loading="refreshingSymbol === String(row.symbol ?? '')"
+                :disabled="!!refreshingSymbol && refreshingSymbol !== String(row.symbol ?? '')"
+                @click="onRefreshNote(row)"
+              >
+                更新数据
+              </el-button>
               <el-button
                 v-if="current?.key === 'research-notes'"
                 link
@@ -211,7 +221,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import StockBoardPanel from '@/apps/paper-trade/components/StockBoardPanel.vue'
 import { paperTradeApi } from '@/apps/paper-trade/api'
@@ -243,6 +253,8 @@ const form = reactive<Record<string, any>>({})
 const editingId = ref('')
 const quoteDrawerOpen = ref(false)
 const quoteSymbol = ref('')
+const refreshingSymbol = ref('')
+let refreshTimer: ReturnType<typeof setInterval> | null = null
 
 const quoteDrawerTitle = computed(() =>
   quoteSymbol.value ? `行情 · ${quoteSymbol.value}` : '行情',
@@ -348,6 +360,48 @@ function columnFormatter(col: HistoryColumn) {
 function onSelect(key: string) {
   activeKey.value = key
   loadList()
+}
+
+function stopRefreshPoll() {
+  if (refreshTimer) clearInterval(refreshTimer)
+  refreshTimer = null
+}
+
+/** 对这一行补搜集员资料，短轮询结束后刷新列表。 */
+async function onRefreshNote(row: Record<string, unknown>) {
+  const symbol = String(row.symbol ?? '')
+  if (!symbol || refreshingSymbol.value) return
+  refreshingSymbol.value = symbol
+  try {
+    const sub = await paperTradeApi.adminRefreshResearchNote(symbol)
+    stopRefreshPoll()
+    let tries = 0
+    refreshTimer = setInterval(async () => {
+      tries += 1
+      try {
+        const run = await paperTradeApi.researchRunDetail(sub.runId)
+        if (run.status === 'SUCCEEDED' || run.status === 'FAILED') {
+          stopRefreshPoll()
+          refreshingSymbol.value = ''
+          if (run.status === 'FAILED') {
+            ElMessage.error(run.errorMessage || '更新失败')
+          } else {
+            ElMessage.success(`已更新 ${symbol}`)
+            if (current.value?.key === 'research-notes') await loadList()
+          }
+        }
+      } catch {
+        /* 单次轮询失败忽略 */
+      }
+      if (tries > 45 && refreshingSymbol.value) {
+        stopRefreshPoll()
+        refreshingSymbol.value = ''
+        ElMessage.warning('更新仍在运行，可到搜集轮次查看')
+      }
+    }, 2000)
+  } catch {
+    refreshingSymbol.value = ''
+  }
 }
 
 /** 下载当前表全量 INSERT.sql。 */
@@ -478,6 +532,10 @@ async function onDelete(row: Record<string, unknown>) {
 
 onMounted(() => {
   loadList()
+})
+
+onUnmounted(() => {
+  stopRefreshPoll()
 })
 </script>
 

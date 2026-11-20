@@ -1,12 +1,37 @@
-项目构建了一个agent系统，并在此基础上着重研究如何搭建适用于复杂生产环境的RAG系统。此外，也会扩展一些自用的功能模块。
+项目构建了一个 agent 系统，并在此基础上着重研究如何搭建适用于复杂生产环境的 RAG 系统。此外，也会扩展一些自用的功能模块。2026-11 的底座已迁移到**通用 Agent Runtime**（场景 Profile + 持久化 Run），主聊天、股市分析、模拟炒股共用同一套编排；自用模块中模拟炒股已扩展出账本、研究卡片、AI 操盘与五条定时工作流。
 
 # 1 agent业务总览
 
-![](资源/Assets/agent业务总览.png)
+从用户进入聊天界面输入提示词按下回车开始，系统内部大概会经历以下流程：构造上下文、调用模型完成工作、整理最终 AI 回答、由质量监测系统评估该回答是否符合用户需求、向用户展示答案。
 
-从用户进入聊天界面输入提示词按下回车开始，系统内部大概会经历以下流程：构造上下文、调用模型完成工作、整理最终AI回答、由质量监测系统评估该回答是否符合用户需求、向用户展示答案。
+```mermaid
+flowchart LR
+  UI["用户交互<br/>Vue 3 / fetch NDJSON"] --> Entry["ChatController<br/>绑工作区 / kbId / 附件"]
+  Entry --> Pipeline["ChatTurnPipeline<br/>emit_route → load_dialogue → assemble_context<br/>→ orchestrate → stream_final → quality_loop"]
+  Pipeline --> Runtime["Agent Runtime<br/>Profile 白名单 + 预算 + 决策循环"]
+  Runtime --> Actions["retrieve_kb / file / search / shell / general"]
+  Actions --> Model["模型调用<br/>ChatClient / MCP / 搜索"]
+  Model --> Runtime
+  Runtime --> Final["ChatTurnFinalizer<br/>Memory / chat_assistant_turns"]
+  Final --> UI
+  Pipeline --> Quality["质量环<br/>Evaluator-Optimizer"]
+```
 
-每一个流程背后都会牵涉到大量代码，这些代码在逻辑层面可划分为几个模块，比如用户在聊天界面输入提示词命令AI工作，这个涉及到**用户交互模块**；构造上下文涉及到**Prompt工程**和**数据支撑模块**；具体让AI执行工作需要**模型调用模块**，这个模块是比较核心的模块；AI生成回答后，不能直接给用户看，还要把它修改成同时符合用户需求和系统内部规范的形式，这需要用到**输出后处理模块**；此外，AI的回答还需要经过**质量监测模块**审核，以防回答偏离用户需求或是违反法律法规。
+每一个流程背后都会牵涉到大量代码，这些代码在逻辑层面可划分为几个模块，比如用户在聊天界面输入提示词命令 AI 工作，这个涉及到**用户交互模块**；构造上下文涉及到 **Prompt 工程**和**数据支撑模块**；具体让 AI 执行工作需要**模型调用模块**，这个模块是比较核心的模块；AI 生成回答后，不能直接给用户看，还要把它修改成同时符合用户需求和系统内部规范的形式，这需要用到**输出后处理模块**；此外，AI 的回答还需要经过**质量监测模块**审核，以防回答偏离用户需求或是违反法律法规。
+
+## 1.1 当前模块地图（2026-11）
+
+| 模块 | 当前落点 | 说明 |
+| --- | --- | --- |
+| 用户交互 | `my-chat-vue3/src/views/`、`apps/` | 大厅可挂应用；主聊天用 fetch 读 NDJSON |
+| Prompt / 数据支撑 | `agent/context/`、`service/agent/context/`、`service/knowledge/` | ContextBundle、滚动摘要、工作区、RAG |
+| 模型调用 | `config/ChatClientAssembler`、`mcp/`、`tools/` | ChatClient、工具白名单、MCP、联网搜索 |
+| 输出后处理 | `service/agent/pipeline/`、`utils/` | 事件归约、时间线落库、附件拆分 |
+| 质量监测 | `agent/quality/`、`service/agent/quality/`、`service/agent/pipeline/stage/QualityLoopStage` | 写盘质量环、召回测试 |
+| 通用 Agent Runtime | `agent/runtime/`、`agent/persistence/` | 场景 Profile、Run/Step/Approval、指标 |
+| 自用功能包 | `apps/market/`、`apps/papertrade/`、`apps/roleplay/` | 股市分析、模拟炒股、角色扮演 |
+
+**读代码入口**：`ChatController` → `ChatOrchestrateStreamService` → `ChatTurnPipeline` → `AgentRuntime`。加长主链路 = 新增 `ChatTurnStage` 并在 `ChatTurnPipeline` 构造器列表插一行，不要把 Memory / done 做成普通 Stage。
 
 
 
@@ -25,6 +50,8 @@ fetch 原生暴露 ReadableStream，适合逐 token 读取。而且 AI 聊天经
 Websocket协议也可实现SSE，但是Websocket是全双工，常规AI聊天仅用半双工（服务器推送到客户端）就够用，Websocket太“重”。
 
 ## 2.1 SSE通信
+
+> 口径说明：本项目**聊天主链路实际使用 NDJSON**（`application/x-ndjson`，一次 POST 上逐行返回），SSE 只用于异步任务通知（`/ai/jobs/events`）。下文讲 Reactor 流式模型与 SSE 概念，两者在「服务端持续推送、前端边收边画」上是相通的。
 
 `Project Reactor`：[Project Reactor](https://projectreactor.io/)
 
@@ -98,9 +125,11 @@ Sinks.many().replay().limit(1024) + tryEmitNext
 | WebSocket 自建协议    | 能                       | 前端、网关、重连都要另设计；你们已用 HTTP NDJSON |
 | RxJava 等             | 类似模型                 | 不如 Reactor 契合Spring生态                      |
 
-## 2.2 RESTFUL API重构方案
+## 2.2 RESTful API 分层（已完成）
 
-**现状问题**
+> 状态（2026-11）：已完成。`utils/http/{types,client,index}.ts` 与 `api/{chat,knowledge,workspace,jobs,model}.ts` 已落地；旧 `utils/http.ts`、`utils/request.ts` 已删除；`stores/*` 与页面不再直接持有 Axios 实例。下方保留重构前的动机与设计，作为决策留档。
+
+**重构前的问题（留档）**
 
 当前调用链过长，且职责分散：
 
@@ -117,11 +146,11 @@ flowchart LR
 主要痛点：
 
 - `request(() => ragHttp.get(...))` 回调嵌套，可读性差
-- 错误处理分散在 [http.ts](my-chat-vue3/src/utils/http.ts) 拦截器与 [request.ts](my-chat-vue3/src/utils/request.ts) 两处，且部分调用绕过 `request`（如 [chat.ts L39-45、L64-65](my-chat-vue3/src/stores/chat.ts)）
+- 错误处理分散在旧 `http.ts` 拦截器与旧 `request.ts` 两处，且部分调用绕过 `request`
 - `request` / `mutate` / `requestAndSet` 三个包装器语义重叠；`requestAndSet` 未被使用
 - `crmHttp` 已导出但全项目无引用
 
-**目标架构**
+**落地架构**
 
 ```mermaid
 flowchart LR
@@ -151,7 +180,7 @@ try {
 
 ---
 
-**新文件结构**
+**当前文件结构（已落地）**
 
 ```
 my-chat-vue3/src/
@@ -161,16 +190,18 @@ my-chat-vue3/src/
     index.ts      # barrel export
   api/
     chat.ts       # 会话 / 历史消息
-    knowledge.ts  # 知识库 + 文档上传
+    knowledge.ts  # 知识库 + 文档上传 + 召回测试
     workspace.ts  # 工作区文件管理
+    jobs.ts       # 异步任务查询（SSE 用原生 EventSource）
+    model.ts      # 大模型管理
 ```
 
-删除旧文件：
+已删除旧文件：
 
-- [my-chat-vue3/src/utils/http.ts](my-chat-vue3/src/utils/http.ts)
-- [my-chat-vue3/src/utils/request.ts](my-chat-vue3/src/utils/request.ts)
+- `my-chat-vue3/src/utils/http.ts`
+- `my-chat-vue3/src/utils/request.ts`
 
-保留不动：[streamChat.ts](my-chat-vue3/src/utils/streamChat.ts)（流式 API 本次不重构）
+保留：[streamChat.ts](../my-chat-vue3/src/utils/streamChat.ts)（流式仍用 `fetch` + NDJSON，不走 Axios）。
 
 ---
 
@@ -405,14 +436,16 @@ export const workspaceApi = {
 
 ---
 
-**4. 调用方迁移（4 个文件）**
+**4. 调用方迁移（已完成）**
 
-| 文件                                                         | 改动                                                         |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-| [stores/chat.ts](my-chat-vue3/src/stores/chat.ts)            | `chatApi.*` 替换 `request/mutate/ragHttp`；修复 `deleteConversation` 未 await 的 bug |
-| [components/ChatBox.vue](my-chat-vue3/src/components/ChatBox.vue) | `chatApi.getMessages`                                        |
-| [views/knowledgeStore/KnowledgeStore.vue](my-chat-vue3/src/views/knowledgeStore/KnowledgeStore.vue) | `knowledgeApi.*`                                             |
-| [views/settings/components/WorkspaceManagement.vue](my-chat-vue3/src/views/settings/components/WorkspaceManagement.vue) | `workspaceApi.*`                                             |
+| 文件 | 改动 |
+| --- | --- |
+| `stores/chat.ts` | `chatApi.*` 替换 `request/mutate/ragHttp`；修复 `deleteConversation` 未 await 的 bug |
+| `components/ChatBox.vue` | `chatApi.getMessages` |
+| `views/knowledgeStore/KnowledgeStore.vue` | `knowledgeApi.*`（含召回测试、分段、重新向量化） |
+| `views/settings/components/WorkspaceManagement.vue` | `workspaceApi.*` |
+| `views/settings/components/ModelManagement.vue` | `modelApi.*` |
+| `stores/notify.ts` / `App.vue` | `jobsApi` 查询未完成任务；SSE 仍用原生 `EventSource` |
 
 **迁移示例：`stores/chat.ts`**
 
@@ -475,7 +508,7 @@ async function deleteConversation(id: string) {
 
 实测：Memory ≤10 条时摘要表可为空（全在窗口内）；超过窗口后会 `INSERT` 并出现非空「会话摘要」段。摘要调用会拖长该轮首包延迟，属有损压缩。
 
-该链路嵌入主线程，没有异步，会影响性能。
+该链路在回合内串行执行（`LoadDialogueContextStage` 放到 boundedElastic），摘要更新会拉长该轮首包延迟；目前没有异步预热或缓存。
 
 ## 3.2 工作区
 
@@ -511,10 +544,12 @@ My-Chat 允许用户为每个对话指定一个服务端磁盘目录作为 **工
                            (FormData: prompt + chatId)   → ChatController.chat()
                                                              ├─ getWorkDir(chatId)  → SELECT work_dir FROM chat_sessions
                                                              ├─ WorkspaceContext.set(workDir)
-                                                             ├─ buildWorkspaceSystemPrompt()
-                                                             │    "当前工作目录: D:/projects/my-app
-                                                             │     路径规则：所有路径都是相对于当前工作目录的**相对路径**。"
-                                                             └─ toolChatClient.prompt().system(...).stream()
+                                                             ├─ resolveKbId(chatId, kbId)
+                                                             └─ ChatTurnPipeline
+                                                                  ├─ AssembleContextStage：WorkspacePromptBuilder
+                                                                  │    + 浅层摘要 + 最近修改文件 + RAG 目录
+                                                                  └─ OrchestrateStage：Agent Runtime
+                                                                       (MAIN_CHAT Profile，file / retrieve_kb / shell …)
                                                                                                ↓
                                                                                           AI 调用 FileTools
                                                                                           (ls / cat / write ...)
@@ -557,7 +592,7 @@ My-Chat 允许用户为每个对话指定一个服务端磁盘目录作为 **工
     ▼          ▼          ▼
 ┌─────────┐ ┌──────────┐ ┌──────────────┐
 │Workspace│ │FileTools  │ │WorkspaceUtil │
-│Context  │ │(@Tool x9) │ │(Java NIO)    │
+│Context  │ │(@Tool x10)│ │(Java NIO)    │
 │(Thread  │ │           │ │              │
 │ Local)  │ │           │ │              │
 └─────────┘ └──────────┘ └──────────────┘
@@ -619,7 +654,7 @@ public Path resolveSafe(String relativePath) {
 
 **FileTools — 强类型参数化工具**
 
-不同于旧版 `ShellTool`（单一 `executeCommand(String)` + `split("\\s+")` 字符串解析），`FileTools` 将每个操作拆分为独立 `@Tool` 方法：
+不同于旧版 `ShellTool` 把文件操作塞进单一 `executeCommand(String)` + `split("\\s+")` 字符串解析，`FileTools` 将每个操作拆分为独立 `@Tool` 方法（当前 10 个：ls / tree / cat / grep / stat / write / mkdir / rm / mv / cp）：
 
 ```java
 @Tool(description = "列出指定目录下的文件和子目录")
@@ -637,36 +672,37 @@ public String write(
 
 **对比旧版 ShellTool 的改进：**
 
-| 维度           | ShellTool（已废弃）        | FileTools（当前）            |
-| -------------- | -------------------------- | ---------------------------- |
-| 参数解析       | `split("\\s+")` 字符串拆分 | Spring AI 自动 JSON 反序列化 |
-| 空格文件名     | ❌ 被错误拆分               | ✅ 天然支持                   |
-| 模型调用准确性 | 需记忆命令格式 `ls <path>` | 只需选工具 + 填参数          |
-| `\n` 换行      | ❌ 变成字面量 `\\n`         | ✅ 文本正确写入               |
-| 通配符 / 管道  | ❌ 模型频繁误用             | ✅ 无法传入（工具语义明确）   |
+| 维度           | 旧版 ShellTool（文件单入口，已废弃） | FileTools（当前）            |
+| -------------- | ------------------------------------ | ---------------------------- |
+| 参数解析       | `split("\\s+")` 字符串拆分           | Spring AI 自动 JSON 反序列化 |
+| 空格文件名     | ❌ 被错误拆分                         | ✅ 天然支持                   |
+| 模型调用准确性 | 需记忆命令格式 `ls <path>`           | 只需选工具 + 填参数          |
+| `\n` 换行      | ❌ 变成字面量 `\\n`                   | ✅ 文本正确写入               |
+| 通配符 / 管道  | ❌ 模型频繁误用                       | ✅ 无法传入（工具语义明确）   |
 
-**buildWorkspaceSystemPrompt — 动态系统提示**
+> 2026-11 起 `ShellTool` 以新定位回归：只负责构建、git、脚本等命令（60 秒超时、输出截断、关机 / 磁盘类危险命令拦截），不再承担文件读写；文件操作仍走 `FileTools`。
+
+**WorkspacePromptBuilder — 动态系统提示 + 浅层摘要**
+
+主链路不再在 `ChatController` 里手写提示，而是由 `utils/WorkspacePromptBuilder` 生成：路径规则 + 工作区浅层摘要（depth≤2、最多 80 行、跳过 `node_modules/.git/target` 等）+ 最近修改文件（最多 8 个）。
 
 ```java
-private String buildWorkspaceSystemPrompt() {
-    String workDir = WorkspaceContext.get();
-    String name = Paths.get(workDir).getFileName().toString();
-    return String.format("""
-            所有涉及文件的查看、创建、写入、修改、删除、重命名、复制操作，都必须通过可用工具实际执行。
-            你绝不能在回复中假装已经完成了文件操作。
-            
-            当前工作目录: %1$s
-            路径规则：所有路径都是相对于当前工作目录的**相对路径**。
-            不要再把工作目录名 "%2$s" 作为路径前缀。
-            ✅ 正确: path="src/components/App.vue"
-            ✅ 正确: path="README.md"
-            ❌ 错误: path="%2$s/src/components/App.vue"
-            ❌ 错误: path="%2$s/README.md"
-            """, workDir, name);
-}
+sb.append(String.format("""
+        所有涉及文件的查看、创建、写入、修改、删除、重命名、复制操作，务必积极调用可用工具实际执行。
+        不能在回复中假装执行了文件操作。
+        当前工作目录: %1$s
+        路径规则：所有路径都是相对于当前工作目录的**相对路径**。
+        不要把工作目录名 "%2$s" 作为路径前缀。
+        ✅ 正确: path="src/components/App.vue"
+        ✅ 正确: path="README.md"
+        ❌ 错误: path="%2$s/src/components/App.vue"
+        ❌ 错误: path="%2$s/README.md"
+        上下文策略：若下方已提供「工作区浅层摘要」，询问顶层目录、项目骨架、有哪些文件夹时，
+        **优先直接根据摘要回答**，不必先调用 ls/tree；仅当需要完整树、文件内容或写改时再调工具。
+        """, rootPath, name));
 ```
 
-系统提示中明确告知模型：（1）当前工作目录路径；（2）必须使用**相对路径**；（3）不得把目录名当作路径前缀——这是从实际调试中总结出的常见 AI 幻觉模式。
+系统提示中明确告知模型：（1）当前工作目录路径；（2）必须使用**相对路径**；（3）不得把目录名当作路径前缀——这是从实际调试中总结出的常见 AI 幻觉模式。摘要段让模型不必每轮先 `ls/tree`；扫描失败只省略摘要，不影响对话。
 
 **启动时工作目录校验**
 
@@ -711,32 +747,29 @@ public void init() {
 | 能力              | My-Chat 实现            | Cursor                  | 状态 |
 | ----------------- | ----------------------- | ----------------------- | ---- |
 | 会话级工作目录    | ThreadLocal + DB 持久化 | 打开项目即上下文        | ✅    |
-| 文件 CRUD 工具    | FileTools (9 methods)   | Agent tools             | ✅    |
+| 文件 CRUD 工具    | FileTools (10 methods)  | Agent tools             | ✅    |
+| 浅层骨架注入      | WorkspacePromptBuilder（depth≤2 + 最近修改） | 项目概要注入 | ✅    |
 | 路径安全校验      | 6 层校验矩阵            | 工作区沙箱              | ✅    |
 | 多方式目录选择    | 手动 + 浏览 + 联想      | 文件树 + 最近项目       | ✅    |
-| 流式响应 + 思考链 | SSE + [THINKING] 标签   | Streaming with thinking | ✅    |
+| 流式响应 + 思考链 | NDJSON 时间线           | Streaming with thinking | ⚠️ 思考未接线 |
 
 **关键差距和改进方向**
 
-**差距 1：无代码文件上下文注入（最核心差距）**
+**差距 1：代码文件上下文注入（已部分解决）**
 
-**现状**：AI 需要主动调用 `ls` / `cat` 才能了解工作目录中有什么文件。每次对话都需要反复探索目录结构，效率较低。
+**原现状**：AI 需要主动调用 `ls` / `cat` 才能了解工作目录中有什么文件，每轮反复探索。
 
-**Cursor 的做法**：打开项目时自动扫描目录结构，将关键文件（`package.json`、`tsconfig.json`、入口文件等）注入 system prompt 作为初始上下文。AI 无需工具调用即了解项目骨架。
+**2026-11 已做**：`WorkspacePromptBuilder` 在系统提示中注入「工作区浅层摘要」（depth≤2、最多 80 行、跳过依赖/构建目录）和「最近修改文件」（最多 8 个），模型可直接回答顶层结构，减少无效 `ls/tree`。
 
-**改进方向**：在 `buildWorkspaceSystemPrompt()` 中增加目录摘要注入。启动对话时自动执行 `tree --max-depth=2`，将前 500 行结果附加到系统提示中。
+**仍差**：关键文件内容（`package.json`、入口文件等）尚未自动读取注入；摘要上限 80 行，大仓库仍需工具补足。
 
-**差距 2：文件变更感知缺失**
+**差距 2：文件变更感知（已部分解决）**
 
-**现状**：AI 通过 `ls` 只能看到文件名和大小，无法判断最近修改了哪些文件、哪些文件是新增的。
+**原现状**：AI 通过 `ls` 只能看到文件名和大小，无法判断最近修改了哪些文件。
 
-**Cursor 的做法**：通过 LSP / Git diff 感知文件变更，AI 能说"你刚才编辑了 `App.vue` 的第 15 行"。
+**2026-11 已做**：`WorkspacePromptBuilder` 按 `lastModifiedTime` 注入最近修改文件列表；`ShellTool` 已可执行 `git status` / `git diff` 等命令，由模型按需调用。
 
-**改进方向**：
-
-- 利用 Java NIO 的 `WatchService` 监听工作目录文件变更事件
-- 在系统提示中注入最近变更文件列表（按 `lastModifiedTime` 排序）
-- 支持 `git diff` / `git log --oneline` 作为工具（如果工作目录是 Git 仓库）
+**仍差**：没有 `WatchService` 事件流，也没有自动 LSP / Git diff 摘要；变更感知是「每轮扫描一次」而非实时。
 
 **差距 3：前端非服务端文件系统**
 
@@ -749,16 +782,13 @@ public void init() {
 - 短期：在前端增加提示"选择的是服务端目录"，区分于本地目录
 - 长期：如果部署模式变为客户端 Agent + 服务端 LLM 代理模式，则可利用 File System Access API 直接操作本地文件
 
-**差距 4：工具调用无进度反馈**
+**差距 4：工具调用进度与截断提示（已部分解决）**
 
-**现状**：AI 调用 `tree` 遍历大目录时，前端无任何进度指示器。大文件 `cat` 被截断后用户不知情。
+**原现状**：AI 调用 `tree` 遍历大目录时，前端无任何进度指示器；大文件 `cat` 被截断后用户不知情。
 
-**Cursor 的做法**：长时间操作显示进度条，被截断的内容有明确提示和"查看更多"入口。
+**2026-11 已做**：`AgentActivityTimeline` 会为运行中的 step / tool 显示 loading 与耗时（`elapsedMs`），失败/取消有状态标签；工具结果摘要可折叠查看。
 
-**改进方向**：
-
-- 工具执行超过 2 秒时推送中间状态（WebSocket / SSE 事件）
-- 截断内容附带独立查看入口（而非仅文本提示）
+**仍差**：没有 0–100% 进度或中间输出流；截断内容没有独立查看入口，只在结果摘要里提示。
 
 **差距 5：工作目录历史与快速切换**
 
@@ -782,14 +812,13 @@ public void init() {
 - 支持 `lint` / `format` 工具方法（如运行 `eslint --fix`）
 - 在 Agent 循环中增加"操作后验证"步骤
 
-**差距 7：工作目录与知识库的割裂**
+**差距 7：工作目录与知识库的割裂（已打通）**
 
-**现状**：工作目录（`work_dir`）和知识库（`kb_id`）是两个独立维度，不能同时激活。
+**原现状**：工作目录（`work_dir`）和知识库（`kb_id`）是两个独立维度，不能同时激活。
 
-**改进方向**：
+**2026-11 已做**：`ChatController` 同时读取会话的 `work_dir` 和 `kb_id`，主聊天 Profile 同时暴露 `file` 与 `retrieve_kb` 动作；同一轮里 Agent 可以先查目录再检索知识库。`chat_sessions` 的 `kb_id` / `work_dir` 可并存。
 
-- 允许对话同时关联工作目录和知识库
-- RAG 检索结果中标注哪些内容来自工作目录文件
+**仍差**：RAG 命中片段不会标注「该内容也存在于工作目录」，两个来源在时间线上仍分开呈现。
 
 ---
 
@@ -798,7 +827,7 @@ public void init() {
 | 关联模块       | 关联方式                              | 影响                       |
 | -------------- | ------------------------------------- | -------------------------- |
 | 聊天对话       | `chat_sessions.work_dir` 存储         | 每个会话独立工作目录       |
-| RAG 知识库     | `chat_sessions.kb_id` 独立字段        | 当前互斥，后续可共存       |
+| RAG 知识库     | `chat_sessions.kb_id` 独立字段        | 可与工作目录同时绑定；Agent 分别调 `file` / `retrieve_kb` |
 | 文件管理       | `FileController` 共享 `WorkspaceUtil` | 目录浏览、文件预览共用引擎 |
 | 设置面板       | `WorkspaceManagement.vue` 独立入口    | 全局工作区管理             |
 | Agent 工具调用 | `FileTools` 依赖 `WorkspaceContext`   | 确保每请求隔离             |
@@ -813,11 +842,13 @@ public void init() {
 | `ChatList.vue`                         | 侧边栏"打开目录"按钮 + 同上逻辑                              |
 | `DirectoryPicker.vue`                  | 服务端目录浏览器弹窗组件                                     |
 | `workspace.ts`                         | 前端 API：roots / browse / suggest / switch / validate       |
-| `ChatController.java`                  | 流式对话：设置 WorkspaceContext + system prompt              |
+| `ChatController.java`                  | 流式对话：绑定 WorkspaceContext / kbId / 附件，交给回合管道 |
 | `WorkspaceContext.java`                | ThreadLocal + 跨线程传播                                     |
 | `WorkspaceUtil.java`                   | Java NIO 文件操作引擎 + 路径安全检查                         |
-| `FileTools.java`                       | 9 个 @Tool 方法，AI 模型调用的文件工具集                     |
-| `AiConfiguration.java`                 | ChatClient bean 配置 + defaultSystem + defaultTools          |
+| `WorkspacePromptBuilder.java`          | 路径规则 + 浅层目录摘要 + 最近修改文件                       |
+| `FileTools.java`                       | 10 个 @Tool 方法，AI 文件读写工具集                          |
+| `ShellTool.java`                       | 构建 / git / 脚本命令；超时、输出截断、危险命令拦截          |
+| `ChatClientAssembler.java`             | ChatClient bean 配置 + 默认系统提示 + 默认工具               |
 | `ContextPropagationConfiguration.java` | Micrometer 自动上下文传播                                    |
 | `ChatSessionsService.java`             | 会话 CRUD，work_dir 存取                                     |
 | `application.yaml`                     | `app.workspace.root` 配置                                    |
@@ -842,30 +873,31 @@ public void init() {
   │   │               └─ POST /rag/ai/normalChat/chat
   │   └─ 服务端流式返回 → 渲染为 ASSISTANT 消息
   │
-  └─ 后端（ChatController.multiModalChat）
-      ├─ 分离图片 vs 文档
-      ├─ buildFileList(docs) → "📎 上传了以下文件：\n- xxx.md（6.4KB）"
-      │   └─ 放入 user prompt → 存入 chat_memory
-      ├─ extractDocContent(docs) → PDF/TXT 全文
-      │   └─ 放入 system prompt → 仅 AI 可见
-      ├─ 图片 → 作为 Media 对象附加
-      ├─ Flux.error 兜底: 模型不支持图片时返回友好提示
-      └─ MessageChatMemoryAdvisor → 写入 spring_ai_chat_memory
+  └─ 后端（ChatController.chat → ChatUploadEnrichment）
+      ├─ containsImageFile → 直接 400（图片前后端双拒，不再走 Media 兜底）
+      ├─ buildFileList(docs) → "上传了以下文件：\n- xxx.md（6.4KB）"
+      ├─ enrichPromptWithUploadedDocuments(docs)
+      │   └─ 文件列表 + PDF/TXT 正文 → 拼进本轮 agentInput（只进本轮编排，不落 Memory）
+      ├─ buildMemoryUserText(docs)
+      │   └─ 文件列表 + 用户问题 → 回合末由 ChatTurnFinalizer 写入 spring_ai_chat_memory
+      └─ ChatTurnPipeline → Agent Runtime（文件正文不进入 chat_memory）
 
 刷新页面
   ├─ ChatBox.getMessages(chatId)
-  │   ├─ 后端返回包含 user prompt（含文件列表）的历史消息
+  │   ├─ 后端返回 user prompt（文件列表 + 用户问题）
   │   └─ 检测 "用户的问题：\n" 分隔符 → 拆分为两条 USER 消息
-  └─ visibleMessages 过滤 system 消息 → 显示拆分的文件列表 + 用户问题
+  └─ 渲染文件列表 + 用户问题（无 system 消息可过滤）
 ```
 
 ### 涉及代码文件
 
 #### 后端
 
-| 文件                  | 改动                                                         |
+| 文件                  | 说明                                                         |
 | --------------------- | ------------------------------------------------------------ |
-| `ChatController.java` | `multiModalChat()` 按文件类型分叉；新增 `buildFileList()` / `extractDocContent()` / `formatFileSize()`；文档全文放入 system prompt，文件列表放入 user prompt |
+| `ChatController.java` | `chat()` 入口：校验 ndjson、绑工作区 / kbId；图片直接 400 |
+| `ChatUploadEnrichment.java` | 文件列表 + 正文抽取（单文件 50,000 字符截断）、Memory 短文本构建 |
+| `ChatTurnFinalizer.java` | 回合成功时持久化短 USER + 最终 ASSISTANT |
 
 #### 前端
 
@@ -885,38 +917,42 @@ public void init() {
 
 ### 核心设计决策
 
-**4.1 文档全文放入 system prompt（关键决策）**
+**4.1 文档正文与 Memory 分离（关键决策）**
 
-**背景**：刷新前后文件消息显示不一致。刷新前是前端构建的整洁文件列表，刷新后是后端返回的文档全文。
+**背景**：早期把文档全文放进 user prompt，刷新后会显示整段原文，前端只能手动拆分。
 
-**方案**：将文档全文从 user prompt 剥离→放入 system prompt。user prompt 只保留文件列表。
+**现方案**：正文只拼进本轮 `agentInput`（供 Agent 使用，不持久化）；`chat_memory` 只存「文件列表 + 用户问题」，前端刷新后看到的就是干净的文件名列表。
 
 ```
-user prompt（存入 chat_memory，前端可见）:
-  📎 上传了以下文件：
+agentInput（仅本轮 Agent 可见，不落库）:
+  上传了以下文件：
   - foo.pdf（2.3MB）
-  
+
+  以下为上传文档正文（供回答参考）：
+  --- foo.pdf ---
+  [正文，单文件最多 50,000 字符]
+
   用户的问题：
   总结这个文件
 
-system prompt（仅 AI 可见，前端过滤不显示）:
-  [原有工作目录提示]
-  
-  用户上传了以下文档内容供参考：
-  --- foo.pdf ---
-  [全文...]
+chat_memory（持久化，前端回显）:
+  上传了以下文件：
+  - foo.pdf（2.3MB）
+
+  用户的问题：
+  总结这个文件
 ```
 
 **4.2 消息拆分与过滤**
 
 | 技术                         | 目的                                                       |
 | ---------------------------- | ---------------------------------------------------------- |
-| `visibleMessages` computed   | 过滤 `messageType === 'system'` 的消息（文档全文）         |
 | `getMessages()` 中的拆分逻辑 | 检测 "用户的问题：\n" 分隔符，将后端合并的一条消息拆为两条 |
+| `visibleMessages` computed   | 兜底过滤历史遗留的 system 消息（当前主链路已不再写 system） |
 
-**4.3 模型不支持图片的兜底**
+**4.3 图片：前后端双拒**
 
-DeepSeek 不支持多模态（image → Media）。后端 `onErrorResume` 捕获 400 错误，返回友好提示。前端 ElMessage 提示而非崩溃。
+DeepSeek 文本模型不支持多模态。前端 `useFileUpload` 遇到 `image/*` 直接提示；后端 `ChatController` 再用 `containsImageFile` 校验并返回 400，避免「静默丢图」。不再走 `onErrorResume` 的 Media 兜底。
 
 ---
 
@@ -934,7 +970,7 @@ DeepSeek 不支持多模态（image → Media）。后端 `onErrorResume` 捕获
 | **Contextual compression**       | 检索后压缩冗余再插入           | 超长上下文场景                    | LlamaIndex                       |
 | **Agentic reading**              | AI 主动调用工具读取文件        | 无上下文硬限制                    | Cursor、opencode、Claude Code    |
 
-**当前 My-Chat 的位置**：Direct concatenation + 50KB 硬截断。对知识库类文档（数 KB 级别）完全够用。对长篇书籍、大文本日志会失效。
+**当前 My-Chat 的位置**：Direct concatenation + 单文件 50,000 字符截断。对知识库类文档（数 KB 级别）完全够用。对长篇书籍、大文本日志会失效。
 
 **升级路径**：不改当前做法的基础上，增加"当文件超过 N 字符时触发 RAG 流程"的分支，两种策略共存。
 
@@ -943,20 +979,19 @@ DeepSeek 不支持多模态（image → Media）。后端 `onErrorResume` 捕获
 **当前架构的问题**
 
 ```
-用户上传文件 → multiModalChat()
-  ├─ 文档提取文本 → 拼入 system prompt（字符串拼接）
+用户上传文件 → ChatController.chat()
+  ├─ ChatUploadEnrichment 提取文本 → 拼进本轮 agentInput（字符串拼接）
   │                    ↑ 整个文件内容一次性写入，无分片、无检索
-  ├─ user prompt 拼入文件列表 + 用户问题
-  └─ 发给模型 → MessageChatMemoryAdvisor 全文存储
-                     ↑ user prompt 持久化到 DB，含文件列表
+  ├─ Memory 只写文件列表 + 用户问题
+  └─ ChatTurnPipeline → Agent Runtime
 ```
 
 | 问题                    | 后果                                      |
 | ----------------------- | ----------------------------------------- |
-| 文件内容全部塞入 prompt | 空耗 token，大文件很快撑爆 context window |
+| 文件内容全部塞入本轮 prompt | 空耗 token，大文件很快撑爆 context window |
 | 无分片检索              | 100 个文件无法只检索相关片段              |
 | 无缓存                  | 相同文件每次上传都重新提取文本            |
-| 消息存储与 prompt 绑定  | 刷新后需手动拆分，架构耦合                |
+| 文件正文不落库、不建索引 | 追问「刚才那份 PDF 第 3 节」时只能重传    |
 
 **目标架构**
 
@@ -981,7 +1016,7 @@ DeepSeek 不支持多模态（image → Media）。后端 `onErrorResume` 捕获
 **优势**：
 
 - 文件数不再受 context window 限制（每个请求只检索 top-5 分片）
-- 无需截断（50KB 硬限制解除）
+- 无需截断（单文件 50,000 字符硬限制解除）
 - AI 获得精准的相关片段而非全量噪音
 
 **优化 2：文件内容缓存**
@@ -996,20 +1031,20 @@ DeepSeek 不支持多模态（image → Media）。后端 `onErrorResume` 捕获
 
 **优势**：MD5/ETag 去重，大 PDF 避免反复解析。
 
-**优化 3：消息持久化与 prompt 解耦**
+**优化 3：消息持久化与 prompt 解耦（已部分完成）**
 
-**问题**：现在 user prompt 直接存到 `spring_ai_chat_memory.content`，导致"文件列表 + 用户问题"合为一条，刷新后需手动拆分。
+**原问题**：文档全文直接存到 `spring_ai_chat_memory.content`，刷新后显示整段原文。
 
-**解耦方案**（最小改动）：
+**2026-11 状态**：正文已移出 Memory，只保留「文件列表 + 用户问题」；前端仍按 "用户的问题：\n" 拆分气泡。仍差的是附件元数据没有独立表，文件列表与用户问题仍是同一个 `content` 字符串。
+
+**解耦方案**（进一步）：
 
 ```
 user prompt 只存放用户文字 → "总结这个文件"
-文件列表作为 metadata 附加到消息
+文件列表作为 metadata / 独立表附加到消息
 chat_memory.content = "总结这个文件"（干净）
 前端通过 metadata 渲染文件列表
 ```
-
-但此方案需要修改 Spring AI 的 `MessageChatMemoryAdvisor` 消息结构，或者在前端 `getMessages()` 中额外调一次 API 获取消息关联的文件列表（当前拆分逻辑的直接对等替代）。
 
 **长期方案**：引入 `message_attachments` 表。
 
@@ -1041,7 +1076,7 @@ CREATE TABLE message_attachments (
 
 | 优先级 | 优化                                        | 投入     | 效果                   |
 | ------ | ------------------------------------------- | -------- | ---------------------- |
-| P0     | 当前做法 + 50KB 截断（已有）                | —        | 小文件场景已可用       |
+| P0     | 当前做法 + 50,000 字符截断（已有）          | —        | 小文件场景已可用       |
 | P1     | **RAG 化文件处理**                          | 3-5 天   | 大文件、多文件场景质变 |
 | P2     | 文件内容缓存（MD5 去重）                    | 1 天     | 重复文件零开销         |
 | P2     | 消息与 prompt 解耦（`message_attachments`） | 2 天     | 前端不需手动拆分       |
@@ -1051,15 +1086,15 @@ CREATE TABLE message_attachments (
 
 ### 与 Cursor / opencode 的差距分析
 
-| 能力            | My-Chat                | Cursor / opencode          | 差距            |
-| --------------- | ---------------------- | -------------------------- | --------------- |
-| **文件类型**    | image / PDF / txt / md | 任意格式（含二进制）       | 需扩展类型      |
-| **上传方式**    | 手动点击 + 文件选择框  | 拖拽 + 粘贴图片 + 文件选择 | 缺少拖拽        |
-| **文件预览**    | 纯文本列表             | 行内渲染图片 + PDF 预览    | 无预览          |
-| **AI 感知文件** | 后端提取文本供 AI      | AI 直接读本地文件系统      | AI 无法访问本地 |
-| **消息一致性**  | 手动拆分后端合并消息   | 天然分离                   | 架构层需优化    |
-| **大小限制**    | 10MB                   | 因服务而异                 | 可放宽          |
-| **错误提示**    | 后端友好提示           | 前端即时反馈               | 可减少往返      |
+| 能力            | My-Chat                     | Cursor / opencode          | 差距            |
+| --------------- | --------------------------- | -------------------------- | --------------- |
+| **文件类型**    | PDF / txt / md（图片拒绝）  | 任意格式（含二进制）       | 需扩展类型      |
+| **上传方式**    | 手动点击 + 文件选择框       | 拖拽 + 粘贴图片 + 文件选择 | 缺少拖拽        |
+| **文件预览**    | 纯文本列表                  | 行内渲染图片 + PDF 预览    | 无预览          |
+| **AI 感知文件** | 后端提取文本 + 工作区 FileTools | AI 直接读本地文件系统  | 无法读客户端本地 |
+| **消息一致性**  | 文件列表 + 原问合并存 Memory，前端拆分 | 天然分离        | 架构层需优化    |
+| **大小限制**    | 10MB                        | 因服务而异                 | 可放宽          |
+| **错误提示**    | 后端友好提示                | 前端即时反馈               | 可减少往返      |
 
 ---
 
@@ -1094,7 +1129,7 @@ CREATE TABLE message_attachments (
 
 ### 数据库依赖
 
-本次功能不涉及数据库变更。消息存储依赖 `spring_ai_chat_memory` 表（Spring AI 框架自动维护）：
+主聊天附件功能不涉及数据库结构变更。消息存储依赖 `spring_ai_chat_memory` 表（Spring AI 框架自动维护），回合轨迹另存 `chat_assistant_turns`：
 
 ```sql
 CREATE TABLE IF NOT EXISTS spring_ai_chat_memory (
@@ -1110,6 +1145,16 @@ CREATE TABLE IF NOT EXISTS spring_ai_chat_memory (
 `content` 字段存储的 user prompt 中已包含文件列表信息。
 
 # 模型调用模块
+
+## 对话模型管理
+
+`LlmModelController` + `LlmModelService` 把「用哪个模型」从 yaml 搬到库里，设置页可增删改、测试连通、设默认：
+
+- 表 `llm_model`；启动时 `LlmModelSeedRunner` 按 yaml 补种子行。
+- 供应商预设 `LlmProviderPresets`：DeepSeek / OpenAI / 通义千问 / Ollama / 硅基流动 / 自定义，选供应商回填 Base URL 与常用模型提示。
+- 读取时经 Caffeine 缓存（读多写少）；保存后刷新。
+- API Key 解析顺序：**设置里显式填写的值** → 环境变量 `OPENAI_API_KEY` → `application.yaml`。库中 `llm_model.api_key` 留空表示跟随环境变量。
+- `ChatClientRegistry` / `ChatClientAssembler` 按当前默认模型创建 ChatClient；工具、MCP、Memory 仍由组装器统一挂载。
 
 ## MCP-接入 Smithery 工具箱（Exa Search）
 
@@ -1127,14 +1172,18 @@ https://mcp.smithery.run/{namespace}
 ```mermaid
 flowchart LR
   ChatClient["toolChatClient"]
-  SyncProvider["SyncMcpToolCallbackProvider"]
+  Bridge["DefaultMcpToolBridge"]
+  Tolerant["TolerantMcpToolCallbackProvider"]
   Database["localhost:8102 database"]
+  Crawler["localhost:8103 crawler"]
   Smithery["mcp.smithery.run/2625705206"]
   Exa["Exa Search"]
 
-  ChatClient --> SyncProvider
-  SyncProvider --> Database
-  SyncProvider --> Smithery --> Exa
+  ChatClient --> Bridge
+  Bridge --> Tolerant
+  Tolerant --> Database
+  Tolerant --> Crawler
+  Tolerant --> Smithery --> Exa
 ```
 
 鉴权：后端访问该端点需带 **Smithery API Key**（[Account API Keys](https://smithery.ai/account/api-keys)）：
@@ -1161,65 +1210,113 @@ URL 切分注意：默认 `endpoint` 是 `/mcp`。Smithery 路径本身就是完
 3. 设置环境变量 `SMITHERY_API_KEY`（不要写进仓库）。缺 key / 未启动 `mcp-server-database` **不会**阻止主应用启动；他机可设 `APP_MCP_ENABLED=false` 整模块关闭。
 4. IDEA Reload Maven 后重启 `my-chat-server`。MCP 客户端代码在 `com.mychat.mcp`，经 `McpToolBridge` 挂到主干 ChatClient。
 
-### 需要改/新增的文件
+### 当前实现（已落地）
 
-**1. [`my-chat-server/src/main/resources/application.yaml`](my-chat-server/src/main/resources/application.yaml)**
-
-在现有 `spring.ai.mcp.client.streamable-http.connections` 下配置本地数据库 MCP 与 Smithery：
+**1. [`application.yaml`](../my-chat-server/src/main/resources/application.yaml)**
 
 ```yaml
-streamable-http:
-  connections:
-    mcp-database-server:
-      url: http://localhost:8102
-      endpoint: /mcp
-    smithery-toolbox:          # 连接名，自定义izer 用它过滤
-      url: https://mcp.smithery.run
-      endpoint: /2625705206    # 你的 namespace，勿再拼 /mcp
-```
-
-可适当加大 `request-timeout`（远程搜索常 >30s，例如 `60s`）。
-
-另：
-
-```yaml
+spring:
+  ai:
+    mcp:
+      client:
+        enabled: ${APP_MCP_ENABLED:true}
+        initialized: false          # 惰性握手：listTools / 首次调用再 initialize
+        request-timeout: 60s
+        toolcallback:
+          enabled: false            # 关闭 Spring AI 默认 Provider，只走自研 Tolerant
+        streamable-http:
+          connections:
+            mcp-database-server:
+              url: http://localhost:8102
+              endpoint: /mcp
+            mcp-crawler-server:
+              url: ${MCP_CRAWLER_URL:http://localhost:8103}
+              endpoint: /mcp
+            smithery-toolbox:
+              url: https://mcp.smithery.run
+              endpoint: /2625705206
 app:
   mcp:
+    enabled: ${APP_MCP_ENABLED:true}
+    database.enabled: ${APP_MCP_DATABASE_ENABLED:true}
+    crawler.enabled: ${APP_MCP_CRAWLER_ENABLED:true}
     smithery:
+      enabled: ${APP_MCP_SMITHERY_ENABLED:true}
       api-key: ${SMITHERY_API_KEY:}
       connection-name: smithery-toolbox
 ```
 
-**2. 新增 [`my-chat-server/src/main/java/com/mychat/config/SmitheryMcpConfiguration.java`](my-chat-server/src/main/java/com/mychat/config/SmitheryMcpConfiguration.java)**
+**2. [`com.mychat.mcp`](../my-chat-server/src/main/java/com/mychat/mcp/)**
 
-```java
-@Bean
-McpClientCustomizer<HttpClientStreamableHttpTransport.Builder> smitheryAuthCustomizer(
-    @Value("${app.mcp.smithery.api-key:}") String apiKey,
-    @Value("${app.mcp.smithery.connection-name:smithery-toolbox}") String connectionName) {
-  return (name, transportBuilder) -> {
-    if (!connectionName.equals(name) || apiKey == null || apiKey.isBlank()) {
-      return; // 不影响本地数据库等无鉴权连接
-    }
-    transportBuilder.httpRequestCustomizer(
-        (req, method, endpoint, body, ctx) ->
-            req.header("Authorization", "Bearer " + apiKey));
-  };
-}
-```
+| 类 | 职责 |
+| --- | --- |
+| `McpModuleConfiguration` | `app.mcp.enabled` 条件装配；注册 Smithery Bearer customizer、`McpToolBridge`、启动诊断 |
+| `McpProperties` | 三个连接的启用开关、连接名、Smithery key |
+| `DefaultMcpToolBridge` | 把启用的 `McpSyncClient` 工具挂到主干 ChatClient；按 `McpRuntimeSettingsService` 过滤 |
+| `TolerantMcpToolCallbackProvider` | 单连接 listTools / call 失败只跳过，不拖垮主聊天 |
+| `McpRuntimeSettingsService` | `mcp_connection_settings` 运行时开关，DB + 内存缓存，改完立即生效 |
 
-关键 import：
+Smithery 鉴权仍通过 `McpClientCustomizer<HttpClientStreamableHttpTransport.Builder>` 注入 Bearer；无 key 时只 warn。
 
-- `io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport`
-- `org.springframework.ai.mcp.customizer.McpClientCustomizer`
+**3. 本地 MCP**
 
-**3. [`AiConfiguration.java`](my-chat-server/src/main/java/com/mychat/config/AiConfiguration.java) / [`McpToolsDiagnostics.java`](my-chat-server/src/main/java/com/mychat/config/McpToolsDiagnostics.java)**
+- `mcp-server-database`（:8102）：PostgreSQL 元数据 / 只读 SQL，供 Cursor 与主聊天共用
+- `mcp-server-crawler`（:8103，Python FastMCP）：`fetch_url` / `fetch_urls` / `extract_main` / `list_adapters`，补齐研究侧「只有标题 + URL」的正文缺口
+- 云上 Compose 只常驻 crawler（`MCP_CRAWLER_URL=http://crawler:8103`），database / Smithery 默认关闭
 
-**无需为 Smithery 再改**。`SyncMcpToolCallbackProvider` 已聚合所有 `McpSyncClient`；诊断日志应能看到 Exa 相关工具名。仅可微调 system prompt 一句「可用网页搜索类 MCP 工具时按需调用」。
+**4. 运行时开关（2026-11 新增）**
 
-**4. 前端**
+设置页「MCP 工具管理」→ `GET /ai/settings/mcp-tools`、`PUT /ai/settings/mcp-tools/{id}`，落 `mcp_connection_settings`（`mcp-database-server` / `mcp-crawler-server` / `smithery-toolbox` / `web-search-exa`）。开关立即影响下一轮工具发现，不需要重启。
 
-不改。工具经现有 `/ai/normalChat/chat` 链路由模型选择调用。
+**5. 联网搜索兜底**
+
+搜索不走 `mcp.smithery.run` 网关（该网关 listTools 500 / callTool 403），优先本机 `searchWeb` REST：Exa → Bocha → Tavily → DuckDuckGo；`EXA_API_KEY` 来自 Exa 控制台，不要填 Smithery 的 key。
+
+**6. 前端**
+
+不改。工具经 `/ai/normalChat/chat` 链路由模型按需选择；设置页只多一个 MCP 开关面板。
+
+# Agent Runtime（通用编排底座）
+
+2026-11 完成从「主聊天专用编排」到「场景化 Runtime」的迁移：主聊天、市场分析、角色扮演、模拟炒股共用 `DefaultAgentRuntime`；场景差异只在 Profile 与 Action/AnswerPolicy，不在 Runtime 里写 `switch`。
+
+## 场景 Profile
+
+`AgentScenarioProfile` 固化动作、工具白名单、预算与输出/质量策略；`ScenarioProfileRegistry` 启动时收集并拒绝重复场景，`AgentProfileConsistencyChecker` 校验动作与工具的引用一致性。
+
+| 场景 | workflow | 动作 | 工具组 | 步数 / 工具调用 | 输出 |
+| --- | --- | --- | --- | --- | --- |
+| `MAIN_CHAT` | orchestrator-workers | general / file / search / shell / retrieve_kb | file / shell / web-search / mcp | 6 / 8 | text |
+| `MARKET_ANALYSIS` | orchestrator-workers | market_research / general | web-search | 6 / 6 | market_analysis |
+| `ROLEPLAY` | chain | roleplay | — | 4 / 0 | text |
+| `INTERVIEWER` | chain | interview | — | 5 / 0 | interview_assessment |
+| `PAPER_RESEARCH` | orchestrator-workers | paper_research / general | paper-market / paper-research-feed / paper-strategy / paper-note-batch / web-search / mcp-crawler | 8 / 10 | research_card_batch |
+| `PAPER_TRADER` | chain | paper_trade_review / general | paper-decision / paper-decision-write / paper-trade-exec / paper-run / paper-market / paper-strategy | 5 / 8 | trade_decision_batch |
+| `PAPER_WAREHOUSE_ANALYST` | chain | paper_warehouse_analyze / general | paper-market / paper-research-feed / paper-strategy / paper-note / web-search | 3 / 8 | text |
+| `PAPER_TRADE_EVALUATOR` | chain | paper_trade_evaluate / general | paper-strategy / paper-decision / paper-run / paper-note / paper-market / paper-research-feed / mcp-crawler / web-search | 6 / 10 | stage_eval_batch |
+
+## 工具安全等级
+
+`ToolCatalog` 统一登记工具组与副作用等级：
+
+- `READ_ONLY`：查询、检索、无副作用计算，可自动执行。
+- `REVERSIBLE_WRITE`：研究卡片、决策落库等可恢复写入；需显式业务上下文。
+- `HIGH_RISK_WRITE`：下单、外部发送等不可逆动作；进入闸门/approval 边界。
+
+Profile 白名单与动作工具子集取交集。模拟炒股 Agent 不注册订单 / 账户写入 / 任意 SQL / `file` / 通用 MCP；订单执行只允许领域 Workflow 在 Java 风控后调用。
+
+## 持久化与可观测（V9）
+
+- `agent_run`：一次语义运行，含场景、Profile 版本、`business_ref`、`async_job_id`、幂等键、状态、checkpoint、token。
+- `agent_run_step`：WORKFLOW / ACTION / MODEL / TOOL / GUARDRAIL / HANDOFF / EVALUATOR / APPROVAL 等 span；保存脱敏摘要、耗时、错误。
+- `agent_approval`：高风险动作的请求与决定分离（PENDING / APPROVED / REJECTED / EXPIRED / CANCELLED），恢复时核对批准状态。
+- 公开时间线只经 `PublicProgressAdapter` 输出脱敏摘要；原始 Prompt、reasoning、完整工具结果不进公开事件。
+- Actuator 暴露 `agent.runtime.runs`、`duration`、`tokens`、`tool.errors`、`budget.exhausted` 等指标。
+- `StructuredOutputRepairService` 对 `PAPER_RESEARCH` / `PAPER_TRADER` 等类型化输出只修结构与字段类型，不新增事实；修复后仍由领域适配器回传业务 Workflow。
+
+## 读代码入口
+
+`agent/runtime/DefaultAgentRuntime.java` → `StructuredDecisionEngine` / `WorkflowRunner`（orchestrator-workers / chain / routing / evaluator-optimizer）→ `agent/action/*ActionHandler` → `agent/tool/ToolCatalog`。领域侧从 `PaperAgentRuntimeAdapter` 进入，`businessRef` = 对应 `paper_*_run` 的 ID。
 
 # 输出后处理
 
@@ -1227,14 +1324,15 @@ McpClientCustomizer<HttpClientStreamableHttpTransport.Builder> smitheryAuthCusto
 
 ### 一句话结论
 
-普通聊天（`toolChatClient`）已能以 **NDJSON 事件流**实时展示工具调用时间线，并以本地表 **`chat_assistant_turns`** 按轮持久化 `parts`，刷新后可回放。思考内容目前多为气泡折叠块，**尚未**作为时间线中与工具交错的步骤；旧 `[THINKING]` 标签协议对主路径已过时。
+主聊天已统一走 **NDJSON 事件流**（`format` 只接受 `ndjson`），实时展示 route / step / tool / KB 引用时间线，并以本地表 **`chat_assistant_turns`** 按轮持久化 `parts`，刷新后可回放。思考尚未作为时间线步骤：`thinking_delta` 协议已定义、`ReasoningContentExtractor` 已建，但默认 `thinking.type: disabled` 且流式链路未接线，当前回合通常没有思考事件；旧 `[THINKING]` 标签与 `format=plain` 路径均已退役。
 
 ```text
 用户 → ChatController(?format=ndjson)
-     → ObservabilityStreamAdvisor（旁路 tool_call / tool_result）
-     → text_delta / thinking_delta / done
+     → ChatTurnPipeline（emit_route / load_dialogue / assemble_context / orchestrate / stream_final / quality_loop）
+     → OrchestrateStage → Agent Runtime（旁路 tool_call / tool_result / public_progress）
+     → text_delta / step / route / done（thinking_delta 协议已定义，尚未接线）
      → 前端 AgentActivityTimeline + Markdown
-     → 回合结束异步写入 chat_assistant_turns
+     → 回合结束 Finalizer 异步写入 chat_assistant_turns
      → GET /ai/history/getMessages 合并 parts 回放
 ```
 
@@ -1246,10 +1344,10 @@ McpClientCustomizer<HttpClientStreamableHttpTransport.Builder> smitheryAuthCusto
 
 | 项     | 内容                                                         |
 | ------ | ------------------------------------------------------------ |
-| 传输   | 同一 POST 上的 **NDJSON**（`application/x-ndjson`）；`format=plain` 保留旧纯文本 |
-| 采集   | `ObservabilityStreamAdvisor`（order ≈ ToolCallingAdvisor+100）旁路发事件，**不改** Memory / 工具循环 |
-| 事件   | `thinking_delta` / `text_delta` / `tool_call` / `tool_result` / `error` / `done` |
-| 关键类 | `ChatStreamEvent`、`ChatStreamEventWriter`、`ChatController` |
+| 传输   | 同一 POST 上的 **NDJSON**（`application/x-ndjson`）；主聊天仅接受 `format=ndjson`，其他格式直接 400 |
+| 采集   | `ObservabilityStreamAdvisor`（旁路 tool_call / tool_result）+ 管道 `ChatTurnEmitter`（route / step / text_delta） |
+| 事件   | `thinking_delta`（已定义，默认未发）/ `text_delta` / `tool_call` / `tool_result` / `step` / `route` / `error` / `done` |
+| 关键类 | `ChatStreamEvent`、`ChatStreamEventWriter`、`ChatController`、`ChatTurnPipeline` |
 | 注意   | Spring AI 2.0 已删除 `streamToolCallResponses`，不可再依赖   |
 
 **第 2 周：前端时间线**
@@ -1258,8 +1356,8 @@ McpClientCustomizer<HttpClientStreamableHttpTransport.Builder> smitheryAuthCusto
 | ---- | ------------------------------------------------------------ |
 | 消费 | `streamChat` 固定普通聊天 `?format=ndjson`；行缓冲解析       |
 | 状态 | `useChatStream` 归约 `streamingParts` / `streamingThinking` / 正文 |
-| UI   | `AgentActivityTimeline`（目前主要渲染 **tool**）；`ChatBox` 去掉错误 `THINKING_START` 解析 |
-| 范围 | **RAG 仍 plain**，无时间线                                   |
+| UI   | `AgentActivityTimeline` 渲染 **route / step / tool**，KB 步骤带 `kbScope` 与引用标签；`ChatBox` 去掉错误 `THINKING_START` 解析 |
+| 范围 | 主聊天全链路；知识库召回测试也在页面内，但不走聊天时间线 |
 
 **第 3 周：回放落库**
 
@@ -1271,7 +1369,7 @@ McpClientCustomizer<HttpClientStreamableHttpTransport.Builder> smitheryAuthCusto
 | 约束 | **不改** `spring_ai_chat_memory`；删会话级联清回合表         |
 | 踩坑 | PG `jsonb` 不能用默认 `JacksonTypeHandler`（varchar）；需 `PGobject` TypeHandler；`postgresql` 依赖须 compile |
 
-详细设计仍以 `docs/正式迭代前待做/` 下四周文档为准；本文件只做索引级总结。
+详细设计见 [docs/迭代规划.md](./迭代规划.md) 与 [docs/Agent Runtime运维与Profile规范.md](./Agent%20Runtime运维与Profile规范.md)；本文件只做索引级总结。
 
 ---
 
@@ -1279,9 +1377,9 @@ McpClientCustomizer<HttpClientStreamableHttpTransport.Builder> smitheryAuthCusto
 
 | 未做                     | 说明                                      |
 | ------------------------ | ----------------------------------------- |
-| RAG `retrieval` 事件     | `RagChatController` 仍 plain + 旧标签痕迹 |
-| 思考与工具交错展示       | 见下文待实现                              |
-| Spring AI Session / OTEL | 刻意不做，Memory 旁路表已够 UI 回放       |
+| 思考与工具交错展示       | 见下文待实现；`ReasoningContentExtractor` 已建类但未接入 |
+| Agent Runtime 运行详情页 | `agent_run` / `agent_run_step` 已有数据与指标，前端暂无独立 Run 详情页 |
+| OTEL / Spring AI Session | 刻意不做，Memory 旁路表已够 UI 回放       |
 
 ---
 
@@ -1289,13 +1387,15 @@ McpClientCustomizer<HttpClientStreamableHttpTransport.Builder> smitheryAuthCusto
 
 曾尝试过实现一次，但效果不好，可能放弃这一块。
 
+**2026-11 状态**：`ReasoningContentExtractor` 已实现「四来源提取 + 累计全文 suffix diff」，但尚未被流式主路径调用；时间线组件仍过滤 `type==='thinking'`；`application.yaml` 中 `thinking.type: disabled`，默认无思考流。
+
 #### **4.1 动机**
 
 早期 `toThinkingResponse` 用 `[THINKING]…[/THINKING]` 适配 DeepSeek 思考模式；主路径已改 NDJSON 后，该拼接**实质无用**。  
-多家模型仍会输出思考，但字段名不一（`reasoningContent` / `thinking` / `reasoning` / `getReasoningContent()`），且当前实现：
+多家模型仍会输出思考，但字段名不一（`reasoningContent` / `thinking` / `reasoning` / `getReasoningContent()`），当前缺口：
 
-1. 只读 `reasoningContent`；
-2. **含 `toolCalls` 的帧直接跳过**，工具前思考进不了时间线；
+1. 提取器已能读四类来源，但流式链路未调用；
+2. **含 `toolCalls` 的帧仍不作为 thinking 事件发出**，工具前思考进不了时间线；
 3. 时间线组件过滤掉 `type==='thinking'`，思考只在气泡顶栏折叠；
 4. `application.yaml` 中 `thinking.type: disabled`，默认无思考流。
 
@@ -1308,7 +1408,7 @@ McpClientCustomizer<HttpClientStreamableHttpTransport.Builder> smitheryAuthCusto
 
 #### **4.3 设计要点**
 
-**提取层**（建议新建 `ReasoningContentExtractor`）：
+**提取层**（`ReasoningContentExtractor` 已存在，待接入流式主路径）：
 
 | 优先级 | 来源                                                        |
 | ------ | ----------------------------------------------------------- |
@@ -1337,25 +1437,26 @@ McpClientCustomizer<HttpClientStreamableHttpTransport.Builder> smitheryAuthCusto
 
 | 区域      | 路径                                                         |
 | --------- | ------------------------------------------------------------ |
-| 事件 DTO  | `my-chat-server/.../common/ChatStreamEvent.java`             |
-| Advisor   | `my-chat-server/.../utils/advisor/ObservabilityStreamAdvisor.java` |
-| 流式入口  | `my-chat-server/.../controller/ChatController.java`          |
-| 归约落库  | `my-chat-server/.../chat/stream/TurnPartsReducer.java`、`ChatAssistantTurnServiceImpl` |
-| 历史合并  | `my-chat-server/.../controller/ChatHistoryController.java`   |
+| 事件 DTO  | `my-chat-server/src/main/java/com/mychat/common/ChatStreamEvent.java` |
+| Advisor   | `my-chat-server/src/main/java/com/mychat/utils/ObservabilityStreamAdvisor.java` |
+| 回合管道  | `my-chat-server/src/main/java/com/mychat/service/agent/pipeline/`（`ChatTurnPipeline`、`ChatTurnFinalizer`、`stage/`） |
+| 流式入口  | `my-chat-server/src/main/java/com/mychat/controller/ChatController.java` |
+| 归约落库  | `my-chat-server/src/main/java/com/mychat/utils/TurnPartsReducer.java`、`service/chat/impl/ChatAssistantTurnServiceImpl.java` |
+| 历史合并  | `my-chat-server/src/main/java/com/mychat/controller/ChatHistoryController.java` |
 | 前端流    | `my-chat-vue3/src/utils/streamChat.ts`、`composables/useChatStream.ts` |
 | 时间线 UI | `my-chat-vue3/src/components/AgentActivityTimeline.vue`、`ChatBox.vue` |
-| DDL       | `my-chat-server/src/main/resources/db/migration/V1__init_common_schema.sql`（`chat_assistant_turns`） |
+| DDL       | `my-chat-server/src/main/resources/db/migration/V1__init_common_schema.sql`（`chat_assistant_turns`、`chat_session_summary`） |
 
 # 质量监测系统
 
 ## 召回测试
 
-对齐 Dify「检索测试」、FastGPT「搜索测试」：给**知识库配置者**看命中片段和分数，不进聊天、不调 LLM。本项目已有按 `kbId` 过滤的 `SearchRequest` 与知识库 `topK` / `similarityThreshold`，本轮只把同一检索摊开返回。
+对齐 Dify「检索测试」、FastGPT「搜索测试」：给**知识库配置者**看命中片段和分数，不进聊天、不调 LLM。**2026-11 已实现**：`POST /ai/knowledge-base/documents/retrieve-test` + `KnowledgeStore.vue` 的「召回测试」面板。
 
 ### 边界（贴市场、不膨胀）
 
 - **做**：选中知识库 → 输入模拟问题 → 列出片段正文、分数、来源文件名；可用该库已保存的 topK/阈值，或在测试页临时改这两项（不写库，对应 Dify「仅当前测试生效」）。
-- **不做**：检索历史表、混合检索/Rerank、父子分段、聊天引用角标、新路由、改 `V1__init_common_schema.sql`（无新表无新列）。
+- **不做**：检索历史表、混合检索/Rerank、父子分段、新路由、改 `V1__init_common_schema.sql`（无新表无新列）。
 
 ### 流程
 
@@ -1374,49 +1475,49 @@ sequenceDiagram
   Svc-->>UI: hits filename score text
 ```
 
+与问答共用过滤表达式 `kbId == '{id}'`（入库 metadata 已是 `kbId` / `filename` / `documentId`，见 [`DocumentService`](../my-chat-server/src/main/java/com/mychat/service/knowledge/DocumentService.java)）。
 
+### 后端（已落地）
 
-与问答共用过滤表达式 `kbId == '{id}'`（入库 metadata 已是 `kbId` / `filename` / `documentId`，见 `[DocumentService](my-chat-server/src/main/java/com/mychat/service/knowledge/DocumentService.java)`）。
+**1. 检索请求构造**
 
-### 后端
-
-**1. 抽出检索请求构造（避免测试与 Advisor 滤条件分叉）**
-
-新增小工具类 `[KbSearchRequests](my-chat-server/src/main/java/com/mychat/service/knowledge/KbSearchRequests.java)`（或放在 `knowledge` 包下同名）：`filtered(kbId, topK, threshold)` 返回已设 `topK`、`similarityThreshold`、`filterExpression` 的 `SearchRequest.Builder`。
-
-`[AgentRoutingService.buildKbAdvisor](my-chat-server/src/main/java/com/mychat/service/agent/AgentRoutingService.java)` 改为用该 Builder `.build()`，行为与现网一致（Advisor 仍自己填 query）。
+[`KbSearchRequests`](../my-chat-server/src/main/java/com/mychat/service/knowledge/KbSearchRequests.java) 的 `filtered(kbId, topK, threshold)` 返回已设 `topK`、`similarityThreshold`、`filterExpression` 的 `SearchRequest.Builder`，召回测试与聊天检索共用，避免过滤条件分叉。
 
 **2. `KnowledgeRetrievalService`**
 
-新类，职责仅「召回测试」：
-
 - 知识库必须存在
 - `query` 去空白后非空，长度上限 1000
-- `topK` / `threshold` 未传则用该库已存值（`KnowledgeBaseSettings.topKOrDefault` / `thresholdOrDefault`）；传入则只做与设置页相同的范围校验（1–20、0–1），**不 update 知识库**
+- `topK` / `threshold` 未传则用该库已存值（`KnowledgeBaseSettings.topKOrDefault` / `thresholdOrDefault`）；传入则只做范围校验（1–20、0–1），**不 update 知识库**
 - `vectorStore.similaritySearch(builder.query(query).build())`
-- 映射为 DTO：`text`、`score`（`Document.getScore()`，没有则 metadata）、`filename`、`documentId`；保持 VectorStore 返回顺序（分数高在前）
-- 空列表合法（阈值滤光），不要当错误
+- 映射为 DTO：`text`、`score`（`Document.getScore()`，没有则 metadata）、`filename`、`documentId`；保持 VectorStore 返回顺序
+- 空列表合法（阈值滤光），不当错误
 
 **3. API / DTO**
 
-- `POST /ai/knowledge-base/documents/retrieve-test`
-- Body：`kbId`、`query`，可选 `topK`、`similarityThreshold`
-- 响应：`kbId`、实际使用的 `topK` / `similarityThreshold`、`hits[]`
-- 挂在 `[KnowledgeBaseController](my-chat-server/src/main/java/com/mychat/controller/KnowledgeBaseController.java)`，`IllegalArgumentException` → 400，风格同 update / reindex
+- `POST /ai/knowledge-base/documents/retrieve-test`：Body `kbId`、`query`，可选 `topK`、`similarityThreshold`；响应含实际使用的参数与 `hits[]`
+- 另有两个配套接口：`GET /documents/chunks`（只读分段预览）、`POST /documents/reindex`（按当前切分参数重新向量化，异步）
 
-类与 public 方法一行注释；检索方法内按「解析参数 / 检索 / 映射 hits」分步注释。
+### 前端（已落地）
 
-### 前端
+放在 [`KnowledgeStore.vue`](../my-chat-vue3/src/views/knowledgeStore/KnowledgeStore.vue)，不新开路由：
 
-放在现有 `[KnowledgeStore.vue](my-chat-vue3/src/views/knowledgeStore/KnowledgeStore.vue)`，不新开路由（Dify 也是知识库内一页，不是聊天里）。
+- 顶栏「召回测试」与「设置 / 上传」并列；未选库时禁用
+- 「文档表」/「召回面板」切换；切库时回到文档表并清空结果
+- 面板：textarea +「测试」；旁侧 topK、阈值，打开时从 `currentKb` 拷贝，文案注明**仅本次有效，不保存到设置**
+- 结果：无命中 `el-empty`；命中列表显示分数、文件名、正文（过长折叠）
+- 文档表另有「分段」「重新向量化」操作
 
-- 顶栏增加「召回测试」，与「设置 / 上传」并列；未选库时禁用
-- `content-area` 在「文档表」和「召回面板」间切换（切库时回到文档表并清空结果）
-- 面板：上方 `el-input` textarea +「测试」；旁侧两个 `el-input-number`（topK、阈值），打开面板时从 `currentKb` 拷贝；文案注明**仅本次有效，不保存到设置**
-- 结果：`el-empty` 无命中；有则卡片/列表，每条显示分数（`el-tag`）、文件名、正文（过长折叠）
-- `[knowledge.ts](my-chat-vue3/src/api/knowledge.ts)` + `[types.ts](my-chat-vue3/src/types/knowledgeStore/types.ts)` 增加 `retrieveTest`
+---
 
-不改聊天页、不改 `[notify.ts](my-chat-vue3/src/stores/notify.ts)`。
+## 写盘质量环（Evaluator-Optimizer）
+
+主聊天在 `stream_final` 之后可选执行质量环，用于「Agent 写了文件 → 自动评审 → 按反馈修订」。
+
+- **触发**：`POST /ai/normalChat/chat` 的 `qualityLoop` 参数，默认 `true`；显式 `false` 关闭。`criteria` 可覆盖评价标准。
+- **路径解析**：`WritePathExtractor` 先从本轮 write 工具事件里找路径，找不到再尝试从用户原问里提示路径；仍解析不到则跳过（只记日志，不报错）。
+- **执行**：`QualityLoopStage` 在 `boundedElastic` 上调用 `AgentEvaluatorOptimizerService.evaluateOptimizeExplicit`，逐轮推进 `step` 事件（`evaluate_optimize`）并在文末追加「已通过 / 未完全通过 + 原因」摘要。
+- **失败隔离**：质量环异常只推一条失败 step，不打断回合，也不影响 Memory 落库。
+- **相关代码**：`service/agent/pipeline/stage/QualityLoopStage.java`、`agent/quality/MainChatQualityPolicy.java`、`service/agent/quality/AgentEvaluatorOptimizerService.java`、`service/agent/workflow/EvaluatorOptimizerWorkflow.java`、`utils/WritePathExtractor.java`。
 
 # @ 其他
 
@@ -1577,12 +1678,12 @@ AsyncJobDispatcher
 
 | 类                                                           | 职责                                                         |
 | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| [`AsyncJobService.submit`](../../my-chat-server/src/main/java/com/mychat/service/AsyncJobService.java) | insert `PENDING`，立刻 `dispatch`，HTTP 不等待               |
-| [`AsyncJobDispatcher`](../../my-chat-server/src/main/java/com/mychat/job/AsyncJobDispatcher.java) | 独立 Bean 上 `@Async("jobExecutor")`，避免 Service 自调用导致异步失效 |
-| [`JobHandler`](../../my-chat-server/src/main/java/com/mychat/job/JobHandler.java) | `type()` + `execute(job)`；成功返回，失败抛异常              |
-| [`JobEventHub`](../../my-chat-server/src/main/java/com/mychat/job/JobEventHub.java) | 进程内 `SseEmitter` 扇出；15s 注释心跳                       |
-| [`StaleJobRecovery`](../../my-chat-server/src/main/java/com/mychat/job/StaleJobRecovery.java) | 启动时把卡住超过 `app.jobs.stale-minutes`（默认 10）的 PENDING/RUNNING 标 FAILED |
-| [`AsyncConfiguration`](../../my-chat-server/src/main/java/com/mychat/config/AsyncConfiguration.java) | `@EnableAsync` + `@EnableScheduling`；池 core=2 / max=4 / queue=100 / CallerRuns |
+| [`AsyncJobService.submit`](../my-chat-server/src/main/java/com/mychat/job/AsyncJobService.java) | insert `PENDING`，立刻 `dispatch`，HTTP 不等待               |
+| [`AsyncJobDispatcher`](../my-chat-server/src/main/java/com/mychat/job/AsyncJobDispatcher.java) | 独立 Bean 上 `@Async("jobExecutor")`，避免 Service 自调用导致异步失效 |
+| [`JobHandler`](../my-chat-server/src/main/java/com/mychat/job/JobHandler.java) | `type()` + `execute(job)`；成功返回，失败抛异常              |
+| [`JobEventHub`](../my-chat-server/src/main/java/com/mychat/job/JobEventHub.java) | 进程内 `SseEmitter` 扇出；15s 注释心跳                       |
+| [`StaleJobRecovery`](../my-chat-server/src/main/java/com/mychat/job/StaleJobRecovery.java) | 启动时把卡住超过 `app.jobs.stale-minutes`（默认 10）的 PENDING/RUNNING 标 FAILED |
+| [`AsyncConfiguration`](../my-chat-server/src/main/java/com/mychat/config/AsyncConfiguration.java) | `@EnableAsync` + `@EnableScheduling`；池 core=2 / max=4 / queue=100 / CallerRuns |
 
 调度步骤（`dispatch`）：
 
@@ -1594,7 +1695,7 @@ AsyncJobDispatcher
 
 **HTTP**
 
-[`JobController`](../../my-chat-server/src/main/java/com/mychat/controller/JobController.java) `/ai/jobs`：
+[`JobController`](../my-chat-server/src/main/java/com/mychat/controller/JobController.java) `/ai/jobs`：
 
 | 方法 | 路径      | 说明                                                         |
 | ---- | --------- | ------------------------------------------------------------ |
@@ -1607,8 +1708,8 @@ AsyncJobDispatcher
 
 否则 SSE 几十秒被掐断：
 
-- [`application.yaml`](../../my-chat-server/src/main/resources/application.yaml)：`spring.mvc.async.request-timeout: 24h`
-- [`vite.config.ts`](../../my-chat-vue3/vite.config.ts) `/rag` 代理：`timeout` / `proxyTimeout` = 24h
+- [`application.yaml`](../my-chat-server/src/main/resources/application.yaml)：`spring.mvc.async.request-timeout: 24h`
+- [`vite.config.ts`](../my-chat-vue3/vite.config.ts) `/rag` 代理：`timeout` / `proxyTimeout` = 24h
 
 `JobEventHub` 另设 Emitter 24h + `Cache-Control: no-cache`、`X-Accel-Buffering: no`。
 
@@ -1618,10 +1719,10 @@ AsyncJobDispatcher
 
 | 文件                                                         | 职责                                                         |
 | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| [`stores/notify.ts`](../../my-chat-vue3/src/stores/notify.ts) | 先 `listActive`，再 `EventSource('/rag/ai/jobs/events')`；仅终态弹窗 |
-| [`App.vue`](../../my-chat-vue3/src/App.vue)                  | `onMounted(connect)`，路由切换不断线                         |
-| [`api/jobs.ts`](../../my-chat-vue3/src/api/jobs.ts)          | REST 用 `ragClient`；流用原生 `EventSource`                  |
-| [`utils/notifySound.ts`](../../my-chat-vue3/src/utils/notifySound.ts) | 双音门铃连响三遍（约 2s）                                    |
+| [`stores/notify.ts`](../my-chat-vue3/src/stores/notify.ts) | 先 `listActive`，再 `EventSource('/rag/ai/jobs/events')`；仅终态弹窗 |
+| [`App.vue`](../my-chat-vue3/src/App.vue)                  | `onMounted(connect)`，路由切换不断线                         |
+| [`api/jobs.ts`](../my-chat-vue3/src/api/jobs.ts)          | REST 用 `ragClient`；流用原生 `EventSource`                  |
+| [`utils/notifySound.ts`](../my-chat-vue3/src/utils/notifySound.ts) | 双音门铃连响三遍（约 2s）                                    |
 
 行为约定：
 
@@ -1683,51 +1784,133 @@ asyncJobService.submit("kb_ingest", "向量化：" + filename, documentId, paylo
 
 ### @.1.8 相关代码索引
 
-后端：`entity/po/AsyncJob.java`、`mapper/AsyncJobMapper.java`、`service/AsyncJobService.java`、`job/*`、`controller/JobController.java`、`config/AsyncConfiguration.java`
+后端：`entity/po/AsyncJob.java`、`mapper/AsyncJobMapper.java`、`job/AsyncJobService.java`、`job/*`、`controller/JobController.java`、`config/AsyncConfiguration.java`
 
 前端：`types/jobs.ts`、`api/jobs.ts`、`stores/notify.ts`、`utils/notifySound.ts`、`App.vue`
 
-# 模拟炒股（Paper Trade）模块概览
+## @.2 部署与运维（Compose + Jenkins）
 
-> 核对依据：本地 MCP `mcp-database-server`（2026-11-15）+ Flyway `V3`/`V4`/`V5` 已成功执行。虚拟盘，不接实盘券商。
+2026-11 已落地阿里云 CentOS 7.9 的整站部署，细节见 [部署与运维指引.md](./部署与运维指引.md) 与 [`deploy/`](../deploy/)。
+
+- **拓扑**：复用宿主机 `pg`（pgvector，数据在 `/data/pgdata`）；Compose 跑 `app`（JDK 25）+ `nginx`（静态 + `/rag/` 反代）+ `crawler`（Python 爬虫 MCP，仅内网 8103）；Jenkins / Dozzle / Adminer 为可选 profile。
+- **发布**：推 GitHub → Jenkins Pipeline（`deploy/Jenkinsfile`）串行 build crawler / app / nginx → `up -d` → `curl http://nginx/` 健康检查。
+- **密钥**：只在服务器 `/data/my-chat/.env`（`chmod 600`），Jenkins 用 `--env-file` 读取，不入库、不写进 `deploy/.env.example`。
+- **时区**：容器与定时统一 `Asia/Shanghai`；应用内 `paper_schedule_settings.zone_id` 解释 cron，避免 UTC 云主机把 15:35 跑成 23:35。
+- **结构**：Flyway 在 app 启动时自动迁移到最新版本；云上 database MCP / Smithery 默认关闭，只常驻 crawler。
+- **排障**：Dozzle 看容器日志（SSH 隧道 8888）、Adminer 查库（8889）；内存 4G 机器不上 Redis/ES，缓存用 Caffeine。
+
+# 模拟炒股（Paper Trade）
+
+> 核对依据：当前代码 + Flyway `V3`–`V14`（2026-11-20）。虚拟盘，不接实盘券商；行情取东财收盘价做市价撮合。
 
 ## 定位与入口
 
-大厅功能包「模拟炒股」：自建虚拟账本 + 东财收盘价市价撮合，支持手动下单、AI 操盘、信息搜集与风控闸门。
+大厅功能包「模拟炒股」：自建虚拟账本 + 收盘价市价撮合，叠加研究卡片、价值分层、AI 操盘、风控闸门、五条定时工作流与可视化轨迹。属于自用扩展，不是项目主目标。
 
 | 层 | 路径 |
 | --- | --- |
-| 前端 | `my-chat-vue3/src/apps/paper-trade/`（壳 `/app/paper-trade` → `positions` / `history` / `settings`） |
-| 后端包 | `com.mychat.apps.papertrade` |
+| 前端 | `my-chat-vue3/src/apps/paper-trade/`：`/app/paper-trade` → `positions` / `history` / `settings` / `workflow` |
+| 后端包 | `com.mychat.apps.papertrade`（ledger / trader / research / risk / warehouse / evaluator / schedule / workflow / audit / mail / tools / agent） |
 | API | `/ai/apps/paper-trade`（`PaperTradeController` + `PaperTradeAdminController`） |
-| 配置 | `app.paper-trade.*`（`PaperTradeProperties`） |
-| 行情依赖 | `com.mychat.apps.market`（`MarketQuoteClient` / `EtfPremiumClient` 等，HTTP 拉行情，不写本模块账本） |
-| 编排复用 | `PaperAgentRuntimeAdapter` → 通用 `AgentRuntime`，按 `PAPER_RESEARCH` / `PAPER_TRADER` Profile 隔离 |
-| 异步任务 | `async_job`，`job_type`：`paper_trade_ai_round` / `paper_trade_research` |
+| 配置 | `app.paper-trade.*`（`PaperTradeProperties`）+ `paper_schedule_settings` / `paper_risk_settings` |
+| 行情 | `com.mychat.apps.market` 的 `MarketQuoteClient` / `EtfPremiumClient` 等 |
+| 编排 | `PaperAgentRuntimeAdapter` → 通用 `AgentRuntime`；场景 `PAPER_RESEARCH` / `PAPER_TRADER` / `PAPER_WAREHOUSE_ANALYST` / `PAPER_TRADE_EVALUATOR` |
+| 异步任务 | `paper_trade_research` / `paper_trade_ai_round` / `paper_trade_warehouse_analyst` / `paper_trade_warehouse_cleanup` / `paper_trade_evaluator` |
+| 价值等级标准 | [模拟炒股-研究价值等级标准.md](./模拟炒股-研究价值等级标准.md) |
 
-前端三页：`PositionsView`（持仓/下单/决策/快捷 AI）、`HistoryView`（可扩展资源注册表管理四表）、`AccountSettingsView`（初始资金/策略/重置/注销训练）。
-
-子包按业务线拆分：`ledger`（账本）、`trader`（AI 操盘）、`research`（搜集）、`risk`（风控）、`agent`（编排调用）。
+前端四页：`PositionsView`（账户指标 / 看板 / 下单 / 持仓 / 决策 / 订单）、`HistoryView`（5 类历史资源 CRUD + 单票补资料 + SQL 导出）、`AccountSettingsView`（常规设置 / 定时工作流 / 策略与风控 / 危险操作）、`WorkflowView`（五条只读工作流蓝图 + 最近一轮高亮）。
 
 ## 主流程（简图）
 
 ```text
-研究搜集(research) → paper_research_note(kept)
+研究搜集(research) → paper_research_note（kept + value_tier）
         ↓
-AI 操盘(trader) ← paper_strategy + 账户/持仓/行情上下文
+票仓分析员(analyst) → 深搜后 updateValueTier（1/2/3）
         ↓
-paper_ai_decision → 风控闸门(risk) → 人工确认(可选)
+AI 操盘(trader) ← paper_strategy + 账户/持仓/行情 + kept 卡片
+        ↓
+paper_ai_decision → 风控闸门(risk) → 人工确认(可选) → 价值等级校验
         ↓
 ledger 市价撮合 → paper_order / paper_position / paper_cooldown
         ↓
-阶段重置 → paper_stage_summary（成绩留给下一阶段模型）
+阶段重置/枯竭 → 交易评估员写 paper_stage_summary + 发邮件
 ```
 
 手动下单走同一套 `PaperTradeService.placeOrder`；自动出场（止盈/止损/到期）`source=EXIT`。
 
+## 五条定时工作流
+
+运行时以 `paper_schedule_settings` 为准，`PaperScheduleManager` 启动时读取并挂 Spring `ThreadPoolTaskScheduler` cron；账户设置保存后 `reschedule()` 动态重挂，不引入 Quartz。
+
+| 工作流 | 默认 cron（Asia/Shanghai） | 默认开关 | 说明 |
+| --- | --- | --- | --- |
+| 搜集员 research | `0 0 9 * * *` | 关（yaml `research-schedule-enabled: false`） | 翻页选候选 → 行情/流动性/相对低点闸门 → Agent 写研究卡片 |
+| 交易员 trader | `0 35 15 * * MON-FRI` | 开 | 先扫规则出场，再组上下文调模型，逐条过闸门；收盘价撮合 |
+| 票仓分析员 analyst | `0 0 18 * * *` | 开 | 取 `value_tier=2`（最多 batch 条），每票最多 3 步深搜后 `updateValueTier` |
+| 票仓清理 cleanup | `0 0 23 * * *` | 开 | 无 AI：0 跳过；1→2；2 且滞留 ≥ N 天→3；3 硬删 |
+| 交易评估员 evaluator | `0 0 10 * * SAT` | 开 | 周复盘：写阶段总结、发建议邮件；交易员「资金枯竭」时也会唤醒它 |
+
+共同约束：
+
+- 同类工作流用 `PaperRunLifecycle.requireNoActive` 拒绝重叠活动轮次；重复触发只记日志。
+- 每轮写 `framework_trace`（domainSteps + agent 轨迹），供 `WorkflowView` 回放；失败截断错误到 1000 字。
+- 定时落点用 `schedule-zone` 解释（云主机常为 UTC）；交易员如果配在工作日 09:00–15:00，启动时只 warn 不阻止。
+- 评估员发信未配 SMTP / 收件人为空时返回 `SKIPPED`，正文落日志；`paper_trade_evaluator_run.email_status` 记录结果。
+
+## 价值等级（0–3）
+
+`paper_research_note.value_tier`（V11，SMALLINT 默认 2）把「观察名单」做成交易就绪漏斗；数字越小，对当前阶段资本配置的优先级越高。完整标准见 [模拟炒股-研究价值等级标准.md](./模拟炒股-研究价值等级标准.md)。
+
+| 等级 | 含义 | 谁写入 |
+| --- | --- | --- |
+| 0 | 已持仓 | 仅系统在 BUY 成交后写入 |
+| 1 | 应该买入 | 搜集员（可人工改） |
+| 2 | 继续观察 | 搜集员 / 全仓 SELL 成交后系统回写 |
+| 3 | 移出票仓 | 搜集员（`kept=false` 时强制倾向 3） |
+
+关键规则：
+
+- 交易员**非持仓买入**硬门槛：卡片 `kept=true AND value_tier=1`，否则跳过原因 `VALUE_TIER_NOT_BUY`。
+- 搜集员 upsert：已持仓（0）不覆盖；`kept=false` → 3；输出 1/2/3 之外或缺失 → 2。
+- 票仓清理：0 跳过；1→2；2 且 `当前日 - 创建日 ≥ warehouse_tier2_retain_days`（默认 2）→ 3 并 `kept=false`；3 硬删。
+- 票仓分析员只能把 2 调成 1/2/3，工具 `updateValueTier` 禁止改 0；`1/2` 会补 `kept=true`，`3` 会置 `kept=false`。
+
+## 策略半可编辑与结构化风控
+
+`paper_strategy` 拆成两段：
+
+- `content`：平台锁定区（服务端按当前风控重算后与自定义区拼接），包含输出 JSON 格式、整手、`value_tier`、工具调用顺序等硬约束。
+- `custom_content`：用户可编辑的身份、风格、低点/企稳叙事与原则口吻（V13 新增）。
+
+`paper_risk_settings`（V13，单行 `default`）把运行时风控从 yaml 搬到页面，保存策略时同一请求写入，并立即影响闸门与锁定文案：
+
+| 组 | 字段（默认） |
+| --- | --- |
+| 仓位 | `maxPositions=2`、`maxSingleAllocation=0.95`、`riskBudgetPct=0.02`、`riskBudgetTightPct=0.01` |
+| 熔断 | `drawdownRestrictPct=0.08`、`lossStreakLimit=3`、`buyPauseDays=2` |
+| 执行 | `reviewConfidenceThreshold=0.55`、`autoExecute=true` |
+| 冷却 | `cooldownDaysStock=2`、`cooldownDaysEtf=1` |
+| 出场 | 股票 `4%/3%/10天`、ETF `3%/2%/15天`、QDII `4.5%/3%/10天` |
+
+## 研究卡片与单票补资料
+
+`paper_research_note` 按代码一行，字段含 `kept` / `watchlist`（V7）/ `value_tier`（V11）/ `story` / `risks` / `fit_score` / `evidence_score` / `signal_tags` / `source_tier`（V8）/ `sources_json` / `quote_summary` / `reject_reason` / `run_id`。
+
+- **整轮搜集**：翻页选候选 → 行情闸门（ST/停牌/涨跌停/上市天数/20 日均额）→ 相对低点（低于 MA20 或 60 日回撤 ≤ -8%）→ 公告/新闻/板块 + 爬虫正文（全轮共享预算）→ Agent 调 `upsertResearchCards`，Java 兜底解析 `ResearchCardBatch` 并落库。
+- **单票补资料**（2026-11 新增）：`POST /ai/apps/paper-trade/admin/research-notes/{symbol}/refresh` → 提交 `paper_trade_research` 任务（payload `{symbol}`）。与整轮差异：不要求相对低位、成交额、上市天数；但无行情 / ST / 停牌 / 涨跌停会让该轮失败，原卡片保持不变。HistoryView 的研究卡片行内有「补资料」按钮并轮询轮次状态。
+- **自选**：人工新建卡片 `watchlist=true`，AI 新建为 false；`includeWatchlist` 控制是否让自选优先进入交易员候选。
+
+## 工具隔离、审计与执行边界
+
+- 四个模拟炒股 Profile 只暴露各自工具子集；**不注册**账户写入 / 任意 SQL / `file` / 通用 MCP。下单只经 `paper-trade-exec` 工具（`placePaperOrder`）或 Java 兜底，二者都会先过领域闸门。
+- 交易员工具把「决策落库」与「下单」分开：`recordAiDecisions` 只写 `paper_ai_decision`，`placePaperOrder` 才触发 Java 闸门与 ledger 撮合；模型也可只输出 `TradeDecisionBatch` 由 Java 兜底。
+- 搜集员写库优先走 `upsertResearchCards(runId, cardsJson)`；工具没落库时 Java 兜底并 warn。
+- **写库审计**：`PaperAiToolAuditAspect` 拦截 `com.mychat.apps.papertrade.tools` 中 `create/update/delete/upsert/record/place` 开头的 `@Tool`，仅在 `AgentToolAuditContext` 激活时写 `paper_ai_tool_audit`（场景、agentRunId、工具名、表名、操作、symbol、参数/结果截断、成功与否）。
+- 高风险动作（下单）仍只允许领域 Workflow 在 Java 风控后调用；Agent 不直接持有 ledger 写接口。
+
 ## 表按业务线分类
 
-### 1. 账本 ledger（V3）
+### 1. 账本 ledger（V3 / V4）
 
 | 表 | 作用 |
 | --- | --- |
@@ -1736,37 +1919,41 @@ ledger 市价撮合 → paper_order / paper_position / paper_cooldown
 | `paper_order` | 市价单 FILLED/REJECTED；V4 增 `realized_pnl` / `exit_reason`；`source`=MANUAL/AI/EXIT |
 | `paper_cooldown` | 卖出后冷却，到期前不可再买该标的 |
 
-### 2. AI 操盘 trader（V3，轨迹列 V5）
+### 2. AI 操盘 trader（V3，轨迹列 V5，策略 V13）
 
 | 表 | 作用 |
 | --- | --- |
-| `paper_strategy` | AI 策略正文（系统提示），默认 id=`default` |
+| `paper_strategy` | 策略正文；V13 增 `custom_content`（用户可编辑区） |
 | `paper_ai_run` | 一轮 AI 运行；关联 `async_job`；V5 增 `framework_trace` |
 | `paper_ai_decision` | 结构化决策 BUY/SELL/HOLD/FLAT；`exec_status` 控制执行/跳过/人工 |
 
-### 3. 信息搜集 research（V5）
+### 3. 信息搜集 research（V5，V7 / V8 / V11）
 
 | 表 | 作用 |
 | --- | --- |
-| `paper_research_run` | 搜集一轮（只写卡片、不下单） |
-| `paper_research_note` | 按代码一行研究卡片；操盘手只读 `kept=true` |
+| `paper_research_run` | 搜集一轮（只写卡片、不下单）；单票补资料复用此表 |
+| `paper_research_note` | 按代码一行研究卡片；V7 自选、V8 评分/信源、V11 价值等级 |
 
-### 4. 风控与阶段 risk（V4）
+### 4. 风控、票仓与评估（V4 / V12 / V13 / V14）
 
 | 表 | 作用 |
 | --- | --- |
 | `paper_stage_summary` | 账户重置前阶段成绩（胜率、回撤、费用、总结文案） |
-
-闸门字段主要落在 `paper_account` / `paper_order` / `paper_position`，无独立闸门表。
+| `paper_risk_settings` | V13 运行时风控单行（仓位/熔断/冷却/出场） |
+| `paper_warehouse_cleanup_run` | 票仓清理一轮（无 AI，统计 + 轨迹） |
+| `paper_warehouse_analyst_run` | 票仓分析员一轮（筛选数 / 调整数 / 轨迹） |
+| `paper_trade_evaluator_run` | 交易评估员一轮（触发类型、阶段总结、邮件状态、轨迹） |
+| `paper_ai_tool_audit` | Agent 工具写库审计（仅写操作） |
 
 ### 5. 跨模块关联（非 paper_ 前缀）
 
 | 表 | 关系 |
 | --- | --- |
-| `async_job` | AI 轮与搜集轮异步执行与 SSE 通知 |
+| `async_job` | 五条工作流异步执行与 SSE 通知；同类轮次用 `requireNoActive` 防重叠 |
+| `agent_run` / `agent_run_step` | 模拟炒股 Agent 的语义执行与轨迹；`business_ref` 关联轮次 ID |
 | `market_forecast` | 属「股市分析」功能包（V2），**不是**模拟盘账本；行情由 `MarketQuoteClient` 实时拉取 |
 
-默认账户与默认策略由启动时 `PaperAccountSeedRunner` / `PaperStrategySeedRunner` 写入，不写在 Flyway 种子 SQL。
+默认账户、默认策略、风控单行与定时配置由启动时 `PaperAccountSeedRunner` / `PaperStrategySeedRunner` / `PaperScheduleSeedRunner` 等写入或补种，不把业务种子写进 Flyway。
 
 ## Flyway 增量历史（本模块）
 
@@ -1776,18 +1963,63 @@ ledger 市价撮合 → paper_order / paper_position / paper_cooldown
 | V4 | `V4__paper_trade_risk_gates.sql` | 账户/订单风控列 + `paper_stage_summary`；空 default 账户种子改 2 万 |
 | V5 | `V5__paper_research.sql` | research 表 + `paper_ai_run.framework_trace` |
 | V6 | `V6__paper_schedule_settings.sql` | 搜集员/交易员定时配置（账户设置可改、动态重挂） |
+| V7 | `V7__paper_watchlist.sql` | 研究卡片自选 + `include_watchlist` |
+| V8 | `V8__paper_research_sources.sql` | 工具检索开关 + 契合/证据分/信号标签/信源层级 |
+| V11 | `V11__paper_research_value_tier.sql` | 价值等级（0–3）+ 索引 + 历史回填 |
+| V12 | `V12__paper_warehouse_workflows.sql` | 清理/分析员定时 + 两轮次表 + 工具审计表 |
+| V13 | `V13__paper_strategy_partial_edit.sql` | `custom_content` + `paper_risk_settings` |
+| V14 | `V14__paper_trade_evaluator.sql` | 评估员定时/收件人 + `paper_trade_evaluator_run` |
 
-后续结构变更只新增更高版本 `V{n}__*.sql`，禁止改已执行脚本。定时运行时以 `paper_schedule_settings` 为准（默认搜集 `0 0 9 * * *`、交易员盘后 `0 35 15 * * MON-FRI`），不引入 Quartz。
+> V9（Agent Runtime 持久化）与 V10（MCP 连接开关）是跨模块迁移，不属于本模块但被工作流复用。
+
+后续结构变更只新增更高版本 `V{n}__*.sql`，禁止改已执行脚本。
+
+## API 概览
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | `/ai/apps/paper-trade/account`、`/positions`、`/orders` | 账户 / 持仓 / 最近订单 |
+| POST | `/ai/apps/paper-trade/orders` | 手动市价单；拒单仍返回订单体 |
+| POST | `/ai/apps/paper-trade/account/reset` | 重置账户（保留 AI / 研究 / 阶段历史） |
+| POST | `/ai/apps/paper-trade/account/wipe` | 注销训练（清空业务数据、保留策略） |
+| PUT | `/ai/apps/paper-trade/account/initial-cash` | 修改初始资金 |
+| GET/PUT | `/ai/apps/paper-trade/strategy` | 读取 / 保存策略 + 结构化风控 |
+| GET/PUT | `/ai/apps/paper-trade/schedule` | 读取 / 保存五条工作流并动态重挂 |
+| POST | `/ai/apps/paper-trade/ai/run` | 提交 AI 操盘一轮 |
+| GET | `/ai/apps/paper-trade/ai/runs`、`/ai/runs/{id}`、`/ai/decisions` | 轮次与决策 |
+| POST | `/ai/apps/paper-trade/ai/decisions/{id}/confirm`、`/dismiss` | 人工确认 / 忽略 |
+| GET | `/ai/apps/paper-trade/research/notes` | 已留研究卡片 |
+| POST | `/ai/apps/paper-trade/research/run` | 提交整轮搜集 |
+| GET | `/ai/apps/paper-trade/research/runs/{id}` | 搜集轮次状态 |
+| POST | `/ai/apps/paper-trade/crawler/probe` | 本地爬虫 MCP 连通性探测 |
+| POST | `/ai/apps/paper-trade/warehouse/cleanup/run`、`/analyst/run` | 票仓清理 / 分析员 |
+| POST | `/ai/apps/paper-trade/evaluator/run` | 交易评估员（周更） |
+| GET | `/ai/apps/paper-trade/workflows` | 五条工作流蓝图 + 最近一轮 |
+| GET/POST/PUT/DELETE | `/ai/apps/paper-trade/admin/*` | 阶段总结 / 决策 / 搜集轮 / 研究卡片 CRUD；研究卡片 `/{symbol}/refresh` 单票补资料 |
+| GET | `/ai/apps/paper-trade/admin/export/{table}` | 白名单表全量 INSERT.sql |
 
 ## 关键代码索引
 
 | 区域 | 路径 |
 | --- | --- |
-| API | `PaperTradeController.java`、`PaperTradeAdminController.java` |
-| 管理端 | `PaperTradeAdminService.java`（历史 CRUD、wipe） |
-| 账本 | `ledger/PaperTradeService.java` |
-| 策略 / AI | `trader/PaperStrategyService.java`、`PaperAiTraderService.java` |
-| 搜集 | `research/PaperResearchService.java` |
-| 风控 | `risk/PaperRiskGuard.java`、`PaperPositionExitService.java`、`PaperStageService.java` |
-| 前端壳 | `PaperTradeLayout.vue`、`PositionsView.vue`、`HistoryView.vue`、`AccountSettingsView.vue` |
-| 历史扩展 | `history/resources.ts`、`api/index.ts`、`types.ts` |
+| API | `apps/papertrade/PaperTradeController.java`、`PaperTradeAdminController.java` |
+| 管理端 | `PaperTradeAdminService.java`（历史 CRUD、wipe、SQL 导出服务） |
+| 账本 | `ledger/PaperTradeService.java`、`ledger/PaperQuoteService.java` |
+| 策略 / AI | `trader/PaperStrategyService.java`、`PaperAiTraderService.java`、`PaperAiContextBuilder.java` |
+| 搜集 | `research/PaperResearchService.java`、`PaperStoryFeed.java`、`PaperCrawlerClient.java` |
+| 风控 | `risk/PaperRiskGuard.java`、`PaperPositionExitService.java`、`PaperStageService.java`、`PaperRiskSettingsService.java` |
+| 票仓 | `warehouse/PaperWarehouseCleanupService.java`、`PaperWarehouseAnalystService.java` |
+| 评估 | `evaluator/PaperTradeEvaluatorService.java`、`mail/PaperMailService.java` |
+| 定时 | `schedule/PaperScheduleManager.java`、`PaperScheduleService.java` |
+| 工作流视图 | `workflow/PaperWorkflowBlueprints.java`、`PaperWorkflowViewService.java` |
+| 审计 | `audit/PaperAiToolAuditAspect.java` |
+| 前端壳 | `PaperTradeLayout.vue`、`PositionsView.vue`、`HistoryView.vue`、`AccountSettingsView.vue`、`WorkflowView.vue` |
+| 历史扩展 | `history/resources.ts`、`api/index.ts`、`types.ts`、`utils/valueTier.ts` |
+
+## 已知边界
+
+- 虚拟盘，不接券商；撮合价取收盘价，不适合盘中高频验证。
+- 单机单用户，没有账户隔离与权限；初始资金、风控参数都是全局单行。
+- 交易评估员邮件依赖 `PAPER_MAIL_*` / `spring.mail.*`；未配齐只落日志并记 `SKIPPED`。
+- 票仓清理是「一次性状态机」：1 会被降回 2，2 到期降 3，3 直接删；没有回收站。
+- 工作流视图是只读蓝图 + 最近一轮轨迹，不可在前端拖拽编排。

@@ -177,6 +177,12 @@ export const paperTradeApi = {
       `/ai/apps/paper-trade/admin/research-notes/${encodeURIComponent(symbol)}`,
     ),
 
+  /** 对已有研究卡片补一轮搜集员资料。 */
+  adminRefreshResearchNote: (symbol: string) =>
+    ragClient.post<PaperAiSubmit>(
+      `/ai/apps/paper-trade/admin/research-notes/${encodeURIComponent(symbol)}/refresh`,
+    ),
+
   /** 导出历史表全量 INSERT.sql。 */
   adminExportSql: (table: string) =>
     ragClient.get<PaperSqlExport>(

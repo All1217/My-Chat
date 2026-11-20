@@ -18,11 +18,10 @@ import java.util.stream.Stream;
  * AI 文件操作工具集。每个 @Tool 方法对应一个独立的文件操作，
  * 由 Spring AI 框架自动生成 JSON Schema，AI 模型以类型安全的参数调用。
  * <p>
- * 替代原来的 ShellTool.executeCommand(String) 单一入口方案，
- * 彻底解决空格文件名、换行符、通配符等字符串解析问题。
+ * 查看、创建、修改、删除文件用本工具。构建、git、脚本等命令用 {@link ShellTool}。
  * <p>
  * 每个方法的参数由 Spring AI 框架通过 JSON 反序列化传入，
- * AI 模型不再需要自己构造 shell 命令字符串，只需填充 JSON 字段。
+ * AI 模型只需填充 JSON 字段，不必自己拼命令字符串。
  */
 @Component
 public class FileTools {

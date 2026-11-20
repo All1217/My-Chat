@@ -16,8 +16,9 @@ class AgentProfileIsolationTest {
         AgentScenarioProfile profile = configuration.mainChatRuntimeProfile();
 
         assertThat(profile.allowedTools())
-                .contains("file", "web-search", "mcp")
+                .contains("file", "web-search", "mcp", "shell")
                 .noneMatch(tool -> tool.startsWith("paper-"));
+        assertThat(profile.allowedActions()).contains("shell");
     }
 
     /** ROLEPLAY 不可看到文件、搜索或 MCP。 */
@@ -37,7 +38,7 @@ class AgentProfileIsolationTest {
         AgentScenarioProfile profile = configuration.marketAnalysisRuntimeProfile();
 
         assertThat(profile.allowedActions()).contains("market_research", "general")
-                .doesNotContain("search", "file");
+                .doesNotContain("search", "file", "shell");
         assertThat(profile.allowedTools()).containsExactly("web-search");
         assertThat(profile.qualityPolicy()).isEqualTo("explicit-rubric");
     }
@@ -48,22 +49,25 @@ class AgentProfileIsolationTest {
         AgentScenarioProfile research = configuration.paperResearchRuntimeProfile();
         AgentScenarioProfile trader = configuration.paperTraderRuntimeProfile();
         AgentScenarioProfile analyst = configuration.paperWarehouseAnalystRuntimeProfile();
+        AgentScenarioProfile evaluator = configuration.paperTradeEvaluatorRuntimeProfile();
 
         assertThat(research.allowedTools())
                 .contains("paper-market", "paper-research-feed", "paper-strategy",
                         "paper-note-batch", "web-search", "mcp-crawler")
-                .doesNotContain("paper-note", "file", "mcp", "paper-stage",
+                .doesNotContain("paper-note", "file", "shell", "mcp", "paper-stage",
                         "paper-decision-write", "paper-trade-exec");
         assertThat(trader.allowedTools())
                 .contains("paper-decision", "paper-decision-write", "paper-trade-exec",
                         "paper-run", "paper-market", "paper-strategy")
-                .doesNotContain("paper-stage", "paper-note", "paper-note-batch", "file", "mcp",
+                .doesNotContain("paper-stage", "paper-note", "paper-note-batch", "file", "shell", "mcp",
                         "web-search", "mcp-crawler");
         assertThat(analyst.allowedActions()).contains("paper_warehouse_analyze", "general");
         assertThat(analyst.allowedTools())
                 .contains("paper-market", "paper-research-feed", "paper-strategy",
                         "paper-note", "web-search")
-                .doesNotContain("paper-trade-exec", "file", "mcp");
+                .doesNotContain("paper-trade-exec", "file", "shell", "mcp");
+        assertThat(evaluator.allowedTools()).doesNotContain("shell", "file");
+        assertThat(evaluator.allowedActions()).doesNotContain("shell");
         assertThat(analyst.maxSteps()).isEqualTo(3);
     }
 

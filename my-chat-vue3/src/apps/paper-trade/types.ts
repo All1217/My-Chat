@@ -168,6 +168,12 @@ export interface PaperScheduleSettings {
   updatedAt?: string | null
 }
 
+/** 测试发信结果：SENT / SKIPPED / FAILED。 */
+export interface PaperMailTestResult {
+  status: string
+  message: string
+}
+
 /** 票仓清理 / 分析员轮次。 */
 export interface PaperWarehouseRun {
   id: string

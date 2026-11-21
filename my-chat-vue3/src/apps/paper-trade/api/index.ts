@@ -19,6 +19,7 @@ import type {
   PaperRiskSettings,
   PaperStrategy,
   PaperEvaluatorRun,
+  PaperMailTestResult,
   PaperWarehouseRun,
   PaperWorkflowOverview,
 } from '@/apps/paper-trade/types'
@@ -59,6 +60,10 @@ export const paperTradeApi = {
 
   saveSchedule: (body: Partial<PaperScheduleSettings>) =>
     ragClient.put<PaperScheduleSettings>('/ai/apps/paper-trade/schedule', body),
+
+  /** 向当前输入的收件人发测试信。 */
+  testMail: (to: string) =>
+    ragClient.post<PaperMailTestResult>('/ai/apps/paper-trade/schedule/test-mail', { to }),
 
   /** 只读工作流蓝图 + 最近运行高亮。 */
   workflows: () => ragClient.get<PaperWorkflowOverview>('/ai/apps/paper-trade/workflows'),

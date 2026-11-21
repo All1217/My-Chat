@@ -122,6 +122,9 @@
           <strong>评估结果收件人</strong>
           <p>空则跳过发信；默认 QQ 邮箱</p>
         </div>
+        <div class="sched-ops">
+          <el-button size="small" :loading="mailTesting" @click="onTestMail">测试发邮件</el-button>
+        </div>
       </div>
       <el-input
         v-model="schedule.evaluatorEmail"
@@ -401,6 +404,7 @@ const traderRunning = ref(false)
 const analystRunning = ref(false)
 const cleanupRunning = ref(false)
 const evaluatorRunning = ref(false)
+const mailTesting = ref(false)
 const resetting = ref(false)
 const wiping = ref(false)
 let researchTimer: ReturnType<typeof setInterval> | null = null
@@ -710,6 +714,32 @@ async function onRunCleanup() {
     }, 1500)
   } catch {
     cleanupRunning.value = false
+  }
+}
+
+/** 向输入框里的地址发测试信，不要求先保存定时配置。 */
+async function onTestMail() {
+  const to = schedule.evaluatorEmail.trim()
+  if (!to) {
+    ElMessage.warning('收件人为空')
+    return
+  }
+  mailTesting.value = true
+  try {
+    const r = await paperTradeApi.testMail(to)
+    if (r.status === 'SENT') {
+      ElMessage.success(r.message || '测试邮件已发送')
+      return
+    }
+    if (r.status === 'FAILED') {
+      ElMessage.error(r.message || '发信失败')
+      return
+    }
+    ElMessage.warning(r.message || '已跳过发信')
+  } catch {
+    /* toast */
+  } finally {
+    mailTesting.value = false
   }
 }
 

@@ -68,6 +68,11 @@ services:
       SMITHERY_API_KEY: ${SMITHERY_API_KEY:-}
       BOCHA_API_KEY: ${BOCHA_API_KEY:-}
       TAVILY_API_KEY: ${TAVILY_API_KEY:-}
+      # 评估员发信；密码只放服务器 .env，未配齐则接口返回 SKIPPED
+      PAPER_MAIL_HOST: ${PAPER_MAIL_HOST:-smtp.qq.com}
+      PAPER_MAIL_PORT: ${PAPER_MAIL_PORT:-587}
+      PAPER_MAIL_USER: ${PAPER_MAIL_USER:-}
+      PAPER_MAIL_PASS: ${PAPER_MAIL_PASS:-}
       APP_WORKSPACE_ROOT: /data/workspace
       APP_INGEST_ROOT: /data/ingest
       TZ: Asia/Shanghai

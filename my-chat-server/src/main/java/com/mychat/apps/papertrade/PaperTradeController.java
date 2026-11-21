@@ -26,6 +26,9 @@ import com.mychat.apps.papertrade.research.entity.vo.PaperResearchNoteVO;
 import com.mychat.apps.papertrade.trader.entity.vo.PaperStrategyVO;
 import com.mychat.apps.papertrade.evaluator.PaperTradeEvaluatorService;
 import com.mychat.apps.papertrade.evaluator.entity.po.PaperTradeEvaluatorRun;
+import com.mychat.apps.papertrade.mail.PaperMailService;
+import com.mychat.apps.papertrade.mail.PaperMailTestRequest;
+import com.mychat.apps.papertrade.mail.PaperMailTestVO;
 import com.mychat.apps.papertrade.warehouse.PaperWarehouseAnalystService;
 import com.mychat.apps.papertrade.warehouse.PaperWarehouseCleanupService;
 import com.mychat.apps.papertrade.warehouse.entity.po.PaperWarehouseAnalystRun;
@@ -64,6 +67,7 @@ public class PaperTradeController {
     private final PaperWarehouseCleanupService cleanupService;
     private final PaperWarehouseAnalystService analystService;
     private final PaperTradeEvaluatorService evaluatorService;
+    private final PaperMailService mailService;
 
     /** 看板行情（折线 + 基础指标）；默认 range=1M。 */
     @GetMapping("/quote")
@@ -146,6 +150,13 @@ public class PaperTradeController {
         } catch (IllegalArgumentException e) {
             return Result.fail(400, e.getMessage());
         }
+    }
+
+    /** 向当前输入的收件人发一封测试信，不落评估轮次。 */
+    @PostMapping("/schedule/test-mail")
+    public Result<PaperMailTestVO> testMail(@RequestBody(required = false) PaperMailTestRequest request) {
+        String to = request == null ? "" : request.getTo();
+        return Result.ok(mailService.sendTest(to));
     }
 
     /** 提交 AI 一轮（异步）。 */

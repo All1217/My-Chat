@@ -1,0 +1,12 @@
+# MySQL（DB_TYPE=mysql）；默认主机对齐本机 VM Docker，可用 MYSQL_JDBC_URL 覆盖
+spring:
+  datasource:
+    url: ${MYSQL_JDBC_URL:jdbc:mysql://192.168.150.102:3306/?useSSL=true&sslMode=PREFERRED&allowPublicKeyRetrieval=true&characterEncoding=utf8}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: ${MYSQL_USER:root}
+    password: ${MYSQL_PASS:}
+
+app:
+  database:
+    dialect: mysql
+    connection-label: ${APP_DATABASE_CONNECTION_LABEL:local-mysql}

@@ -24,6 +24,13 @@ class SqlGuardTest {
     }
 
     @Test
+    void allowsShowAndDescribeInReadOnly() {
+        assertTrue(SqlGuard.isQuery(SqlGuard.validate("SHOW TABLES", true)));
+        assertTrue(SqlGuard.isQuery(SqlGuard.validate("DESCRIBE users", true)));
+        assertTrue(SqlGuard.isQuery(SqlGuard.validate("DESC users", true)));
+    }
+
+    @Test
     void rejectsWriteInReadOnly() {
         assertThrows(IllegalArgumentException.class,
                 () -> SqlGuard.validate("INSERT INTO users(username) VALUES ('a')", true));

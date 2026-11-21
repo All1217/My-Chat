@@ -7,6 +7,7 @@ import org.springframework.util.StringUtils;
 
 import java.net.URI;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 
 /** 从 datasource URL 解析连接摘要，供各工具响应附带。 */
@@ -27,6 +28,7 @@ public class ConnectionInfoService {
         Parsed parsed = parse(jdbcUrl);
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("label", properties.getConnectionLabel());
+        out.put("dialect", resolveDialect(parsed));
         out.put("jdbcHost", parsed.host());
         out.put("jdbcPort", parsed.port());
         out.put("jdbcDatabase", parsed.database());
@@ -43,17 +45,35 @@ public class ConnectionInfoService {
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("kind", "connection");
         out.put("connection", snapshot());
-        out.put("note", "本 MCP 仅连本地开发库；云库请用 Adminer/SSH，勿假设此处是生产数据");
+        out.put("note", "本 MCP 连本地/内网开发库（PostgreSQL 或 MySQL）；云生产库请用 Adminer/SSH，勿假设此处是生产数据。"
+                + "切换库类型：停止进程后改用 start-postgres / start-mysql，无需改 yaml。");
         return out;
     }
 
-    /** 解析 jdbc:postgresql://host:port/db?currentSchema=public */
+    private String resolveDialect(Parsed parsed) {
+        if (StringUtils.hasText(properties.getDialect())) {
+            return properties.getDialect().toLowerCase(Locale.ROOT);
+        }
+        return parsed.dialect();
+    }
+
+    /**
+     * 解析 jdbc:postgresql://… 或 jdbc:mysql://…。
+     * MySQL 无 currentSchema 时 schemaHint 取 URL 路径中的库名（可为空）。
+     */
     static Parsed parse(String url) {
         if (!StringUtils.hasText(url)) {
-            return new Parsed("", null, "", "public");
+            return new Parsed("postgresql", "", null, "", "public");
         }
         try {
-            String normalized = url.startsWith("jdbc:") ? url.substring(5) : url;
+            String raw = url.trim();
+            String dialect = "postgresql";
+            if (raw.toLowerCase(Locale.ROOT).startsWith("jdbc:mysql:")) {
+                dialect = "mysql";
+            } else if (raw.toLowerCase(Locale.ROOT).startsWith("jdbc:postgresql:")) {
+                dialect = "postgresql";
+            }
+            String normalized = raw.startsWith("jdbc:") ? raw.substring(5) : raw;
             URI uri = URI.create(normalized);
             String host = uri.getHost() != null ? uri.getHost() : "";
             Integer port = uri.getPort() >= 0 ? uri.getPort() : null;
@@ -62,7 +82,9 @@ public class ConnectionInfoService {
             if (database.contains("/")) {
                 database = database.substring(0, database.indexOf('/'));
             }
-            String schemaHint = "public";
+            String schemaHint = "mysql".equals(dialect)
+                    ? (StringUtils.hasText(database) ? database : "")
+                    : "public";
             String query = uri.getQuery();
             if (StringUtils.hasText(query)) {
                 for (String part : query.split("&")) {
@@ -73,12 +95,12 @@ public class ConnectionInfoService {
                     }
                 }
             }
-            return new Parsed(host, port, database, schemaHint);
+            return new Parsed(dialect, host, port, database, schemaHint);
         } catch (Exception e) {
-            return new Parsed("unparsed", null, "", "public");
+            return new Parsed("unparsed", "unparsed", null, "", "public");
         }
     }
 
-    record Parsed(String host, Integer port, String database, String schemaHint) {
+    record Parsed(String dialect, String host, Integer port, String database, String schemaHint) {
     }
 }

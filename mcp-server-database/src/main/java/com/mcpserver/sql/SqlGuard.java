@@ -11,7 +11,7 @@ public final class SqlGuard {
     private static final Pattern BLOCK_COMMENT = Pattern.compile("/\\*.*?\\*/", Pattern.DOTALL);
     private static final Pattern LINE_COMMENT = Pattern.compile("--.*?$", Pattern.MULTILINE);
     private static final Pattern DANGEROUS = Pattern.compile(
-            "(?i)\\b(drop\\s+database|drop\\s+schema|alter\\s+system|copy\\s+.*\\bto\\b|pg_read_file|lo_import)\\b");
+            "(?i)\\b(drop\\s+database|drop\\s+schema|alter\\s+system|copy\\s+.*\\bto\\b|pg_read_file|lo_import|load_file\\s*\\(|into\\s+outfile|into\\s+dumpfile)\\b");
 
     private SqlGuard() {
     }
@@ -48,23 +48,20 @@ public final class SqlGuard {
             throw new IllegalArgumentException("禁止执行该危险 SQL");
         }
 
-        String upper = cleaned.toUpperCase(Locale.ROOT);
-        boolean readStmt = upper.startsWith("SELECT")
-                || upper.startsWith("WITH")
-                || upper.startsWith("EXPLAIN");
-
-        // 4) 只读模式仅允许查询类语句
-        if (readOnly && !readStmt) {
-            throw new IllegalArgumentException("当前为只读模式，仅允许 SELECT / WITH / EXPLAIN");
+        // 4) 只读模式仅允许查询类语句（含 MySQL SHOW / DESC）
+        if (readOnly && !isQuery(cleaned)) {
+            throw new IllegalArgumentException("当前为只读模式，仅允许 SELECT / WITH / EXPLAIN / SHOW / DESCRIBE / DESC");
         }
         return cleaned;
     }
 
     /** 是否为查询类语句（决定用 query 还是 update）。 */
     public static boolean isQuery(String validatedSql) {
-        String upper = validatedSql.toUpperCase(Locale.ROOT);
+        String upper = validatedSql.toUpperCase(Locale.ROOT).trim();
         return upper.startsWith("SELECT")
                 || upper.startsWith("WITH")
-                || upper.startsWith("EXPLAIN");
+                || upper.startsWith("EXPLAIN")
+                || upper.startsWith("SHOW")
+                || upper.startsWith("DESC"); // DESC / DESCRIBE
     }
 }

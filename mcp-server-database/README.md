@@ -1,66 +1,89 @@
 # mcp-server-database
 
-PostgreSQL 元数据 / SQL MCP 服务（Spring AI 2.0 Streamable HTTP）。
+本地/内网开发库元数据与 SQL MCP（Spring AI Streamable HTTP）。支持 **PostgreSQL** 与 **MySQL**（一次进程只连一种库）。
 
-**范围：仅连本机开发库。** 云上生产/部署库请用 Adminer + SSH 隧道（见 [`docs/部署与运维指引.md`](../docs/部署与运维指引.md)），不要假设本服务能看到云库。
+**范围：开发与内网库。** 云上生产库请用 Adminer + SSH 隧道（见 [`docs/部署与运维指引.md`](../docs/部署与运维指引.md)）。
+
+默认端点：`http://localhost:8102/mcp`（Cursor / OpenCode / DeepSeek Harness 等凡支持 URL 型 MCP 的客户端均可接入）。
 
 ## 能力
 
 | 工具 | 说明 |
 |------|------|
-| `connection_info` | 当前 JDBC 主机/库/只读与截断策略（开局自检） |
-| `list_schemas` | 列出非系统 schema |
-| `list_tables` | 列出指定 schema 的表（含 `table_comment`） |
+| `connection_info` | 当前 JDBC 主机/库/方言/只读与截断策略（开局自检） |
+| `list_schemas` | 列出非系统 schema；MySQL 下为非系统 database |
+| `list_tables` | 列出指定 schema/database 的表（含 `table_comment`） |
 | `describe_table` | 列（含注释）、主键、索引、外键、表注释 |
 | `describe_tables` | 批量描述（逗号分隔表名，单次最多 20） |
-| `flyway_status` | `flyway_schema_history` 最近 20 条 + `latestVersion` |
-| `execute_sql` | 执行 SQL；默认只读；敏感列脱敏、超长单元格截断 |
+| `flyway_status` | `flyway_schema_history` 最近 20 条 + `latestVersion`；无表则 `available=false` |
+| `execute_sql` | 执行 SQL；默认只读（含 `SHOW`/`DESC`）；敏感列脱敏、超长截断 |
 
-所有工具响应附带 `connection`：`label` / `jdbcHost` / `jdbcDatabase` / `schemaHint` / `readOnly` 等。
+所有工具响应附带 `connection`：`label` / `dialect` / `jdbcHost` / `jdbcDatabase` / `schemaHint` / `readOnly` 等。
 
-## 启动
+## 一键启动（Windows）
+
+1. 复制 `.env.example` → `.env`，填入 `PGSQL_PASS` / `MYSQL_PASS` 等（**勿提交 `.env`**）。
+2. 双击：
+   - [`scripts/start-postgres.bat`](scripts/start-postgres.bat) → 连本机 PostgreSQL
+   - [`scripts/start-mysql.bat`](scripts/start-mysql.bat) → 连 MySQL（默认见 `.env.example` 中的 JDBC URL）
+3. 切换库：**先** [`scripts/stop.bat`](scripts/stop.bat)（或关控制台）→ **再**双击另一个 start。**不必改** `application.yaml`。
+
+命令行等价：
 
 ```powershell
-$env:PGSQL_PASS="你的密码"
 cd mcp-server-database
-.\mvnw.cmd spring-boot:run
+.\scripts\start-postgres.bat
+# 或
+.\scripts\start-mysql.bat
 ```
 
-默认监听 `http://localhost:8102/mcp`。
-
-### 启动失败常见原因
-
-| 现象 | 处理 |
-|------|------|
-| 连不上库 / 认证失败 | 检查 `PGSQL_PASS`、本机 Postgres 是否在 `localhost:5432` |
-| 端口占用 | 改 `server.port` 或释放 8102 |
-| Cursor 看不到工具 | 确认本服务已起；检查 `.cursor/mcp.json`；Customize → MCP 刷新；必要时 `mcp_auth` |
-
-自检：Agent 先调 `connection_info`，确认 `label=local` 且 `jdbcHost` 符合预期。
-
-## 配置（`application.yaml`）
+## 配置
 
 | 项 | 默认 | 说明 |
 |----|------|------|
-| `app.database.read-only` | `true` | `false` 才允许写（仍禁多语句与危险 DDL） |
-| `app.database.max-rows` | `200` | 全局最大行数；`execute_sql.maxRows` 不可超过此值 |
-| `app.database.max-cell-length` | `500` | 字符串单元格截断 |
-| `app.database.connection-label` | `local` | 写入响应 `connection.label` |
-| `app.database.sensitive-column-patterns` | api_key 等 | 列名包含即脱敏 |
-| `app.database.query-timeout-seconds` | `15` | 查询超时 |
+| `DB_TYPE` | `postgres` | `postgres` \| `mysql`（启动脚本设置） |
+| `app.database.read-only` | `true` | `false` 才允许写 |
+| `app.database.max-rows` | `200` | 全局最大行数 |
+| `PGSQL_*` / `MYSQL_*` | 见 `.env.example` | 账号与可选 JDBC URL 覆盖 |
+
+Profile 文件：`application-postgres.yaml` / `application-mysql.yaml`。
 
 ## 接入 Cursor
 
-见 [`docs/Cursor本地MCP接入提醒.md`](../docs/Cursor本地MCP接入提醒.md)。
+见 [`docs/Cursor本地MCP接入提醒.md`](../docs/Cursor本地MCP接入提醒.md)。核心：
+
+```json
+{
+  "mcpServers": {
+    "mcp-database-server": {
+      "url": "http://localhost:8102/mcp"
+    }
+  }
+}
+```
+
+先启动本服务，再在 Cursor → Customize → MCP 确认工具可见。自检：先调 `connection_info`，确认 `dialect` 与 `jdbcHost`。
+
+## 接入其他 AI 工具（OpenCode / DeepSeek Harness 等）
+
+凡支持 **Streamable HTTP / URL MCP** 的客户端，填同一地址即可：
+
+| 客户端 | 配置要点 |
+|--------|----------|
+| Cursor | `.cursor/mcp.json` → `"url": "http://localhost:8102/mcp"` |
+| OpenCode | MCP servers 增加 type/url（或等价字段）指向上述地址 |
+| DeepSeek Harness | 工具/MCP 配置里填 Streamable HTTP endpoint 同上 |
+
+换 PG/MySQL 只重启本服务进程；客户端 URL **不用改**。
 
 ## 接入 my-chat-server
 
-主应用通过 `spring.ai.mcp.client.streamable-http.connections.mcp-database-server` 连接本服务，并由 `app.mcp.database.enabled` 控制是否挂载工具。云上默认只常驻 crawler（`APP_MCP_DATABASE_ENABLED=false`），本服务仍仅供本机 Cursor / 开发库，与云库无关。
+主应用通过 `spring.ai.mcp.client.streamable-http.connections.mcp-database-server` 连接，并由 `app.mcp.database.enabled` 控制是否挂载。云上默认只常驻 crawler（`APP_MCP_DATABASE_ENABLED=false`），本服务仍供本机开发。
 
 ## 手工冒烟清单
 
-1. 启动本服务与本地 Postgres。  
-2. `connection_info` → `label=local`。  
-3. `describe_table`（如 `llm_model`）→ 有列注释与 `primaryKey`。  
-4. `execute_sql`：`SELECT api_key FROM llm_model LIMIT 1` → 值为脱敏而非明文。  
-5. `flyway_status` → 有 `latestVersion`。  
+1. 双击 `start-postgres.bat` 或 `start-mysql.bat`。  
+2. `connection_info` → `dialect` 与 `jdbcHost` 符合预期。  
+3. `list_schemas` / `list_tables` / `describe_table`。  
+4. `execute_sql`：只读 `SELECT` 或 `SHOW TABLES`；写语句应被拒绝。  
+5. `flyway_status`：有表则有 `latestVersion`，无表则 `available=false`。

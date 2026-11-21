@@ -5,16 +5,14 @@ server:
 spring:
   application:
     name: mcp-server-database
-  datasource:
-    url: jdbc:postgresql://localhost:5432/postgres?currentSchema=public
-    driver-class-name: org.postgresql.Driver
-    username: postgres
-    password: ${PGSQL_PASS}
+  # 用 DB_TYPE=postgres|mysql 切换；日常勿手改本文件，双击 start-*.bat 即可
+  profiles:
+    active: ${DB_TYPE:postgres}
   ai:
     mcp:
       server:
         name: mcp-database-server
-        version: 1.0.0
+        version: 1.1.0
         type: SYNC
         protocol: STREAMABLE
         request-timeout: 30s

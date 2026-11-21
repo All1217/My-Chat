@@ -11,8 +11,11 @@ import java.util.List;
 @ConfigurationProperties(prefix = "app.database")
 public class DatabaseMcpProperties {
 
-    /** 是否只读；true 时仅允许 SELECT / WITH / EXPLAIN。 */
+    /** 是否只读；true 时仅允许 SELECT / WITH / EXPLAIN / SHOW / DESC。 */
     private boolean readOnly = true;
+
+    /** 方言：postgresql | mysql（由 profile 写入）。 */
+    private String dialect = "postgresql";
 
     /** 查询结果最大行数。 */
     private int maxRows = 200;
@@ -25,6 +28,11 @@ public class DatabaseMcpProperties {
 
     /** 连接环境标签（响应 connection.label），默认 local。 */
     private String connectionLabel = "local";
+
+    /** 是否 MySQL 方言。 */
+    public boolean isMysql() {
+        return "mysql".equalsIgnoreCase(dialect);
+    }
 
     /**
      * 敏感列名子串（大小写不敏感）；列名包含任一则脱敏。

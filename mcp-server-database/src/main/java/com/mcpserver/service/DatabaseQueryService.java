@@ -65,6 +65,14 @@ public class DatabaseQueryService {
     private Map<String, Object> executeQuery(String sql, int maxRows) {
         Connection connection = DataSourceUtils.getConnection(dataSource);
         try (Statement statement = connection.createStatement()) {
+            // MySQL：会话级只读（失败则忽略，仍靠 SqlGuard）
+            if (properties.isReadOnly() && properties.isMysql()) {
+                try {
+                    statement.execute("SET SESSION TRANSACTION READ ONLY");
+                } catch (Exception ignored) {
+                    // 部分账号/版本不支持，继续执行
+                }
+            }
             statement.setQueryTimeout(Math.max(1, properties.getQueryTimeoutSeconds()));
             statement.setMaxRows(maxRows);
             boolean hasResult = statement.execute(sql);

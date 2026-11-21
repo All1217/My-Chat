@@ -1,0 +1,12 @@
+# PostgreSQL 本地开发库（DB_TYPE=postgres）
+spring:
+  datasource:
+    url: ${PGSQL_JDBC_URL:jdbc:postgresql://localhost:5432/postgres?currentSchema=public}
+    driver-class-name: org.postgresql.Driver
+    username: ${PGSQL_USER:postgres}
+    password: ${PGSQL_PASS:}
+
+app:
+  database:
+    dialect: postgresql
+    connection-label: ${APP_DATABASE_CONNECTION_LABEL:local}

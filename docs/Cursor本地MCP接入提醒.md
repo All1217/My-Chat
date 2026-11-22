@@ -27,11 +27,11 @@ cd mcp-server-database
 
 默认地址：`http://localhost:8102/mcp`。
 
-可选：启动网页抓取 MCP（Python，端口 8103）：
+可选：启动网页抓取 MCP（Python，端口 8103）。双击 `mcp-server-crawler\scripts\start.bat`，或：
 
 ```powershell
 cd mcp-server-crawler
-.\scripts\run.ps1
+.\scripts\start.bat
 ```
 
 默认地址：`http://localhost:8103/mcp`。

@@ -30,12 +30,23 @@ Requires-Dist: pytest>=8.0.0; extra == "dev"
 
 ## 启动
 
+Windows 双击 [`scripts/start.bat`](scripts/start.bat)（绕过 PowerShell 执行策略，结束后窗口停住便于看报错）。关闭该窗口即停止服务。
+
+命令行等价：
+
+```powershell
+cd mcp-server-crawler
+.\scripts\start.bat
+```
+
+或直接：
+
 ```powershell
 cd mcp-server-crawler
 .\scripts\run.ps1
 ```
 
-或：
+有 `.env` 时上述脚本会先加载（可从 [`.env.example`](.env.example) 复制）；没有则用默认值。不经过脚本、直接跑下面两条时，环境变量需自己设好：
 
 ```powershell
 cd mcp-server-crawler

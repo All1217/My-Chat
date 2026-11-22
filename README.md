@@ -269,11 +269,11 @@ cd mcp-server-database
 .\mvnw.cmd spring-boot:run
 ```
 
-可选：启动本地网页抓取 MCP（通用 HTML 正文，端口 8103）：
+可选：启动本地网页抓取 MCP（通用 HTML 正文，端口 8103）。双击 `scripts\start.bat`，或：
 
 ```bash
 cd mcp-server-crawler
-.\scripts\run.ps1
+.\scripts\start.bat
 ```
 
 详见 [`mcp-server-database/README.md`](mcp-server-database/README.md)、[`mcp-server-crawler/README.md`](mcp-server-crawler/README.md)。`.cursor/mcp.json` 不入库，换机后请按 [docs/Cursor本地MCP接入提醒.md](docs/Cursor本地MCP接入提醒.md) 自行配置。

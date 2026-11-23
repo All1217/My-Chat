@@ -1,5 +1,6 @@
 package com.mychat.apps.market;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mychat.apps.market.entity.vo.KlinePointVO;
 import com.mychat.apps.market.entity.vo.MarketQuoteVO;
@@ -9,7 +10,10 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
@@ -57,7 +61,53 @@ class MarketQuoteClientTest {
         assertEquals("600519", quote.getSymbol());
         assertTrue(quote.getHistory().size() >= 8);
         assertEquals("2099-01-10", quote.getHistory().get(quote.getHistory().size() - 1).getDate());
+        MarketQuoteVO again = client.fetch("600519", "3M");
+        assertEquals("贵州茅台", again.getName());
         server.verify();
+    }
+
+    @Test
+    void parseTencentQfqDayLeavesAmountEmpty() throws Exception {
+        JsonNode root = new ObjectMapper().readTree("""
+                {"data":{"sh600519":{"qfqday":[
+                  ["2024-01-02","1680.00","1690.00","1700.00","1670.00","12345"]
+                ]}}}
+                """);
+        List<KlinePointVO> bars = MarketQuoteClient.parseTencentBars(root, "sh600519");
+        assertEquals(1, bars.size());
+        assertEquals("2024-01-02", bars.get(0).getDate());
+        assertEquals(1680.0, bars.get(0).getOpen());
+        assertEquals(1690.0, bars.get(0).getClose());
+        assertEquals(1700.0, bars.get(0).getHigh());
+        assertEquals(1670.0, bars.get(0).getLow());
+        assertEquals(12345L, bars.get(0).getVolume());
+        assertNull(bars.get(0).getAmount());
+        assertNull(bars.get(0).getTurnoverRate());
+    }
+
+    @Test
+    void parseSinaBarMapsOhlcAndLeavesAmountEmpty() throws Exception {
+        JsonNode node = new ObjectMapper().readTree(
+                "{\"day\":\"2024-01-02\",\"open\":\"1680\",\"high\":\"1700\",\"low\":\"1670\",\"close\":\"1690\",\"volume\":\"12345\"}");
+        KlinePointVO bar = MarketQuoteClient.parseSinaBar(node);
+        assertEquals("2024-01-02", bar.getDate());
+        assertEquals(1680.0, bar.getOpen());
+        assertEquals(1690.0, bar.getClose());
+        assertEquals(1700.0, bar.getHigh());
+        assertEquals(1670.0, bar.getLow());
+        assertEquals(12345L, bar.getVolume());
+        assertNull(bar.getAmount());
+        assertNull(bar.getTurnoverRate());
+    }
+
+    @Test
+    void cnVendorPrefixMapsExchange() {
+        assertEquals("sh", MarketQuoteClient.cnVendorPrefix(MarketSymbolParser.parse("600519")));
+        assertEquals("sz", MarketQuoteClient.cnVendorPrefix(MarketSymbolParser.parse("000001")));
+        assertEquals("sh", MarketQuoteClient.cnVendorPrefix(MarketSymbolParser.parse("510300")));
+        assertEquals("sz", MarketQuoteClient.cnVendorPrefix(MarketSymbolParser.parse("159915")));
+        assertEquals("bj", MarketQuoteClient.cnVendorPrefix(MarketSymbolParser.parse("830799")));
+        assertEquals("bj", MarketQuoteClient.cnVendorPrefix(MarketSymbolParser.parse("BJ:430047")));
     }
 
     @Test

@@ -5,6 +5,7 @@ import com.mychat.agent.api.AgentRunResult;
 import com.mychat.agent.api.AgentStepResult;
 import com.mychat.agent.runtime.ScenarioAgentService;
 import com.mychat.agent.runtime.StructuredOutputRepairService;
+import com.mychat.apps.papertrade.trader.mapper.PaperAiDecisionMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -28,13 +29,15 @@ class PaperAgentRuntimeAdapterWarehouseTest {
     private ScenarioAgentService scenarioAgentService;
     @Mock
     private StructuredOutputRepairService repairService;
+    @Mock
+    private PaperAiDecisionMapper decisionMapper;
 
     private PaperAgentRuntimeAdapter adapter;
 
     @BeforeEach
     void setUp() {
         adapter = new PaperAgentRuntimeAdapter(
-                scenarioAgentService, repairService, new ObjectMapper());
+                scenarioAgentService, repairService, new ObjectMapper(), decisionMapper);
     }
 
     @Test

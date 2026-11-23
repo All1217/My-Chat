@@ -1,9 +1,12 @@
 package com.mychat.agent.runtime;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mychat.agent.api.AgentScenarioId;
 import com.mychat.agent.api.AgentStepResult;
 import com.mychat.agent.trace.AgentTraceEvent;
 import com.mychat.agent.trace.AgentTracePublisher;
+import com.mychat.apps.papertrade.agent.PartialJsonSalvage;
+import com.mychat.apps.papertrade.agent.TradeDecisionBatch;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
@@ -21,13 +24,16 @@ public class StructuredDecisionEngine implements DecisionEngine {
 
     private final ChatClient chatClient;
     private final AgentTracePublisher tracePublisher;
+    private final ObjectMapper objectMapper;
 
     /** 注入无工具的工作流 ChatClient。 */
     public StructuredDecisionEngine(
             @Qualifier("agentWorkflowChatClient") ChatClient chatClient,
-            AgentTracePublisher tracePublisher) {
+            AgentTracePublisher tracePublisher,
+            ObjectMapper objectMapper) {
         this.chatClient = chatClient;
         this.tracePublisher = tracePublisher;
+        this.objectMapper = objectMapper;
     }
 
     /** 生成并验证下一步动作；格式错误时补充错误信息重试一次。 */
@@ -142,6 +148,10 @@ public class StructuredDecisionEngine implements DecisionEngine {
                         + PAPER_FINAL_OUTPUT_MAX
                         + " 字；完整批次必须留在动作观察中，finalOutput 仅写 OK";
             }
+            if (scenarioId == AgentScenarioId.PAPER_TRADER
+                    && !hasTraderReviewBatch(context.completedSteps(), objectMapper)) {
+                return "finish 前必须已有成功的 paper_trade_review，且观察中至少一条 decisions";
+            }
             return "";
         }
         if (decision.actionId().isBlank()) {
@@ -151,6 +161,26 @@ public class StructuredDecisionEngine implements DecisionEngine {
             return "actionId 不在白名单: " + decision.actionId();
         }
         return "";
+    }
+
+    /**
+     * 交易员结束前，已完成步骤里要有成功的 paper_trade_review，且观察能解析出决策。
+     */
+    public static boolean hasTraderReviewBatch(List<AgentStepResult> steps, ObjectMapper mapper) {
+        if (steps == null || mapper == null) {
+            return false;
+        }
+        for (AgentStepResult step : steps) {
+            if (!"paper_trade_review".equals(step.actionId())
+                    || step.status() != AgentStepResult.Status.SUCCEEDED) {
+                continue;
+            }
+            TradeDecisionBatch batch = PartialJsonSalvage.salvageDecisions(step.observation(), mapper);
+            if (batch != null && !batch.decisions().isEmpty()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** 压缩步骤为 Planner 可读文本；长观察截断以免挤爆后续决策。 */

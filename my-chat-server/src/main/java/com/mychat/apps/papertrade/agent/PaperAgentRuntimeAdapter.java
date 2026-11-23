@@ -3,14 +3,19 @@ package com.mychat.apps.papertrade.agent;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.mychat.agent.api.AgentRunResult;
 import com.mychat.agent.api.AgentScenarioId;
 import com.mychat.agent.api.AgentStepResult;
 import com.mychat.agent.runtime.ScenarioAgentService;
 import com.mychat.agent.runtime.StructuredOutputRepairService;
+import com.mychat.apps.papertrade.trader.entity.po.PaperAiDecision;
+import com.mychat.apps.papertrade.trader.mapper.PaperAiDecisionMapper;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -22,15 +27,18 @@ public class PaperAgentRuntimeAdapter {
     private final ScenarioAgentService scenarioAgentService;
     private final StructuredOutputRepairService repairService;
     private final ObjectMapper objectMapper;
+    private final PaperAiDecisionMapper decisionMapper;
 
-    /** 注入多场景入口和 JSON 编解码器。 */
+    /** 注入多场景入口、JSON 编解码器和已落库决策。 */
     public PaperAgentRuntimeAdapter(
             ScenarioAgentService scenarioAgentService,
             StructuredOutputRepairService repairService,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            PaperAiDecisionMapper decisionMapper) {
         this.scenarioAgentService = scenarioAgentService;
         this.repairService = repairService;
         this.objectMapper = objectMapper;
+        this.decisionMapper = decisionMapper;
     }
 
     /** 执行搜集员只读 Agent。 */
@@ -148,7 +156,7 @@ public class PaperAgentRuntimeAdapter {
                         attributes));
         long elapsedMs = (System.nanoTime() - started) / 1_000_000L;
         String agentRunId = String.valueOf(result.metrics().getOrDefault("runId", ""));
-        Typed typed = resolveTyped(scenarioId, result);
+        Typed typed = resolveTyped(scenarioId, result, businessRef);
         String observations = result.steps().stream()
                 .map(AgentStepResult::observation)
                 .filter(value -> value != null && !value.isBlank())
@@ -160,8 +168,8 @@ public class PaperAgentRuntimeAdapter {
                 agentRunId);
     }
 
-    /** 优先解析正式输出；失败或非批次短文则从步骤观察/半截 JSON 抢救。 */
-    private Typed resolveTyped(AgentScenarioId scenarioId, AgentRunResult result) {
+    /** 优先解析正式输出；失败则从观察抢救，交易员再退回已落库决策。 */
+    private Typed resolveTyped(AgentScenarioId scenarioId, AgentRunResult result, String businessRef) {
         if (result.status() == AgentRunResult.Status.SUCCEEDED
                 && StringUtils.hasText(result.output())
                 && looksLikeBatch(result.output())) {
@@ -175,11 +183,78 @@ public class PaperAgentRuntimeAdapter {
         if (salvaged != null) {
             return salvaged;
         }
+        if (scenarioId == AgentScenarioId.PAPER_TRADER) {
+            Typed stored = batchFromStoredDecisions(businessRef);
+            if (stored != null) {
+                return stored;
+            }
+        }
         if (result.status() != AgentRunResult.Status.SUCCEEDED) {
             throw new IllegalStateException(
                     "模拟炒股 Agent 失败: " + result.status() + " " + result.errorMessage());
         }
         throw new IllegalStateException("类型化输出修复失败且无法从观察抢救批次");
+    }
+
+    /** recordAiDecisions 已写入时，用库内行当批次，避免观察不是 JSON 就整轮失败。 */
+    private Typed batchFromStoredDecisions(String runId) {
+        if (decisionMapper == null || !StringUtils.hasText(runId)) {
+            return null;
+        }
+        List<PaperAiDecision> rows = decisionMapper.selectList(new LambdaQueryWrapper<PaperAiDecision>()
+                .eq(PaperAiDecision::getRunId, runId.trim())
+                .orderByAsc(PaperAiDecision::getCreatedAt));
+        if (rows == null || rows.isEmpty()) {
+            return null;
+        }
+        List<TradeDecisionBatch.TradeDecisionProposal> decisions = new ArrayList<>();
+        for (PaperAiDecision row : rows) {
+            decisions.add(toProposal(row));
+        }
+        try {
+            return new Typed(objectMapper.writeValueAsString(new TradeDecisionBatch(decisions)), true);
+        } catch (Exception exception) {
+            return null;
+        }
+    }
+
+    /** 把已落库决策还原成类型化提案。 */
+    private TradeDecisionBatch.TradeDecisionProposal toProposal(PaperAiDecision row) {
+        return new TradeDecisionBatch.TradeDecisionProposal(
+                row.getAction(),
+                row.getSymbol(),
+                row.getName(),
+                row.getQty(),
+                null,
+                row.getRefPrice(),
+                row.getTakeProfitPct(),
+                row.getStopLossPct(),
+                row.getMaxHoldDays(),
+                row.getCooldownDays(),
+                decimal(row.getConfidence()),
+                row.getRationale(),
+                readStringList(row.getRisksJson()),
+                Boolean.TRUE.equals(row.getNeedsHumanReview()),
+                List.of());
+    }
+
+    /** 风险标签 JSON 读不成时当空列表。 */
+    private List<String> readStringList(String json) {
+        if (!StringUtils.hasText(json)) {
+            return List.of();
+        }
+        try {
+            List<String> values = objectMapper.readValue(json, new TypeReference<List<String>>() {
+            });
+            return values == null ? List.of() : values;
+        } catch (Exception exception) {
+            return List.of();
+        }
+    }
+
+    /** 置信度缺省为 0。 */
+    private static double decimal(BigDecimal value) {
+        return value == null ? 0d : value.doubleValue();
     }
 
     /** 从优先动作观察、全部观察与 raw output 抢救完整对象。 */

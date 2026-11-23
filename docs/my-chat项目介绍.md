@@ -33,7 +33,141 @@ flowchart LR
 
 **读代码入口**：`ChatController` → `ChatOrchestrateStreamService` → `ChatTurnPipeline` → `AgentRuntime`。加长主链路 = 新增 `ChatTurnStage` 并在 `ChatTurnPipeline` 构造器列表插一行，不要把 Memory / done 做成普通 Stage。
 
+## 1.2 整体架构图
 
+> 图 1 按「客户端 → 接入层 → 应用核心 → 存储 / 外部依赖」分层；图 2 是同一套代码的部署拓扑。模拟炒股作为最大的自用功能包，复用同一套 Runtime、异步任务与存储。
+
+### 1.2.1 逻辑分层架构
+
+```mermaid
+flowchart TB
+  U["用户 / 浏览器"]
+
+  subgraph FE["前端 · Vue 3 + TypeScript"]
+    F1["主聊天<br/>ChatView · ChatBox · 时间线"]
+    F2["知识库<br/>KnowledgeStore · 召回测试 · 分段"]
+    F3["大厅与功能包<br/>模拟炒股 · 股市分析 · 角色扮演"]
+    F4["设置<br/>模型 · 工作区 · 提示词 · 角色 · MCP"]
+  end
+
+  subgraph WEB["接入层 · Spring MVC"]
+    W1["主聊天 / 历史<br/>ChatController · ChatHistoryController"]
+    W2["知识库 / 文件<br/>KnowledgeBaseController · FileController"]
+    W3["任务通知<br/>JobController · SSE"]
+    W4["模型 / MCP 设置<br/>LlmModelController · McpToolsSettingsController"]
+    W5["功能包 API<br/>MarketController · PaperTradeController"]
+  end
+
+  subgraph CORE["应用核心 · Spring Boot 4 / Java 25"]
+    P["主聊天回合管道<br/>emit_route → load_dialogue → assemble_context<br/>→ orchestrate → stream_final → quality_loop"]
+    R["通用 Agent Runtime<br/>Scenario Profile · 决策循环 · 预算 · 审批"]
+    A["Action / Worker<br/>retrieve_kb · file · search · shell · general<br/>market_research · paper_*"]
+    K["能力层<br/>模型路由 / ChatClient · RAG 检索与入库<br/>FileTools · ShellTool · WebSearchTools · MCP 桥 · 质量环"]
+    J["异步任务<br/>AsyncJobService · AsyncJobDispatcher · JobEventHub"]
+    APP["自用功能包<br/>模拟炒股（账本 / 研究 / 操盘 / 风控 / 票仓 / 评估 / 定时 / 审计）<br/>股市分析 · 角色扮演"]
+  end
+
+  subgraph DATA["存储 · PostgreSQL + pgvector"]
+    D1[("会话 / Memory / 回合<br/>chat_sessions · spring_ai_chat_memory<br/>chat_assistant_turns · chat_session_summary")]
+    D2[("知识库 / 向量<br/>knowledge_base · document_meta<br/>document_chunk · vector_store")]
+    D3[("任务 / 模型 / 连接<br/>async_job · llm_model<br/>mcp_connection_settings")]
+    D4[("Agent Runtime<br/>agent_run · agent_run_step · agent_approval")]
+    D5[("模拟炒股<br/>paper_account / position / order / cooldown<br/>paper_research_note / run · paper_*_run")]
+  end
+
+  subgraph EXT["外部依赖"]
+    E1["对话模型<br/>DeepSeek / OpenAI 兼容"]
+    E2["向量模型<br/>text-embedding-v4"]
+    E3["行情源<br/>东财行情 · ETF 溢价"]
+    E4["MCP 服务<br/>database :8102 · crawler :8103 · Smithery"]
+    E5["搜索 / 邮件<br/>Exa / Bocha / Tavily · SMTP"]
+  end
+
+  U --> F1
+  U --> F2
+  U --> F3
+  U --> F4
+
+  F1 -->|NDJSON| W1
+  F2 --> W2
+  F3 --> W5
+  F4 --> W4
+
+  W1 --> P
+  W2 --> K
+  W4 --> D3
+  W5 --> APP
+  W3 --> J
+
+  P --> R
+  R --> A
+  A --> K
+  K --> J
+
+  APP --> R
+  APP --> J
+  APP --> D5
+  APP --> E3
+  APP --> E5
+
+  K --> D2
+  K --> E1
+  K --> E2
+  K --> E4
+  K --> E5
+
+  J --> D3
+  J -->|SSE| W3
+  W3 -->|SSE| F1
+
+  P --> D1
+  W1 --> D1
+  R --> D4
+```
+
+### 1.2.2 部署拓扑
+
+```mermaid
+flowchart LR
+  B["浏览器"]
+
+  subgraph HOST["阿里云 CentOS 7.9 · 2C4G · /data/my-chat"]
+    NG["nginx<br/>静态资源 + /rag 反代"]
+    APP["my-chat-app<br/>Spring Boot 4 / JDK 25"]
+    PG[("PostgreSQL<br/>pgvector · Flyway V1–V14")]
+    CR["mcp-crawler<br/>Python FastMCP :8103"]
+    JEN["Jenkins<br/>Build Now"]
+    OPS["Dozzle :8888<br/>Adminer :8889"]
+  end
+
+  B -->|HTTP :80| NG
+  NG -->|:8100| APP
+  APP -->|JDBC :5432| PG
+  APP -->|内网 :8103| CR
+  APP -->|HTTPS| LLM["对话 / 向量模型<br/>DeepSeek · 阿里云 MaaS"]
+  APP -->|HTTPS| WEB["搜索 / MCP<br/>Exa · Bocha · Tavily · Smithery"]
+  APP -->|SMTP| MAIL["邮件<br/>QQ SMTP"]
+  APP -->|HTTP| MKT["行情源<br/>东财 · ETF 溢价"]
+
+  JEN -->|docker compose| NG
+  JEN --> APP
+  JEN --> CR
+
+  OPS -.-> APP
+  OPS -.-> PG
+
+  DEV["开发机<br/>Cursor + mcp-server-database :8102"] -.->|仅本机开发库| PG
+```
+
+**读图要点**
+
+- **一条主聊天链路**：`ChatController` 只做接入与分流，`ChatTurnPipeline` 负责回合阶段，`AgentRuntime` 负责「决策 → 动作 → 观察」循环；Memory / done / 时间线落库由 `ChatTurnFinalizer` 收尾。
+- **一套 Runtime 多场景**：主聊天、股市分析、角色扮演、模拟炒股都通过 `AgentScenarioProfile` 注册动作 / 工具 / 预算，差异不进 Runtime 的 `switch`。
+- **RAG 与工作区并列**：`retrieve_kb` 走知识库（PGVector），`file` / `shell` 走会话工作目录；两者可在同一轮同时使用。
+- **异步任务独立成线**：知识库入库、paper 五条工作流都经 `AsyncJobService` 落库并后台执行，`JobEventHub` 用 SSE 把状态推给浏览器；任务表只管调度，`agent_run` 管语义执行。
+- **存储边界**：业务会话 / 知识库 / 任务 / Runtime / 模拟炒股分属不同表组，统一由 Flyway V1–V14 管理；向量在 `vector_store` / `document_chunk`。
+- **外部依赖可降级**：MCP 惰性握手、单连接失败只跳过；搜索按 Exa → Bocha → Tavily → DuckDuckGo 兜底；评估邮件未配 SMTP 时返回 `SKIPPED`。
+- **部署**：云上 nginx 暴露 80，app 只走内网 8100，crawler 只内网 8103；Jenkins 串行 build 后 `docker compose up -d`；Dozzle / Adminer 仅本机端口，经 SSH 隧道访问。
 
 # 2 用户交互
 

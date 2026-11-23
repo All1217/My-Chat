@@ -10,31 +10,13 @@
 
 ## 项目介绍
 
-My-Chat 是个人学习与交流用的大模型应用开发实验平台：在 **Vue 3 + Spring Boot + Spring AI** 上先搭一套可编程的**自循环 Agent**（Orchestrator-Workers + 通用 Agent Runtime），再以此为底座重点研究 **RAG 的实现与优化**，并扩展模拟炒股等自用功能包。整体供自己动手实验，不是面向生产的通用产品。
-
-- **Agent 底座**：用户一句 → 领班决定下一步 → 工人执行 → 观察再决策，直到收工；主聊天是一条显式回合流水线（`ChatTurnStage`），写盘后可跑质量环。知识库、工作区、联网搜索与闲聊挂在同一条主聊天链路上。
-- **通用 Agent Runtime**：场景通过 `AgentScenarioProfile` 注册（动作 / 工具白名单 / 步数预算 / 输出策略 / 质量策略），运行态写入 `agent_run` / `agent_run_step` / `agent_approval`，支持 checkpoint、审批记录与 Actuator 指标。
-- **RAG 研究重点**：知识库隔离检索（目录总览 / 向量召回）、引用回显、异步入库、召回测试与只读分段预览；主聊天由 `retrieve_kb` Worker 调用。当前与后续主攻召回质量、分段与引用、入库与评测等。
-- **自用扩展**：工作区 FileTools / ShellTool、MCP（数据库 / 爬虫 / Smithery）、模拟炒股（账本 + 研究卡片 + AI 操盘 + 五条定时工作流）等，按需使用，不作项目主目标。
+My-Chat 是大模型应用平台：在 **Vue 3 + Spring Boot + Spring AI** 上先搭一套可编程的**自循环 Agent**，再以此为底座扩展模拟炒股等应用。
 
 项目地址：[https://github.com/All1217/My-Chat](https://github.com/All1217/My-Chat)  
+
 克隆：`git clone https://github.com/All1217/My-Chat.git`
 
-架构与设计长文见 [docs/my-chat项目介绍.md](docs/my-chat项目介绍.md)；迭代条目见 [docs/迭代规划.md](docs/迭代规划.md)。
-
----
-
-## 主聊天怎么跑
-
-```text
-网页发送
-  → ChatController（校验 ndjson、绑工作区 / kbId、处理附件）
-  → ChatTurnPipeline 六站
-        emit_route → load_dialogue → assemble_context → orchestrate → stream_final → quality_loop
-  → ChatTurnFinalizer（成功写 Memory + done；轨迹写入 chat_assistant_turns）
-```
-
-第 4 站 `orchestrate` 内是通用 Agent Runtime 自循环：`decideNext` → `retrieve_kb` / `file` / `search` / `shell` / `general` → 观察，最多 6 步、8 次工具调用后 `finish`。传输是 **NDJSON**（`application/x-ndjson`），不是经典 SSE；前端边收边画 route / step / text_delta / 引用。
+更详细的介绍： [docs/my-chat项目介绍.md](docs/my-chat项目介绍.md)。
 
 ---
 
@@ -73,43 +55,15 @@ My-Chat 是个人学习与交流用的大模型应用开发实验平台：在 **
 
 ---
 
-## 功能清单
+## 已实现功能
 
-### Agent 主聊天
+### Agent
 
-- 多步编排：知识库 / 文件 / 搜索 / 命令行 / 闲聊 Worker 接力，时间线可回放
-- 流式 NDJSON；步骤、工具调用、KB 引用标签（文档目录 / 向量检索）
-- 会话绑定 `kbId`、`workDir`；滚动摘要 + 近期原文窗口
-- 聊天附件 txt / md / pdf（正文只进本轮，Memory 只留文件名 + 原问；单文件 50,000 字符截断）；图片前后端双拒
-- 写盘后可选 Evaluator-Optimizer 质量环（`qualityLoop`，默认开）
-- 回合轨迹按轮写入 `chat_assistant_turns`（`parts` JSONB），刷新后可回放
+建设一个可自循环的agent内核，包含工具调用、RAG知识库、MCP、工作区等能力，支持在前端回显AI执行链路图。
 
-### Agent Runtime（通用底座）
+该内核将作为项目内其他应用的通用底座。
 
-- 场景 Profile：`MAIN_CHAT` / `MARKET_ANALYSIS` / `ROLEPLAY` / `INTERVIEWER` / `PAPER_RESEARCH` / `PAPER_TRADER` / `PAPER_WAREHOUSE_ANALYST` / `PAPER_TRADE_EVALUATOR`
-- 工具安全等级：`READ_ONLY` / `REVERSIBLE_WRITE` / `HIGH_RISK_WRITE`；工具白名单与动作子集取交集
-- `agent_run` / `agent_run_step` / `agent_approval`：状态机、checkpoint、幂等键、审批记录、预算耗尽
-- `StructuredOutputRepairService` 修复类型化输出；公开进度经 `PublicProgressAdapter` 脱敏
-- Micrometer 指标：运行数、耗时、token、工具错误、预算耗尽
-
-### RAG 知识库（重点研究方向）
-
-- 知识库 CRUD；按库隔离的向量检索；`catalog` / `vector` 两种范围
-- 批量上传（PDF / DOCX / XLSX / HTML / TXT / MD），异步 Job 切片 + 向量化
-- 库级切分 / topK / 相似度阈值；文档重新向量化；只读分段预览
-- 召回测试（只检索、不生成）；聊天里带来源 filename / score / 摘录
-- 入库进度走通知中心（SSE `/ai/jobs/events`）
-
-尚未做、计划贴近知识库的：父子分段、Rerank、混合检索、库统计仪表盘、引用与评测体验。见 [docs/迭代规划.md](docs/迭代规划.md)。
-
-### 工作区
-
-- 会话级工作目录；目录树（含懒加载）/ 预览 / 增删改 / 导入
-- `FileTools` 10 个工具：ls、tree、cat、grep、stat、write、mkdir、rm、mv、cp
-- `ShellTool`：构建 / git / 脚本；60 秒超时、输出截断、关机 / 磁盘类危险命令拦截
-- 目录选择器 + 安全校验（拒绝系统关键路径）
-
-### 模拟炒股（自用功能包，体量最大的应用）
+### 模拟炒股
 
 > 虚拟盘，不接实盘券商；行情取东财收盘价做市价撮合。
 
@@ -132,16 +86,12 @@ My-Chat 是个人学习与交流用的大模型应用开发实验平台：在 **
 - 投资策略保存与 AI 评价 / 一键优化
 - 自选股抄底提醒、股灾风险预警、美股指数估值
 
-### 角色扮演 / 设置
-
-- 角色扮演：独立页，走 `ROLEPLAY` Profile（无工具、最多 4 步）
-- 设置：大模型管理（供应商 / 测试连通 / 设默认）、工作区管理、Prompt 管理、角色卡片、MCP 工具管理
-
 ### MCP / 联网搜索
 
-- 本地数据库 MCP（`mcp-server-database`，:8102）、本地网页抓取 MCP（`mcp-server-crawler`，:8103，Python FastMCP）、Smithery 工具箱
-- 惰性握手；单连接失败不拖垮启动；设置页运行时开关立即生效（`mcp_connection_settings`）
-- 联网搜索优先本机 `searchWeb`（Exa → Bocha → Tavily → DuckDuckGo）
+- 本地数据库 MCP（`mcp-server-database`，:8102）
+- 本地网页抓取 MCP（`mcp-server-crawler`，:8103，Python FastMCP）
+- ~~Smithery 工具箱~~：即将废弃
+- EXA search：第三方MCP
 
 ### 运维
 
@@ -342,49 +292,6 @@ cd my-chat-server
 5. 验证完成后删除两个独立测试数据库，并清除 `SPRING_DATASOURCE_URL`、`SPRING_FLYWAY_LOCATIONS` 等测试环境变量。
 
 > 注：测试迁移文件编号仍是 `V4`，与业务库已有的 V4 重名；只在独立测试库 + 显式测试 location 下使用。
-
----
-
-## API 概览
-
-REST 多数返回 `Result<T> { code, message, data }`（`code === 200` 成功）。**主聊天流**和 **Jobs SSE** 不包这层信封。
-
-| 前缀 | 说明 |
-|------|------|
-| `POST /ai/normalChat/chat?format=ndjson` | 主 Agent 流式回合（FormData：`prompt`、`chatId`，可选 `files` / `kbId` / `qualityLoop` / `criteria`） |
-| `/ai/history/*` | 会话与历史（含时间线 parts） |
-| `/ai/knowledge-base/*` | 知识库 CRUD、批量入库、召回测试、分段、重新向量化 |
-| `/ai/file/workspace/*` | 工作区浏览与文件操作 |
-| `/ai/jobs/active`、`GET /ai/jobs/events` | 异步任务查询与 SSE 通知 |
-| `/ai/model/*` | 对话模型管理（列表 / 供应商 / 测试 / 设默认） |
-| `/ai/settings/mcp-tools` | MCP / 搜索连接运行时开关 |
-| `/ai/apps/market/*` | 股市分析（行情、预测、策略、自选、股灾风险、指数 PE） |
-| `/ai/apps/paper-trade/*` | 模拟炒股（账户 / 持仓 / 下单 / AI 轮次 / 研究 / 定时 / 工作流）；`/admin/*` 为历史表 CRUD 与 SQL 导出 |
-
-> 旧的 `POST /ai/agent/runtime`、`POST /ai/agent/evaluate-optimize` 调试入口与 `controller/demo/` 已删除；质量环改由主聊天 `qualityLoop` 参数触发。
-
----
-
-## 开发路线图
-
-底座 Agent 已可用；后续以 RAG 实现与优化为主线，其余为自用扩展。
-
-- [x] 自循环 Orchestrator-Workers 主聊天 + 回合流水线
-- [x] 通用 Agent Runtime：场景 Profile、`agent_run` 持久化、审批记录、指标
-- [x] RAG：上传切片、库隔离检索、引用、召回测试、分段预览、异步入库
-- [x] 工作区 FileTools + ShellTool + 会话级目录
-- [x] NDJSON 时间线回放；模型可配置切换
-- [x] MCP（数据库 / 爬虫 / Smithery）+ 运行时开关；联网搜索兜底
-- [x] 大厅可挂应用；模拟炒股（账本 / 研究 / AI 操盘 / 五条定时工作流 / 评估邮件）
-- [x] 部署：Compose + Jenkins + 容器日志 / 查库
-- [ ] **重点：强化 RAG**（父子分段、Rerank、混合检索、库统计、引用与评测体验）
-- [ ] 会话级 plan / 可暂停长任务
-- [ ] 多用户与权限（当前单机单用户）
-- [ ] SSE 断线任务补偿 / 任务取消
-
-迭代条目详见 [docs/迭代规划.md](docs/迭代规划.md)；Agent Runtime 规范见 [docs/Agent Runtime运维与Profile规范.md](docs/Agent%20Runtime运维与Profile规范.md)。
-
----
 
 ## 许可证
 

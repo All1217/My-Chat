@@ -13,6 +13,7 @@ import org.springframework.web.client.RestClient;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
@@ -83,6 +84,29 @@ class MarketQuoteClientTest {
         assertEquals(12345L, bars.get(0).getVolume());
         assertNull(bars.get(0).getAmount());
         assertNull(bars.get(0).getTurnoverRate());
+    }
+
+    @Test
+    void tencentNameReadsQtAndFallsBackToCode() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode named = mapper.readTree("""
+                {"data":{"sz002463":{"qt":{"sz002463":["51","沪电股份","002463"]}}}}
+                """);
+        assertEquals("沪电股份", MarketQuoteClient.tencentName(named, "sz002463", "002463"));
+
+        JsonNode sameAsCode = mapper.readTree("""
+                {"data":{"sz002463":{"qt":{"sz002463":["51","002463","002463"]}}}}
+                """);
+        assertEquals("002463", MarketQuoteClient.tencentName(sameAsCode, "sz002463", "002463"));
+        assertEquals("002463", MarketQuoteClient.tencentName(mapper.readTree("{}"), "sz002463", "002463"));
+    }
+
+    @Test
+    void skipEastMoneyWhileCooling() {
+        long now = 1_000_000L;
+        assertTrue(MarketQuoteClient.skipEastMoney(now, now + 1));
+        assertFalse(MarketQuoteClient.skipEastMoney(now, now));
+        assertFalse(MarketQuoteClient.skipEastMoney(now, 0));
     }
 
     @Test

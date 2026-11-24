@@ -39,7 +39,16 @@ public class MarketQuoteClient {
     private static final String SINA_REFERER = "https://finance.sina.com.cn/";
     private static final long MIN_GAP_MILLIS = 400L;
     private static final long CACHE_TTL_MILLIS = 180_000L;
+    private static final long EAST_MONEY_SKIP_MILLIS = 120_000L;
+    private static final int CN_EAST_MONEY_TIMEOUT_SECONDS = 4;
     private static final int MAX_ATTEMPTS = 3;
+
+    /** 出站策略：A 股东财短超时且不重试，美股保留 3 次，兜底源沿用原重试。 */
+    private enum HttpKind {
+        EAST_MONEY_CN,
+        EAST_MONEY_US,
+        OTHER
+    }
 
     private final RestClient restClient;
     private final ObjectMapper mapper;
@@ -48,8 +57,10 @@ public class MarketQuoteClient {
     private final Object gate = new Object();
     private final Map<String, CachedQuote> cache = new ConcurrentHashMap<>();
     private long nextRequestAt;
-    /** 最近一次 OkHttp 失败是否为掐流。仅在 gate 内读写。 */
+    /** 最近一次 OkHttp 失败是否应改走腾讯。仅在 gate 内读写。 */
     private boolean streamCut;
+    /** 此时间之前，A 股不再先打东财。仅在 gate 内读写。 */
+    private long eastMoneySkipUntil;
 
     /** 成功行情的短缓存。失败不放入。 */
     private record CachedQuote(MarketQuoteVO quote, long expiresAt) {
@@ -109,9 +120,13 @@ public class MarketQuoteClient {
     }
 
     /**
-     * 生产路径：东财掐流后 A 股改腾讯前复权，再改新浪不复权。美股不兜底。
+     * 生产路径：A 股在东财冷却期内直接改腾讯；掐流或超时后再改腾讯、新浪。美股不兜底。
      */
     private MarketQuoteVO loadPaced(ResolvedSymbol symbol, String range) {
+        if (symbol.cn() && skipEastMoney(System.currentTimeMillis(), eastMoneySkipUntil)) {
+            log.info("东财冷却中，改拉腾讯 symbol={}", symbol.symbol());
+            return loadCnFallback(symbol, range);
+        }
         try {
             MarketQuoteVO quote = symbol.cn() ? fetchCn(symbol, range) : fetchUs(symbol, range);
             log.info("行情来源 source=eastmoney symbol={} range={}", symbol.symbol(), range);
@@ -120,22 +135,25 @@ public class MarketQuoteClient {
             if (!symbol.cn() || !streamCut) {
                 throw ex;
             }
-            // 1. 东财连接被掐断，改拉腾讯前复权日 K
-            log.warn("东财行情被掐断，改拉腾讯 symbol={}", symbol.symbol());
-            try {
-                MarketQuoteVO quote = fetchTencent(symbol, range);
-                if (quote.getHistory() == null || quote.getHistory().size() < 8) {
-                    throw new IllegalArgumentException("无法识别或暂无行情");
-                }
-                log.info("行情来源 source=tencent-qfq symbol={} range={}", symbol.symbol(), range);
-                return quote;
-            } catch (IllegalArgumentException tencentEx) {
-                // 2. 腾讯也失败，最后用新浪不复权日 K
-                log.warn("腾讯行情失败，改拉新浪 symbol={}: {}", symbol.symbol(), tencentEx.getMessage());
-                MarketQuoteVO quote = fetchSina(symbol, range);
-                log.info("行情来源 source=sina-raw symbol={} range={}", symbol.symbol(), range);
-                return quote;
+            log.warn("东财行情未取到，改拉腾讯 symbol={}", symbol.symbol());
+            return loadCnFallback(symbol, range);
+        }
+    }
+
+    /** A 股兜底：腾讯前复权，失败再用新浪不复权。 */
+    private MarketQuoteVO loadCnFallback(ResolvedSymbol symbol, String range) {
+        try {
+            MarketQuoteVO quote = fetchTencent(symbol, range);
+            if (quote.getHistory() == null || quote.getHistory().size() < 8) {
+                throw new IllegalArgumentException("无法识别或暂无行情");
             }
+            log.info("行情来源 source=tencent-qfq symbol={} range={}", symbol.symbol(), range);
+            return quote;
+        } catch (IllegalArgumentException tencentEx) {
+            log.warn("腾讯行情失败，改拉新浪 symbol={}: {}", symbol.symbol(), tencentEx.getMessage());
+            MarketQuoteVO quote = fetchSina(symbol, range);
+            log.info("行情来源 source=sina-raw symbol={} range={}", symbol.symbol(), range);
+            return quote;
         }
     }
 
@@ -157,7 +175,8 @@ public class MarketQuoteClient {
                 .queryParam("lmt", MarketCalendar.eastMoneyLimit(range))
                 .build(true)
                 .toUri();
-        JsonNode root = getJson(uri, EAST_MONEY_REFERER);
+        HttpKind kind = symbol.cn() ? HttpKind.EAST_MONEY_CN : HttpKind.EAST_MONEY_US;
+        JsonNode root = getJson(uri, EAST_MONEY_REFERER, kind);
         JsonNode data = root.path("data");
         if (data.isMissingNode() || data.isNull()) {
             throw new IllegalArgumentException("无法识别或暂无行情");
@@ -193,12 +212,12 @@ public class MarketQuoteClient {
         String prefixed = cnVendorPrefix(symbol) + symbol.symbol();
         URI uri = URI.create("https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param="
                 + prefixed + ",day,,," + fallbackBars(range) + ",qfq");
-        JsonNode root = getJson(uri, TENCENT_REFERER);
+        JsonNode root = getJson(uri, TENCENT_REFERER, HttpKind.OTHER);
         List<KlinePointVO> bars = parseTencentBars(root, prefixed);
         if (bars.isEmpty()) {
             throw new IllegalArgumentException("无法识别或暂无行情");
         }
-        return fromBars(symbol, range, symbol.symbol(), bars);
+        return fromBars(symbol, range, tencentName(root, prefixed, symbol.symbol()), bars);
     }
 
     /** 新浪不复权日 K，只作最后退路。分红送转后价格与前复权不一致。 */
@@ -207,7 +226,7 @@ public class MarketQuoteClient {
         URI uri = URI.create("https://money.finance.sina.com.cn/quotes_service/api/json_v2.php/"
                 + "CN_MarketData.getKLineData?symbol=" + prefixed
                 + "&scale=240&ma=no&datalen=" + fallbackBars(range));
-        JsonNode root = getJson(uri, SINA_REFERER);
+        JsonNode root = getJson(uri, SINA_REFERER, HttpKind.OTHER);
         List<KlinePointVO> bars = parseSinaBars(root);
         if (bars.isEmpty()) {
             throw new IllegalArgumentException("无法识别或暂无行情");
@@ -234,18 +253,24 @@ public class MarketQuoteClient {
     }
 
     /** GET JSON。生产走 OkHttp；单测走注入的 RestClient。 */
-    private JsonNode getJson(URI uri, String referer) {
+    private JsonNode getJson(URI uri, String referer, HttpKind kind) {
         if (okHttp != null) {
-            return getJsonOkHttp(uri, referer);
+            return getJsonOkHttp(uri, referer, kind);
         }
         return getJsonRest(uri, referer);
     }
 
-    /** 最多 3 次。掐流时清连接池，并以 1s、2s 退避；每次出站另留 400ms 间隔。 */
-    private JsonNode getJsonOkHttp(URI uri, String referer) {
+    /**
+     * A 股东财只试 1 次且 4 秒封顶，失败后交给腾讯。
+     * 美股和兜底源最多 3 次，掐流后 1s、2s 再试。
+     */
+    private JsonNode getJsonOkHttp(URI uri, String referer, HttpKind kind) {
         Exception last = null;
         streamCut = false;
-        for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        boolean cnEast = kind == HttpKind.EAST_MONEY_CN;
+        int attempts = cnEast ? 1 : MAX_ATTEMPTS;
+        OkHttpClient client = cnEast ? cnEastMoneyClient() : okHttp;
+        for (int attempt = 1; attempt <= attempts; attempt++) {
             // 1. 与上一次出站至少隔 400ms，兜底请求也算
             awaitGap();
             Request request = new Request.Builder()
@@ -254,22 +279,29 @@ public class MarketQuoteClient {
                     .header("Referer", referer)
                     .get()
                     .build();
-            try (Response response = okHttp.newCall(request).execute()) {
+            try (Response response = client.newCall(request).execute()) {
                 String body = response.body() == null ? "" : response.body().string();
                 if (!response.isSuccessful() || body.isBlank()) {
                     throw new IllegalArgumentException("无法识别或暂无行情");
+                }
+                if (kind != HttpKind.OTHER) {
+                    eastMoneySkipUntil = 0;
                 }
                 return mapper.readTree(body);
             } catch (IllegalArgumentException e) {
                 throw e;
             } catch (Exception e) {
                 last = e;
-                // 2. 流被掐断则丢弃坏连接，并允许 A 股改走下一数据源
-                if (streamReset(e)) {
+                boolean reset = streamReset(e);
+                // 2. A 股传输失败或掐流都改源；美股掐流只记冷却，仍按原次数重试
+                if (reset || cnEast) {
                     streamCut = true;
                     okHttp.connectionPool().evictAll();
                 }
-                if (attempt >= MAX_ATTEMPTS) {
+                if (cnEast || (kind == HttpKind.EAST_MONEY_US && reset)) {
+                    eastMoneySkipUntil = System.currentTimeMillis() + EAST_MONEY_SKIP_MILLIS;
+                }
+                if (cnEast || attempt >= attempts) {
                     break;
                 }
                 // 3. 退避后再试：1s、2s
@@ -278,6 +310,14 @@ public class MarketQuoteClient {
         }
         log.warn("拉取行情失败 uri={}: {}", uri, last == null ? "" : last.getMessage());
         throw new IllegalArgumentException("无法识别或暂无行情");
+    }
+
+    /** A 股东财单次调用超时，避免页面空等读超时。连接池仍用原客户端。 */
+    private OkHttpClient cnEastMoneyClient() {
+        return okHttp.newBuilder()
+                .callTimeout(CN_EAST_MONEY_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .readTimeout(CN_EAST_MONEY_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .build();
     }
 
     /** 相邻两次出站至少间隔 400ms。调用方已持有 gate。 */
@@ -353,6 +393,11 @@ public class MarketQuoteClient {
 
     private static String cacheKey(ResolvedSymbol symbol, String range) {
         return symbol.market() + ":" + symbol.symbol() + ":" + range;
+    }
+
+    /** 冷却截止时间未到时，A 股跳过东财。 */
+    static boolean skipEastMoney(long nowMillis, long skipUntilMillis) {
+        return skipUntilMillis > nowMillis;
     }
 
     /** 沪 sh、深 sz、京（4/8 开头）bj。 */
@@ -445,6 +490,19 @@ public class MarketQuoteClient {
             }
         }
         return bars;
+    }
+
+    /** 腾讯 qt 数组第 2 项是中文名；空或等于代码时退回代码。 */
+    static String tencentName(JsonNode root, String prefixed, String code) {
+        JsonNode row = root.path("data").path(prefixed).path("qt").path(prefixed);
+        if (!row.isArray() || row.size() < 2) {
+            return code;
+        }
+        String name = row.get(1).asText("").trim();
+        if (name.isEmpty() || name.equals(code)) {
+            return code;
+        }
+        return name;
     }
 
     /** 解析新浪日 K 数组。字段顺序是开、高、低、收。 */
